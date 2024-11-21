@@ -26,7 +26,7 @@ struct CMatrix[type: DType, rows: Int, cols: Int](
         self.__init__(fill_zeros=True)
 
     @always_inline
-    fn __init__(inout self, fill_zeros: Bool = True):
+    fn __init__[__: None = None](inout self, fill_zeros: Bool = True):
         self.re = UnsafePointer[Scalar[Self.type]].alloc(Self.size)
         self.im = UnsafePointer[Scalar[Self.type]].alloc(Self.size)
         if fill_zeros:

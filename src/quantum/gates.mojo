@@ -1,4 +1,4 @@
-from ..comp import CMatrix
+from cplx import CMatrix
 
 
 @value
