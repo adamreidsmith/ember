@@ -1,0 +1,11 @@
+
+# pixi environments
+.pixi
+*.egg-info
+# magic environments
+.magic
+
+.gitattributes
+mojoproject.toml
+magic.lock
+.DS_Store
