@@ -1,35 +1,75 @@
 from math import sqrt, cos, sin, pi
+from collections import Set
+from utils import Variant
+
 from cplx import CMatrix, ComplexScalar
+from .bit import Qubit
 
-
-alias _gate_function = fn[type: DType](params: VariadicList[Scalar[type]]) -> CMatrix[type]
-
-trait GateLike(Formattable, Sized, StringableCollectionElement): ...
 
 @value
-struct Gate[
-    type: DType,
-    name: String,
-    n_qubits: Int,
-    n_params: Int,
-    gate_func: _gate_function
-](GateLike):
-    var params: VariadicList[Scalar[Self.type]]
-    var matrix: CMatrix[Self.type]
-    
+struct Gate[type: DType, tol: Scalar[type] = 1e-12](Formattable, Sized, StringableCollectionElement):
+    '''A quantum gate.'''
+
+    var name: String
+    var n_qubits: Int  # The number of qubits the gate acts on
+    var matrix: CMatrix[Self.type]  # The unitary matrix that implements the gate
+    var applied_to: List[Qubit, True]  # The qubits the gate is applied to
+    var controlled_on: List[Qubit, True]  # The qubits the gate is controlled on
+    var params: List[Scalar[Self.type], True]  # The parameter values applied to the gate
+
     @always_inline
-    fn __init__(inout self, *params: Scalar[Self.type]) raises:
-        if len(params) != Self.n_params:
-            raise Error(
-                'Gate ' + Self.name + ' requires ' + str(Self.n_params) 
-                + ' parameters, but ' + str(len(params)) + ' were provided'
-            )
-        self.params = params
-        self.matrix = gate_func[Self.type](params)
+    fn __init__(
+        inout self,
+        owned name: String,
+        owned matrix: CMatrix[Self.type], 
+        owned qubits: List[Qubit, True] = List[Qubit, True](),
+        owned params: List[Scalar[Self.type], True] = List[Scalar[Self.type], True](),
+    ) raises:
+        if len(Set[Qubit](qubits)) != len(qubits):
+            raise Error('Duplicate qubit specified for gate ' + name)
+        # Ensure the matrix is square and its dimension is a power of 2
+        if not matrix.is_square() or (matrix.rows & (matrix.rows - 1)) != 0:
+            raise Error('Invalid gate matrix for gate ' + name)
+        if not matrix.is_unitary[tol]():
+            raise Error('Gate matrix is not unitary for gate ' + name)
+        var n_qubits: Int = len(bin(matrix.rows)) - 3
+        if len(qubits) != n_qubits:
+            raise Error('Invalid number of qubits for gate ' + name)
+
+        self.n_qubits = n_qubits
+        self.name = name^        
+        self.matrix = matrix^
+        self.applied_to = qubits^
+        self.params = params^
+        self.controlled_on = List[Qubit, True]()
+
+    # @always_inline
+    # fn __copyinit__(inout self, existing: Self):
+    #     self.name = existing.name
+    #     self.n_qubits = existing.n_qubits
+    #     self.matrix = existing.matrix
+    #     self.applied_to = existing.applied_to
+    #     self.controlled_on = existing.controlled_on
+    #     self.params = existing.params
+
+    # @always_inline
+    # fn __moveinit__(inout self, owned existing: Self):
+    #     self.name = existing.name^
+    #     self.n_qubits = existing.n_qubits
+    #     self.matrix = existing.matrix^
+    #     self.applied_to = existing.applied_to^
+    #     self.controlled_on = existing.controlled_on^
+    #     self.params = existing.params^
     
     @no_inline
     fn __str__(self) -> String:
-        return Self.name
+        if len(self.params) == 0:
+            return self.name
+        var str_rep: String = self.name + '('
+        for p in self.params:
+            str_rep += str(p) + ', '
+        str_rep = str_rep[:-2]
+        return str_rep + ')'
     
     @no_inline
     fn format_to(self, inout writer: Formatter):
@@ -37,132 +77,141 @@ struct Gate[
     
     @always_inline
     fn __len__(self) -> Int:
-        return Self.n_qubits
+        return self.n_qubits
 
-# TODO: Change `params: VariadicList[Scalar[type]]` argument to `*params: Scalar[type]` once argument unpacking is supported
+    @always_inline
+    fn control(inout self, *qubits: Qubit) raises:
+        for q in qubits:
+            if q in self.applied_to:
+                raise Error(
+                    'Cannot control gate ' + self.name + ' on qubit ' 
+                    + str(q) + ' on which it is applied'
+                )
+            if q not in self.controlled_on:
+                self.controlled_on.append(q)
+                self.n_qubits += 1
+    
+    @always_inline
+    fn __eq__(self, other: Self) -> Bool:
+        if (
+            self.name != other.name 
+            or self.n_qubits != other.n_qubits
+            or self.applied_to != other.applied_to
+            or Set[Qubit](self.controlled_on) != Set[Qubit](other.controlled_on)
+            # or not self.matrix.matrix_equals(other.matrix)
+            or not self.matrix.is_close[Self.tol](other.matrix)
+        ):
+            return False
+        return True
 
-# Unparameterized single-qubit gate functions ###
+# Unparameterized single-qubit gates ############
 
-fn x[type: DType](params: VariadicList[Scalar[type]]) -> CMatrix[type]:
+fn x[type: DType]() -> CMatrix[type]:
     return CMatrix[type](2, 2,
         0, 1, 
         1, 0,
     )
+fn X[type: DType](q: Qubit) raises -> Gate[type]:
+    return Gate[type]('X', x[type](), List[Qubit, True](q))
 
-fn y[type: DType](params: VariadicList[Scalar[type]]) -> CMatrix[type]:
+fn y[type: DType]() -> CMatrix[type]:
     return CMatrix[type](2, 2,
         0, ComplexScalar[type](0, -1), 
         ComplexScalar[type](0, 1), 0,
     )
+fn Y[type: DType](q: Qubit) raises -> Gate[type]:
+    return Gate[type]('Y', y[type](), List[Qubit, True](q))
 
-fn z[type: DType](params: VariadicList[Scalar[type]]) -> CMatrix[type]:
+fn z[type: DType]() -> CMatrix[type]:
     return CMatrix[type](2, 2,
         1, 0, 
         0, -1,
     )
+fn Z[type: DType](q: Qubit) raises -> Gate[type]:
+    return Gate[type]('Z', z[type](), List[Qubit, True](q))
 
-fn h[type: DType](params: VariadicList[Scalar[type]]) -> CMatrix[type]:
+fn h[type: DType]() -> CMatrix[type]:
+    var inv_sqrt2: Scalar[type] = sqrt(2)
     return CMatrix[type](2, 2,
-        1, 1, 
-        1, -1,
-    ) / sqrt(2)
+        inv_sqrt2, inv_sqrt2, 
+        inv_sqrt2, -inv_sqrt2,
+    )
+fn H[type: DType](q: Qubit) raises -> Gate[type]:
+    return Gate[type]('H', h[type](), List[Qubit, True](q))     
 
-fn s[type: DType](params: VariadicList[Scalar[type]]) -> CMatrix[type]:
+fn s[type: DType]() -> CMatrix[type]:
     return CMatrix[type](2, 2,
         1, 0, 
         0, ComplexScalar[type](0, 1),
     )
+fn S[type: DType](q: Qubit) raises -> Gate[type]:
+    return Gate[type]('S', s[type](), List[Qubit, True](q))
 
-fn t[type: DType](params: VariadicList[Scalar[type]]) -> CMatrix[type]:
+fn t[type: DType]() -> CMatrix[type]:
     return CMatrix[type](2, 2,
         1, 0, 
         0, ComplexScalar[type](0, pi / 4).exp(),
     )
+fn T[type: DType](q: Qubit) raises -> Gate[type]:
+    return Gate[type]('T', t[type](), List[Qubit, True](q))
 
-# Unparameterized multi-qubit gate functions ####
+# Unparameterized multi-qubit gates #############
 
-fn cx[type: DType](params: VariadicList[Scalar[type]]) -> CMatrix[type]:
-    r'''\ket{0}\bra{0} \otimes I + \ket{0}\bra{0} \otimes X.'''
-    return CMatrix[type](4, 4,
-        1, 0, 0, 0, 
-        0, 1, 0, 0, 
-        0, 0, 0, 1, 
-        0, 0, 1, 0,
-    )
+fn CX[type: DType](control: Qubit, target: Qubit) raises -> Gate[type]:
+    var cx = Gate[type]('CX', x[type](), List[Qubit, True](target))
+    cx.control(control)
+    return cx
 
-fn ccx[type: DType](params: VariadicList[Scalar[type]]) -> CMatrix[type]:
-    r'''\ket{0}\bra{0} \otimes I^2 + \ket{0}\bra{0} \otimes CX.'''
-    return CMatrix[type](8, 8,
-        1, 0, 0, 0, 0, 0, 0, 0,
-        0, 1, 0, 0, 0, 0, 0, 0,
-        0, 0, 1, 0, 0, 0, 0, 0,
-        0, 0, 0, 1, 0, 0, 0, 0,
-        0, 0, 0, 0, 1, 0, 0, 0,
-        0, 0, 0, 0, 0, 1, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 1,
-        0, 0, 0, 0, 0, 0, 1, 0,
-    )
+fn CCX[type: DType](control1: Qubit, control2: Qubit, target: Qubit) raises -> Gate[type]:
+    var ccx = Gate[type]('CCX', x[type](), List[Qubit, True](target))
+    ccx.control(control1, control2)
+    return ccx
 
-# Parameterized single-qubit gate functions #####
+# Parameterized single-qubit gates ##############
 
-fn rx[type: DType](params: VariadicList[Scalar[type]]) -> CMatrix[type]:
-    var a = ComplexScalar[type](cos(params[0] / 2), 0)
-    var b = ComplexScalar[type](0, -sin(params[0] / 2))
+fn rx[type: DType](t: Scalar[type]) -> CMatrix[type]:
+    var a = ComplexScalar[type](cos(t / 2), 0)
+    var b = ComplexScalar[type](0, -sin(t / 2))
     return CMatrix[type](2, 2,
         a, b, 
         b, a,
     )
+fn RX[type: DType](q: Qubit, theta: Scalar[type]) raises -> Gate[type]:
+    return Gate[type]('RX', rx[type](theta), List[Qubit, True](q), List[Scalar[type], True](theta))
 
-fn ry[type: DType](params: VariadicList[Scalar[type]]) -> CMatrix[type]:
-    var a = ComplexScalar[type](cos(params[0] / 2), 0)
-    var b = ComplexScalar[type](sin(params[0] / 2), 0)
+
+fn ry[type: DType](t: Scalar[type]) -> CMatrix[type]:
+    var a = ComplexScalar[type](cos(t / 2), 0)
+    var b = ComplexScalar[type](sin(t / 2), 0)
     return CMatrix[type](2, 2,
         a, -b, 
         b, a,
     )
+fn RY[type: DType](q: Qubit, theta: Scalar[type]) raises -> Gate[type]:
+    return Gate[type]('RY', ry[type](theta), List[Qubit, True](q), List[Scalar[type], True](theta))
 
-fn rz[type: DType](params: VariadicList[Scalar[type]]) -> CMatrix[type]:
-    var c: Scalar[type] = cos(params[0] / 2)
-    var s: Scalar[type] = sin(params[0] / 2)
+fn rz[type: DType](t: Scalar[type]) -> CMatrix[type]:
+    var c: Scalar[type] = cos(t / 2)
+    var s: Scalar[type] = sin(t / 2)
     return CMatrix[type](2, 2,
         ComplexScalar[type](c, -s), 0, 
         0, ComplexScalar[type](c, s),
     )
+fn RZ[type: DType](q: Qubit, theta: Scalar[type]) raises -> Gate[type]:
+    return Gate[type]('RZ', rz[type](theta), List[Qubit, True](q), List[Scalar[type], True](theta))
 
-fn u[type: DType](params: VariadicList[Scalar[type]]) -> CMatrix[type]:
-    var ct: Scalar[type] = cos(params[0] / 2)
-    var st: Scalar[type] = sin(params[0] / 2)
+fn u[type: DType](t: Scalar[type], p: Scalar[type], l: Scalar[type]) -> CMatrix[type]:
+    var ct: Scalar[type] = cos(t / 2)
+    var st: Scalar[type] = sin(t / 2)
     return CMatrix[type](2, 2,
         ComplexScalar[type](ct, 0), 
-        ComplexScalar[type](-cos(params[2]) * st, -sin(params[2]) * st), 
-        ComplexScalar[type](cos(params[1]) * st, sin(params[1]) * st), 
-        ComplexScalar[type](cos(params[1] + params[2]) * ct, sin(params[1] + params[2]) * ct),
+        ComplexScalar[type](-cos(l) * st, -sin(l) * st), 
+        ComplexScalar[type](cos(p) * st, sin(p) * st), 
+        ComplexScalar[type](cos(p + l) * ct, sin(p + l) * ct),
     )
-
-# Parameterized multi-qubit gate functions ######
-...
-
-
-# Unparameterized single-qubit gates ############
-
-alias X = Gate[name='X', n_qubits=1, n_params=0, gate_func=x]
-alias Y = Gate[name='Y', n_qubits=1, n_params=0, gate_func=y]
-alias Z = Gate[name='Z', n_qubits=1, n_params=0, gate_func=z]
-alias H = Gate[name='H', n_qubits=1, n_params=0, gate_func=h]
-alias S = Gate[name='S', n_qubits=1, n_params=0, gate_func=s]
-alias T = Gate[name='T', n_qubits=1, n_params=0, gate_func=t]
-
-# Unparameterized multi-qubit gates #############
-
-alias CX = Gate[name='CX', n_qubits=2, n_params=0, gate_func=cx]
-alias CCX = Gate[name='CCX', n_qubits=3, n_params=0, gate_func=ccx]
-
-# Parameterized single-qubit gates ##############
-
-alias RX = Gate[name='RX', n_qubits=1, n_params=1, gate_func=rx]
-alias RY = Gate[name='RY', n_qubits=1, n_params=1, gate_func=ry]
-alias RZ = Gate[name='RZ', n_qubits=1, n_params=1, gate_func=rz]
-alias U = Gate[name='U', n_qubits=1, n_params=3, gate_func=u]
+fn U[type: DType](q: Qubit, theta: Scalar[type], phi: Scalar[type], lbda: Scalar[type]) raises -> Gate[type]:
+    return Gate[type]('U', u[type](theta, phi, lbda), List[Qubit, True](q), List[Scalar[type], True](theta, phi, lbda))
 
 # Parameterized multi-qubit gates ###############
-...
+
+# TODO: Add more gates

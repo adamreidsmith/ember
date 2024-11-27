@@ -27,7 +27,7 @@ struct ComplexSIMD[type: DType, size: Int](
         Hashable,
         Sized,
     ):
-
+    alias _tol_default = 1e-12
     alias Coef = SIMD[Self.type, Self.size]
     alias Lane = ComplexSIMD[Self.type, 1]
 
@@ -1005,22 +1005,22 @@ struct ComplexSIMD[type: DType, size: Int](
         return _math.isnan(self.re) or _math.isnan(self.im)
     
     @always_inline
-    fn is_unit(self, tol: Scalar[Self.type] = 1e-10) -> SIMD[DType.bool, Self.size]:
+    fn is_unit(self, tol: Scalar[Self.type] = Self._tol_default) -> SIMD[DType.bool, Self.size]:
         '''Returns True if abs(self - 1) < tol.'''
         return abs(self - Self(1)) < tol
     
     @always_inline
-    fn is_close(self, other: Self, tol: Scalar[Self.type] = 1e-10) -> SIMD[DType.bool, Self.size]:
+    fn is_close(self, other: Self, tol: Scalar[Self.type] = Self._tol_default) -> SIMD[DType.bool, Self.size]:
         '''Returns True if abs(self - other) < tol.'''
         return abs(self - other) < tol
     
     @always_inline
-    fn is_close[__: None = None](self, other: Self.Lane, tol: Scalar[Self.type] = 1e-10) -> Bool:
+    fn is_close[__: None = None](self, other: Self.Lane, tol: Scalar[Self.type] = Self._tol_default) -> Bool:
         '''Returns True if abs(self - other) < tol.'''
         return all(abs(self - other) < tol)
     
     @always_inline
-    fn is_close(self, other: Self.Coef, tol: Scalar[Self.type] = 1e-10) -> SIMD[DType.bool, Self.size]:
+    fn is_close(self, other: Self.Coef, tol: Scalar[Self.type] = Self._tol_default) -> SIMD[DType.bool, Self.size]:
         '''Returns True if abs(self - other) < tol.'''
         return abs(self - other) < tol
     

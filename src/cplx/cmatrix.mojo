@@ -1,3 +1,4 @@
+from math import sqrt
 from memory import memset_zero, memcpy
 from algorithm import parallelize, vectorize
 from sys import simdwidthof
@@ -11,7 +12,9 @@ struct CMatrix[type: DType](
     Sized, 
     Representable,
     StringableCollectionElement,
-):    
+):
+    alias _tol_default: Scalar[Self.type] = 1e-12
+
     var re: UnsafePointer[Scalar[Self.type]]
     var im: UnsafePointer[Scalar[Self.type]]
     var rows: Int
@@ -32,7 +35,7 @@ struct CMatrix[type: DType](
         if fill_zeros:
             memset_zero(self.re.address, self.size)
             memset_zero(self.im.address, self.size)
-    
+
     @always_inline
     fn __init__(inout self, rows: Int, cols: Int, *data: ComplexScalar[Self.type]):
         self.rows = rows
@@ -43,7 +46,7 @@ struct CMatrix[type: DType](
         self.im = UnsafePointer[Scalar[Self.type]].alloc(self.size)
         for idx in range(len(data)):
             self[idx] = data[idx]
-    
+
     @always_inline
     fn __init__(inout self, data: List[ComplexScalar[Self.type], True]):
         self.rows = 1
@@ -54,7 +57,7 @@ struct CMatrix[type: DType](
         self.im = UnsafePointer[Scalar[Self.type]].alloc(self.size)
         for idx in range(len(data)):
             self[idx] = data[idx]
-    
+
     @always_inline
     fn __init__(inout self, data: List[List[ComplexScalar[Self.type], True]]) raises:
         self.rows = len(data)
@@ -149,11 +152,32 @@ struct CMatrix[type: DType](
 
     @always_inline
     fn __len__(self) -> Int:
+        '''Return the total number of elements in the matrix.'''
         return self.size
     
     @always_inline
     fn shape(self) -> Tuple[Int, Int]:
+        '''Return the tuple (rows, cols).'''
         return (self.rows, self.cols)
+
+    @always_inline
+    fn is_square(self) -> Bool:
+        '''Return True if self is square and non-degenerate (rows, cols > 0), and False otherwise.'''
+        return self.rows == self.cols and self.rows > 0
+    
+    @always_inline
+    fn is_unitary[tol: Scalar[Self.type] = Self._tol_default](self) raises -> Bool:
+        '''Return True if self is unitary, False otherwise.'''
+        if not self.is_square():
+            return False
+        return (self @ self.dag() - self.eye_like()).frobenius_norm() < tol
+
+    @always_inline
+    fn is_hermitian[tol: Scalar[Self.type] = Self._tol_default](self) raises -> Bool:
+        '''Return True if self is Hermitian, False otherwise.'''
+        if not self.is_square():
+            return False
+        return (self - self.dag()).frobenius_norm() < tol
 
     # String conversion ###############
 
@@ -473,16 +497,17 @@ struct CMatrix[type: DType](
     @always_inline
     fn __truediv__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Defines the `/` divide operator. Returns self / other.'''
-        if self._is_col_dominant:
-            @parameter
-            fn div_r[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
-                return self.load_crd[simd_width](r, c) / other
-            return self._parallelize_vectorize_op[div_r]()
-        else:
-            @parameter
-            fn div_c[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
-                return self.strided_load_idx[simd_width](r * self.cols + c, self.cols) / other
-            return self._parallelize_vectorize_op[div_c]()
+        return self.__mul__(other.reciprocal())
+        # if self._is_col_dominant:
+        #     @parameter
+        #     fn div_r[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
+        #         return self.load_crd[simd_width](r, c) / other
+        #     return self._parallelize_vectorize_op[div_r]()
+        # else:
+        #     @parameter
+        #     fn div_c[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
+        #         return self.strided_load_idx[simd_width](r * self.cols + c, self.cols) / other
+        #     return self._parallelize_vectorize_op[div_c]()
     
     @always_inline
     fn __floordiv__(self, other: Self) raises -> Self:
@@ -702,16 +727,17 @@ struct CMatrix[type: DType](
     @always_inline
     fn __itruediv__(self, other: ComplexScalar[Self.type]):
         '''Defines the `/=` in-place divide operator.'''
-        if self._is_col_dominant:
-            @parameter
-            fn div_r[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
-                return self.load_crd[simd_width](r, c) / other
-            self._parallelize_vectorize_op_inplace[div_r]()
-        else:
-            @parameter
-            fn div_c[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
-                return self.strided_load_idx[simd_width](r * self.cols + c, self.cols) / other
-            self._parallelize_vectorize_op_inplace[div_c]()
+        self.__imul__(other.reciprocal())
+        # if self._is_col_dominant:
+        #     @parameter
+        #     fn div_r[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
+        #         return self.load_crd[simd_width](r, c) / other
+        #     self._parallelize_vectorize_op_inplace[div_r]()
+        # else:
+        #     @parameter
+        #     fn div_c[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
+        #         return self.strided_load_idx[simd_width](r * self.cols + c, self.cols) / other
+        #     self._parallelize_vectorize_op_inplace[div_c]()
 
     @always_inline
     fn __ifloordiv__(self, other: Self) raises:
@@ -893,6 +919,7 @@ struct CMatrix[type: DType](
 
     @always_inline
     fn __abs__(self) -> Self:
+        '''Returns a matrix with the absolute value applied to each element.'''
         if self._is_col_dominant:
             @parameter
             fn abs_r[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
@@ -939,6 +966,12 @@ struct CMatrix[type: DType](
         parallelize[transpose_row](self.rows, self.rows)
         return result
     
+    # alias dagger = Self.dag
+    @always_inline
+    fn dagger(self) -> Self:
+        '''Return the conjugate-transpose of the matrix. Alias of dag.'''
+        return self.dag()
+
     # # TODO: Make it better
     # # This can most definitely be done better with something like
     # # buffer.Buffer or algorithm.reduce
@@ -972,7 +1005,7 @@ struct CMatrix[type: DType](
             return total 
     
     @always_inline
-    fn echelon[tol: Scalar[Self.type] = 1e-15](self) -> Self:
+    fn echelon[tol: Scalar[Self.type] = Self._tol_default](self) -> Self:
         '''Return the row echelon form of self.'''
         var A = self
         var h: Int = 0
@@ -1001,7 +1034,7 @@ struct CMatrix[type: DType](
         return A
 
     @always_inline
-    fn det[tol: Scalar[type] = 1e-15](self) raises -> ComplexScalar[Self.type]:
+    fn det[tol: Scalar[type] = Self._tol_default](self) raises -> ComplexScalar[Self.type]:
         '''Return the determinant of self.'''
         if self.rows != self.cols:
             raise Error('Only square matrices have determinants')
@@ -1012,11 +1045,11 @@ struct CMatrix[type: DType](
         return d
     
     @always_inline
-    fn determinant[tol: Scalar[type] = 1e-15](self) raises -> ComplexScalar[Self.type]:
+    fn determinant[tol: Scalar[type] = Self._tol_default](self) raises -> ComplexScalar[Self.type]:
         return self.det[tol]()
     
     @always_inline
-    fn inv(self, tol: SIMD[Self.type, 1] = 1e-12) raises -> Self:
+    fn inv[tol: SIMD[Self.type, 1] = Self._tol_default](self) raises -> Self:
         '''Return the inverse of a square matrix.'''
         alias zero = ComplexScalar[Self.type](0)
         alias one = ComplexScalar[Self.type](1)
@@ -1067,6 +1100,12 @@ struct CMatrix[type: DType](
     fn inverse(self) raises -> Self:
         '''Return the inverse of a square matrix. Alias of inv.'''
         return self.inv()
+
+    @always_inline
+    fn frobenius_norm(self) raises -> Scalar[Self.type]:
+        '''Return the Frobenius norm of self.'''
+        var norm = self.__abs__()
+        return sqrt((norm * norm).sum().re)
 
     # Shape operations ################
 
@@ -1239,7 +1278,7 @@ struct CMatrix[type: DType](
     
     # TODO: Make it better
     @always_inline
-    fn is_close(self, other: Self, tol: Scalar[Self.type] = 1e-10) raises -> Bool:
+    fn is_close[tol: Scalar[Self.type] = Self._tol_default](self, other: Self) -> Bool:
         '''Returns True if self is the same shape as other and corresponding elements 
         are within tol of each other, False otherwise.
         '''
@@ -1253,7 +1292,7 @@ struct CMatrix[type: DType](
 
     # TODO: Make it better
     @always_inline
-    fn is_close(self, other: ComplexScalar[Self.type], tol: Scalar[Self.type] = 1e-10) -> Bool:
+    fn is_close[tol: Scalar[Self.type] = Self._tol_default](self, other: ComplexScalar[Self.type]) -> Bool:
         '''Returns True all elements of self are within tol of other, False otherwise.'''
         for r in range(self.rows):
             for c in range(self.cols):

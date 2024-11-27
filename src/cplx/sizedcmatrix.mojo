@@ -407,17 +407,18 @@ struct SizedCMatrix[type: DType, rows: Int, cols: Int](
     @always_inline
     fn __truediv__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Defines the `/` divide operator. Returns self / other.'''
-        @parameter
-        if Self._is_col_dominant:
-            @parameter
-            fn div_r[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
-                return self.load_crd[simd_width](r, c) / other
-            return self._parallelize_vectorize_op[div_r]()
-        else:
-            @parameter
-            fn div_c[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
-                return self.strided_load_idx[simd_width](r * Self.cols + c, Self.cols) / other
-            return self._parallelize_vectorize_op[div_c]()
+        return self.__mul__(other.reciprocal())
+        # @parameter
+        # if Self._is_col_dominant:
+        #     @parameter
+        #     fn div_r[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
+        #         return self.load_crd[simd_width](r, c) / other
+        #     return self._parallelize_vectorize_op[div_r]()
+        # else:
+        #     @parameter
+        #     fn div_c[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
+        #         return self.strided_load_idx[simd_width](r * Self.cols + c, Self.cols) / other
+        #     return self._parallelize_vectorize_op[div_c]()
     
     @always_inline
     fn __floordiv__(self, other: Self) -> Self:
@@ -643,17 +644,18 @@ struct SizedCMatrix[type: DType, rows: Int, cols: Int](
     @always_inline
     fn __itruediv__(self, other: ComplexScalar[Self.type]):
         '''Defines the `/=` in-place divide operator.'''
-        @parameter
-        if Self._is_col_dominant:
-            @parameter
-            fn div_r[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
-                return self.load_crd[simd_width](r, c) / other
-            self._parallelize_vectorize_op_inplace[div_r]()
-        else:
-            @parameter
-            fn div_c[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
-                return self.strided_load_idx[simd_width](r * Self.cols + c, Self.cols) / other
-            self._parallelize_vectorize_op_inplace[div_c]()
+        self.__imul__(other.reciprocal())
+        # @parameter
+        # if Self._is_col_dominant:
+        #     @parameter
+        #     fn div_r[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
+        #         return self.load_crd[simd_width](r, c) / other
+        #     self._parallelize_vectorize_op_inplace[div_r]()
+        # else:
+        #     @parameter
+        #     fn div_c[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
+        #         return self.strided_load_idx[simd_width](r * Self.cols + c, Self.cols) / other
+        #     self._parallelize_vectorize_op_inplace[div_c]()
 
     @always_inline
     fn __ifloordiv__(self, other: Self):
