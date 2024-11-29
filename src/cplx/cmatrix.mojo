@@ -37,7 +37,9 @@ struct CMatrix[type: DType](
             memset_zero(self.im.address, self.size)
 
     @always_inline
-    fn __init__(inout self, rows: Int, cols: Int, *data: ComplexScalar[Self.type]):
+    fn __init__(inout self, rows: Int, cols: Int, *data: ComplexScalar[Self.type]) raises:
+        if len(data) > rows * cols:
+            raise Error('More elements specified than fit in the cmatrix')
         self.rows = rows
         self.cols = cols
         self.size = self.rows * self.cols
@@ -45,7 +47,7 @@ struct CMatrix[type: DType](
         self.re = UnsafePointer[Scalar[Self.type]].alloc(self.size)
         self.im = UnsafePointer[Scalar[Self.type]].alloc(self.size)
         for idx in range(len(data)):
-            self[idx] = data[idx]
+            self.__setitem_noraise__(idx, data[idx])
 
     @always_inline
     fn __init__(inout self, data: List[ComplexScalar[Self.type], True]):
@@ -56,7 +58,7 @@ struct CMatrix[type: DType](
         self.re = UnsafePointer[Scalar[Self.type]].alloc(self.size)
         self.im = UnsafePointer[Scalar[Self.type]].alloc(self.size)
         for idx in range(len(data)):
-            self[idx] = data[idx]
+            self.__setitem_noraise__(idx, data[idx])
 
     @always_inline
     fn __init__(inout self, data: List[List[ComplexScalar[Self.type], True]]) raises:
@@ -71,7 +73,7 @@ struct CMatrix[type: DType](
         self.im = UnsafePointer[Scalar[Self.type]].alloc(self.size)
         for r in range(self.rows):
             for c in range(self.cols):
-                self[r, c] = data[r][c]
+                self.__setitem_noraise__(r, c, data[r][c])
 
     @always_inline
     fn __copyinit__(inout self, existing: Self):
@@ -202,7 +204,7 @@ struct CMatrix[type: DType](
                 if c == max_lines // 2 and hide_cols:
                     mat[-1].append(dots)
                 var c_idx: Int = c if c < max_lines // 2 or not hide_cols else self.cols + c - max_lines
-                mat[-1].append(str(self[r_idx, c_idx]))
+                mat[-1].append(str(self.__getitem_noraise__(r_idx, c_idx)))
         
         var max_col_widths = List[Int, True]()
         for c in range(len(mat[0])):
@@ -242,26 +244,64 @@ struct CMatrix[type: DType](
     # Item access #####################
 
     @always_inline
-    fn __getitem__(self, row: Int, col: Int) -> ComplexScalar[Self.type]:
+    fn __getitem__(self, row: Int, col: Int) raises -> ComplexScalar[Self.type]:
         '''Get the value at the specified row and col.'''
+        if row < 0 or row >= self.rows:
+            raise Error('Invalid row index: ' + str(row))
+        if col < 0 or col >= self.cols:
+            raise Error('Invalid column index: ' + str(col))
         return self.load_idx[1](row * self.cols + col)
     
     @always_inline
-    fn __getitem__(self, idx: Int) -> ComplexScalar[Self.type]:
+    fn __getitem_noraise__(self, row: Int, col: Int) -> ComplexScalar[Self.type]:
+        '''Get the value at the specified row and col without checking index validity.'''
+        return self.load_idx[1](row * self.cols + col)
+    
+    @always_inline
+    fn __getitem__(self, idx: Int) raises -> ComplexScalar[Self.type]:
         '''Get the value at the specified index. 
+        Matrices are indexed from index 0 at postion (0, 0) to index size - 1 
+        at position (rows - 1, cols - 1) in row-major order.
+        '''
+        if idx < 0 or idx >= self.size:
+            raise Error('Invalid index: '+ str(idx))
+        return self.load_idx[1](idx)
+    
+    @always_inline
+    fn __getitem_noraise__(self, idx: Int) -> ComplexScalar[Self.type]:
+        '''Get the value at the specified index without checking index validity.
         Matrices are indexed from index 0 at postion (0, 0) to index size - 1 
         at position (rows - 1, cols - 1) in row-major order.
         '''
         return self.load_idx[1](idx)
     
     @always_inline
-    fn __setitem__(self, row: Int, col: Int, val: ComplexScalar[Self.type]):
+    fn __setitem__(self, row: Int, col: Int, val: ComplexScalar[Self.type]) raises:
         '''Set the value at the specified row and col.'''
+        if row < 0 or row >= self.rows:
+            raise Error('Invalid row index: ' + str(row))
+        if col < 0 or col >= self.cols:
+            raise Error('Invalid column index: ' + str(col))
         self.store_crd[1](row, col, val)
     
     @always_inline
-    fn __setitem__(self, idx: Int, val: ComplexScalar[Self.type]):
+    fn __setitem_noraise__(self, row: Int, col: Int, val: ComplexScalar[Self.type]):
+        '''Set the value at the specified row and col without checking index validity.'''
+        self.store_crd[1](row, col, val)
+    
+    @always_inline
+    fn __setitem__(self, idx: Int, val: ComplexScalar[Self.type]) raises:
         '''Set the value at the specified index. 
+        Matrices are indexed from index 0 at postion (0, 0) to index size - 1 
+        at position (rows - 1, cols - 1) in row-major order.
+        '''
+        if idx < 0 or idx >= self.size:
+            raise Error('Invalid index: '+ str(idx))
+        self.store_idx[1](idx, val)
+    
+    @always_inline
+    fn __setitem_noraise__(self, idx: Int, val: ComplexScalar[Self.type]):
+        '''Set the value at the specified index without checking index validity. 
         Matrices are indexed from index 0 at postion (0, 0) to index size - 1 
         at position (rows - 1, cols - 1) in row-major order.
         '''
@@ -311,7 +351,7 @@ struct CMatrix[type: DType](
     fn _parallelize_vectorize_op[
         func: fn[width: Int](r: Int, c: Int) capturing -> ComplexSIMD[Self.type, width]
     ](self) -> Self:
-        '''Returns a CMatrix in which position (r, c) holds the value func(r, c).'''
+        '''Returns a CMatrix in which entry (r, c) holds the value func(r, c).'''
         var result: Self = Self(rows=self.rows, cols=self.cols, fill_zeros=False)
         if self._is_col_dominant:
             @parameter
@@ -598,7 +638,9 @@ struct CMatrix[type: DType](
                     result.store_crd[simd_width](
                         r, 
                         c, 
-                        result.load_crd[simd_width](r, c) + self[r, k] * other.load_crd[simd_width](k, c),
+                        result.load_crd[simd_width](r, c) 
+                        + self.__getitem_noraise__(r, k) 
+                        * other.load_crd[simd_width](k, c),
                     )
                 vectorize[dot, simdwidthof[Self.type]()](result.cols)
         parallelize[calc_row](result.rows, result.rows)
@@ -819,28 +861,13 @@ struct CMatrix[type: DType](
                     result.store_crd[simd_width](
                         r, 
                         c, 
-                        result.load_crd[simd_width](r, c) + self[r, k] * other.load_crd[simd_width](k, c),
+                        result.load_crd[simd_width](r, c) 
+                        + self.__getitem_noraise__(r, k)
+                        * other.load_crd[simd_width](k, c),
                     )
                 vectorize[dot, simdwidthof[Self.type]()](result.cols)
         parallelize[calc_row](result.rows, result.rows)
-
-        self.cols = other.cols
-        self.size = self.rows * self.cols
-        self._is_col_dominant = self.cols >= self.rows
-
-        # # Produces segmentation fault...
-        # @parameter
-        # fn cpy[simd_width: Int](idx: Int):
-        #     self.store_idx[simd_width](idx, result.load_idx[simd_width](idx))
-        # vectorize[cpy, simdwidthof[Self.type]()](Self.size)
-
-        # # Copies memory incorrectly...
-        # memcpy(self.re, result.re, Self.size)
-        # memcpy(self.im, result.im, Self.size)
-
-        # So for now, we do this...
-        for idx in range(self.size):
-            self[idx] = result[idx]
+        self = result^
     
     # Right math dunders ##############
 
@@ -983,12 +1010,12 @@ struct CMatrix[type: DType](
             fn sum_rows(r: Int):
                 var row_sum = ComplexScalar[Self.type]()
                 for c in range(self.cols):
-                    row_sum += self[r, c]
-                row_sums[r] = row_sum
+                    row_sum += self.__getitem_noraise__(r, c)
+                row_sums.__setitem_noraise__(r, row_sum)
             parallelize[sum_rows](self.rows, self.rows)
             var total = ComplexScalar[Self.type]()
             for r in range(self.rows):
-                total += row_sums[r]
+                total += row_sums.__getitem_noraise__(r)
             return total 
         else:
             var col_sums = Self(rows=1, cols=self.cols, fill_zeros=False)
@@ -996,12 +1023,12 @@ struct CMatrix[type: DType](
             fn sum_cols(c: Int):
                 var col_sum = ComplexScalar[Self.type]()
                 for r in range(self.rows):
-                    col_sum += self[r, c]
-                col_sums[c] = col_sum
+                    col_sum += self.__getitem_noraise__(r, c)
+                col_sums.__setitem_noraise__(c, col_sum)
             parallelize[sum_cols](self.cols, self.cols)
             var total = ComplexScalar[Self.type]()
             for c in range(self.cols):
-                total += col_sums[c]
+                total += col_sums.__getitem_noraise__(c)
             return total 
     
     @always_inline
@@ -1011,25 +1038,25 @@ struct CMatrix[type: DType](
         var h: Int = 0
         var k: Int = 0
         while h < self.rows and k < self.cols:
-            var i_max: Scalar[Self.type] = A[h, k].norm()
+            var i_max: Scalar[Self.type] = A.__getitem_noraise__(h, k).norm()
             var i_argmax: Int = h
             for i in range(h + 1, self.rows):
-                var i_norm: Scalar[Self.type] = A[i, k].norm()
+                var i_norm: Scalar[Self.type] = A.__getitem_noraise__(i, k).norm()
                 if i_norm > i_max:
                     i_max = i_norm
                     i_argmax = i
-            if A[i_argmax, k].norm() < tol:
+            if A.__getitem_noraise__(i_argmax, k).norm() < tol:
                 k += 1
             else:
                 for c in range(self.cols):
-                    var p: ComplexScalar[Self.type] = A[h, c]
-                    A[h, c] = A[i_argmax, c]
-                    A[i_argmax, c] = p
+                    var p: ComplexScalar[Self.type] = A.__getitem_noraise__(h, c)
+                    A.__setitem_noraise__(h, c, A.__getitem_noraise__(i_argmax, c))
+                    A.__setitem_noraise__(i_argmax, c, p)
                 for i in range(h + 1, self.rows):
-                    var f: ComplexScalar[type] = A[i, k] / A[h, k]
-                    A[i, k] = ComplexScalar[type](0)
+                    var f: ComplexScalar[type] = A.__getitem_noraise__(i, k) / A.__getitem_noraise__(h, k)
+                    A.__setitem_noraise__(i, k, ComplexScalar[type](0))
                     for j in range(k + 1, self.cols):
-                        A[i, j] -= A[h, j] * f
+                        A.__setitem_noraise__(i, j, A.__getitem_noraise__(i, j) - A.__getitem_noraise__(h, j) * f)
                 h += 1; k += 1
         return A
 
@@ -1041,7 +1068,7 @@ struct CMatrix[type: DType](
         var echelon: Self = self.echelon()
         var d = ComplexScalar[Self.type](1)
         for i in range(self.rows):
-            d *= echelon[i, i]
+            d *= echelon.__getitem_noraise__(i, i)
         return d
     
     @always_inline
@@ -1061,7 +1088,7 @@ struct CMatrix[type: DType](
         for r in range(self.rows):
             memcpy(augmented.re + r * augmented.cols, self.re + r * self.cols, self.cols)
             memcpy(augmented.im + r * augmented.cols, self.im + r * self.cols, self.cols)
-            augmented[r, self.cols + r] = one
+            augmented.__setitem_noraise__(r, self.cols + r, one)
         
         for i in range(self.rows):
             if augmented[i, i].norm() < tol:
@@ -1080,15 +1107,19 @@ struct CMatrix[type: DType](
                 else:
                     raise Error('Matrix is not invertible')
 
-            var pivot: ComplexScalar[Self.type] = augmented[i, i]
+            var pivot: ComplexScalar[Self.type] = augmented.__getitem_noraise__(i, i)
             for j in range(augmented.cols):
-                augmented[i, j] /= pivot
+                augmented.__setitem_noraise__(i, j, augmented.__getitem_noraise__(i, j) / pivot)
 
             for j in range(self.rows):
                 if j != i:
-                    var factor: ComplexScalar[Self.type] = augmented[j, i]
+                    var factor: ComplexScalar[Self.type] = augmented.__getitem_noraise__(j, i)
                     for k in range(augmented.cols):
-                        augmented[j, k] -= factor * augmented[i, k]
+                        augmented.__setitem_noraise__(
+                            j, 
+                            k, 
+                            augmented.__getitem_noraise__(j, k) - augmented.__getitem_noraise__(i, k) * factor
+                        )
         
         var result = Self(rows=self.rows, cols=self.cols, fill_zeros=False)
         for i in range(self.rows):
@@ -1113,7 +1144,7 @@ struct CMatrix[type: DType](
     fn reshape(self, new_rows: Int, new_cols: Int) raises -> Self:
         '''Return a reshaped matrix.'''
         self._assert_reshape_compatible(new_rows, new_cols)
-        var result= Self(rows=new_rows, cols=new_cols, fill_zeros=False)
+        var result = Self(rows=new_rows, cols=new_cols, fill_zeros=False)
         memcpy(result.re, self.re, self.size)
         memcpy(result.im, self.im, self.size)
         return result
@@ -1163,11 +1194,11 @@ struct CMatrix[type: DType](
         @parameter
         fn transpose_row(r: Int):
             for c in range(self.cols):
-                result[c, r] = self[r, c]
+                result.__setitem_noraise__(c, r, self.__getitem_noraise__(r, c))
         parallelize[transpose_row](self.rows, self.rows)
         return result
 
-    # TODO: Make an efficient in-place transpose
+    # TODO: Efficient in-place transpose
 
     # Fill operations #################
 
@@ -1272,7 +1303,7 @@ struct CMatrix[type: DType](
             return False
         for r in range(self.rows):
             for c in range(self.cols):
-                if self[r, c] != other[r, c]:
+                if self.__getitem_noraise__(r, c) != other.__getitem_noraise__(r, c):
                     return False
         return True
     
@@ -1286,7 +1317,7 @@ struct CMatrix[type: DType](
             return False
         for r in range(self.rows):
             for c in range(self.cols):
-                if not self[r, c].is_close(other[r, c], tol):
+                if not self.__getitem_noraise__(r, c).is_close(other.__getitem_noraise__(r, c), tol):
                     return False
         return True
 
@@ -1296,7 +1327,7 @@ struct CMatrix[type: DType](
         '''Returns True all elements of self are within tol of other, False otherwise.'''
         for r in range(self.rows):
             for c in range(self.cols):
-                if not self[r, c].is_close(other, tol):
+                if not self.__getitem_noraise__(r, c).is_close(other, tol):
                     return False
         return True
 
@@ -1313,14 +1344,14 @@ struct CMatrix[type: DType](
             @parameter
             fn row_eq(r: Int):
                 for c in range(self.cols):
-                    if self[r, c] == other[r, c]:
+                    if self.__getitem_noraise__(r, c) == other.__getitem_noraise__(r, c):
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
-                    if self[r, c] == other[r, c]:
+                    if self.__getitem_noraise__(r, c) == other.__getitem_noraise__(r, c):
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
@@ -1336,14 +1367,14 @@ struct CMatrix[type: DType](
             @parameter
             fn row_eq(r: Int):
                 for c in range(self.cols):
-                    if self[r, c] == other:
+                    if self.__getitem_noraise__(r, c) == other:
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
-                    if self[r, c] == other:
+                    if self.__getitem_noraise__(r, c) == other:
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
@@ -1361,14 +1392,14 @@ struct CMatrix[type: DType](
             @parameter
             fn row_eq(r: Int):
                 for c in range(self.cols):
-                    if self[r, c] != other[r, c]:
+                    if self.__getitem_noraise__(r, c) != other.__getitem_noraise__(r, c):
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
-                    if self[r, c] != other[r, c]:
+                    if self.__getitem_noraise__(r, c) != other.__getitem_noraise__(r, c):
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
@@ -1384,14 +1415,14 @@ struct CMatrix[type: DType](
             @parameter
             fn row_eq(r: Int):
                 for c in range(self.cols):
-                    if self[r, c] != other:
+                    if self.__getitem_noraise__(r, c) != other:
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
-                    if self[r, c] != other:
+                    if self.__getitem_noraise__(r, c) != other:
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
@@ -1409,14 +1440,14 @@ struct CMatrix[type: DType](
             @parameter
             fn row_eq(r: Int):
                 for c in range(self.cols):
-                    if self[r, c] > other[r, c]:
+                    if self.__getitem_noraise__(r, c) > other.__getitem_noraise__(r, c):
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
-                    if self[r, c] > other[r, c]:
+                    if self.__getitem_noraise__(r, c) > other.__getitem_noraise__(r, c):
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
@@ -1432,14 +1463,14 @@ struct CMatrix[type: DType](
             @parameter
             fn row_eq(r: Int):
                 for c in range(self.cols):
-                    if self[r, c] > other:
+                    if self.__getitem_noraise__(r, c) > other:
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
-                    if self[r, c] > other:
+                    if self.__getitem_noraise__(r, c) > other:
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
@@ -1457,14 +1488,14 @@ struct CMatrix[type: DType](
             @parameter
             fn row_eq(r: Int):
                 for c in range(self.cols):
-                    if self[r, c] >= other[r, c]:
+                    if self.__getitem_noraise__(r, c) >= other.__getitem_noraise__(r, c):
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
-                    if self[r, c] >= other[r, c]:
+                    if self.__getitem_noraise__(r, c) >= other.__getitem_noraise__(r, c):
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
@@ -1480,14 +1511,14 @@ struct CMatrix[type: DType](
             @parameter
             fn row_eq(r: Int):
                 for c in range(self.cols):
-                    if self[r, c] >= other:
+                    if self.__getitem_noraise__(r, c) >= other:
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
-                    if self[r, c] >= other:
+                    if self.__getitem_noraise__(r, c) >= other:
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
@@ -1505,14 +1536,14 @@ struct CMatrix[type: DType](
             @parameter
             fn row_eq(r: Int):
                 for c in range(self.cols):
-                    if self[r, c] < other[r, c]:
+                    if self.__getitem_noraise__(r, c) < other.__getitem_noraise__(r, c):
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
-                    if self[r, c] < other[r, c]:
+                    if self.__getitem_noraise__(r, c) < other.__getitem_noraise__(r, c):
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
@@ -1528,14 +1559,14 @@ struct CMatrix[type: DType](
             @parameter
             fn row_eq(r: Int):
                 for c in range(self.cols):
-                    if self[r, c] < other:
+                    if self.__getitem_noraise__(r, c) < other:
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
-                    if self[r, c] < other:
+                    if self.__getitem_noraise__(r, c) < other:
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
@@ -1553,14 +1584,14 @@ struct CMatrix[type: DType](
             @parameter
             fn row_eq(r: Int):
                 for c in range(self.cols):
-                    if self[r, c] <= other[r, c]:
+                    if self.__getitem_noraise__(r, c) <= other.__getitem_noraise__(r, c):
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
-                    if self[r, c] <= other[r, c]:
+                    if self.__getitem_noraise__(r, c) <= other.__getitem_noraise__(r, c):
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
@@ -1576,14 +1607,14 @@ struct CMatrix[type: DType](
             @parameter
             fn row_eq(r: Int):
                 for c in range(self.cols):
-                    if self[r, c] <= other:
+                    if self.__getitem_noraise__(r, c) <= other:
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
-                    if self[r, c] <= other:
+                    if self.__getitem_noraise__(r, c) <= other:
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
