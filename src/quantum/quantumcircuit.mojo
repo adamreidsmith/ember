@@ -1,7 +1,7 @@
 from math import ceil, log10
 from collections import Set
 
-from cplx import CMatrix
+from ..cplx import CMatrix
 from .gates import *
 from .bit import Clbit, Qubit
 

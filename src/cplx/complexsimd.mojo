@@ -1,4 +1,4 @@
-import math as _math
+import math
 
 alias ComplexScalar = ComplexSIMD[size=1]
 
@@ -12,7 +12,8 @@ alias Complex32 = ComplexSIMD32[1]
 alias Complex64 = ComplexSIMD64[1]
 alias BComplex16 = BComplexSIMD16[1]
 
-alias _halfpi =  _math.pi / 2
+alias _halfpi =  math.pi / 2
+
 
 @register_passable('trivial')
 struct ComplexSIMD[type: DType, size: Int](
@@ -97,37 +98,37 @@ struct ComplexSIMD[type: DType, size: Int](
         self.im = t.get[1, Int]()
     
     @always_inline
-    fn __init__(inout self, re: FloatLiteral) -> None:
+    fn __init__[__: None = None](inout self, re: FloatLiteral) -> None:
         '''Initialize a complex number with a real float literal.'''
         self.re = re
         self.im = 0
     
     @always_inline
-    fn __init__(inout self, re: Float16) -> None:
+    fn __init__[__: None = None](inout self, re: Float16) -> None:
         '''Initialize a complex number with a real float literal.'''
         self.re = re.cast[Self.type]()
         self.im = 0
 
     @always_inline
-    fn __init__(inout self, re: Float32) -> None:
+    fn __init__[__: None = None](inout self, re: Float32) -> None:
         '''Initialize a complex number with a real float literal.'''
         self.re = re.cast[Self.type]()
         self.im = 0
 
     @always_inline
-    fn __init__(inout self, re: Float64) -> None:
+    fn __init__[__: None = None](inout self, re: Float64) -> None:
         '''Initialize a complex number with a real float literal.'''
         self.re = re.cast[Self.type]()
         self.im = 0
 
     @always_inline
-    fn __init__(inout self, re: Int) -> None:
+    fn __init__[__: None = None](inout self, re: Int) -> None:
         '''Initialize a complex number with a real integer value.'''
         self.re = re
         self.im = 0
     
     @always_inline
-    fn __init__(inout self, re: IntLiteral) -> None:
+    fn __init__[__: None = None](inout self, re: IntLiteral) -> None:
         '''Initialize a complex number with a real integer literal.'''
         self.re = re
         self.im = 0
@@ -138,7 +139,7 @@ struct ComplexSIMD[type: DType, size: Int](
     @staticmethod
     fn from_polar(r: Self.Coef, theta: Self.Coef) -> Self:
         '''Create a complex number from polar coordinates (r, θ).'''
-        return Self(r * _math.cos(theta), r * _math.sin(theta))
+        return Self(r * math.cos(theta), r * math.sin(theta))
     
     @always_inline
     @staticmethod
@@ -335,7 +336,52 @@ struct ComplexSIMD[type: DType, size: Int](
     fn __floordiv__(self, other: Self.Coef) -> Self:
         '''Defines the `//` floor divide operator. Returns round(q.real()) + round(q.imag())i for q = self / other.'''
         return round(self / other)
+
+    @always_inline
+    fn __mod__(self, other: Self) -> Self:
+        '''Defines the `%` modulo operator. Returns self - (self // other) * other.'''
+        return self - (self // other) * other
     
+    @always_inline
+    fn __mod__[__: None = None](self, other: Self.Lane) -> Self:
+        '''Defines the `%` modulo operator. Returns self - (self // other) * other.'''
+        return self - (self // other) * other
+    
+    @always_inline
+    fn __mod__(self, other: Self.Coef) -> Self:
+        '''Defines the `%` modulo operator. Returns self - (self // other) * other.'''
+        return self - (self // other) * other
+    
+    @always_inline
+    fn __divmod__(self, other: Self) -> Tuple[Self, Self]:
+        '''Defines the divmod operator. Returns the tuple (self // other, self % other).'''
+        return (self // other, self % other)
+    
+    @always_inline
+    fn __divmod__[__: None = None](self, other: Self.Lane) -> Tuple[Self, Self]:
+        '''Defines the divmod operator. Returns the tuple (self // other, self % other).'''
+        return (self // other, self % other)
+    
+    @always_inline
+    fn __divmod__(self, other: Self.Coef) -> Tuple[Self, Self]:
+        '''Defines the divmod operator. Returns the tuple (self // other, self % other).'''
+        return (self // other, self % other)
+
+    @always_inline
+    fn __abs__(self) -> Self:
+        '''Returnes the absolute value of the complex number as a complex number with no imaginary part.'''
+        return Self(math.sqrt(self.re * self.re + self.im * self.im))
+    
+    @always_inline
+    fn __round__(self) -> Self:
+        '''Round the real and imaginary parts of the complex number.'''
+        return Self(round(self.re), round(self.im))
+
+    @always_inline
+    fn __round__(self, ndigits: Int) -> Self:
+        '''Round the real and imaginary parts of the complex number.'''
+        return Self(round(self.re, ndigits), round(self.im, ndigits))
+
     @always_inline
     fn __pow__(self, other: Self) -> Self:
         '''Defines the `**` power operator. Returns self ** other.'''
@@ -389,51 +435,6 @@ struct ComplexSIMD[type: DType, size: Int](
     @always_inline
     fn __pow__(self, b: IntLiteral) -> Self:
         return self ** int(b)
-
-    @always_inline
-    fn __mod__(self, other: Self) -> Self:
-        '''Defines the `%` modulo operator. Returns self - (self // other) * other.'''
-        return self - (self // other) * other
-    
-    @always_inline
-    fn __mod__[__: None = None](self, other: Self.Lane) -> Self:
-        '''Defines the `%` modulo operator. Returns self - (self // other) * other.'''
-        return self - (self // other) * other
-    
-    @always_inline
-    fn __mod__(self, other: Self.Coef) -> Self:
-        '''Defines the `%` modulo operator. Returns self - (self // other) * other.'''
-        return self - (self // other) * other
-    
-    @always_inline
-    fn __divmod__(self, other: Self) -> Tuple[Self, Self]:
-        '''Defines the divmod operator. Returns the tuple (self // other, self % other).'''
-        return (self // other, self % other)
-    
-    @always_inline
-    fn __divmod__[__: None = None](self, other: Self.Lane) -> Tuple[Self, Self]:
-        '''Defines the divmod operator. Returns the tuple (self // other, self % other).'''
-        return (self // other, self % other)
-    
-    @always_inline
-    fn __divmod__(self, other: Self.Coef) -> Tuple[Self, Self]:
-        '''Defines the divmod operator. Returns the tuple (self // other, self % other).'''
-        return (self // other, self % other)
-
-    @always_inline
-    fn __abs__(self) -> Self:
-        '''Returnes the absolute value of the complex number as a complex number with no imaginary part.'''
-        return Self(_math.sqrt(self.re * self.re + self.im * self.im))
-    
-    @always_inline
-    fn __round__(self) -> Self:
-        '''Round the real and imaginary parts of the complex number.'''
-        return Self(round(self.re), round(self.im))
-
-    @always_inline
-    fn __round__(self, ndigits: Int) -> Self:
-        '''Round the real and imaginary parts of the complex number.'''
-        return Self(round(self.re, ndigits), round(self.im, ndigits))
     
     # Reverse arithmetic ##############
 
@@ -518,21 +519,6 @@ struct ComplexSIMD[type: DType, size: Int](
         return Self(other) // self
     
     @always_inline
-    fn __rpow__(self, other: Self) -> Self:
-        '''Defines the reverse `**` power operator. Returns other ** self.'''
-        return other ** self
-
-    @always_inline
-    fn __rpow__[__: None = None](self, other: Self.Lane) -> Self:
-        '''Defines the reverse `**` power operator. Returns other ** self.'''
-        return Self(other.re, other.im) ** self
-        
-    @always_inline
-    fn __rpow__(self, other: Self.Coef) -> Self:
-        '''Defines the reverse `**` power operator. Returns other ** self.'''
-        return Self(other) ** self
-    
-    @always_inline
     fn __rmod__(self, other: Self) -> Self:
         '''Defines the reverse `%` modulo operator. Returns other % self.'''
         return other % self
@@ -561,6 +547,21 @@ struct ComplexSIMD[type: DType, size: Int](
     fn __rdivmod__(self, other: Self.Coef) -> Tuple[Self, Self]:
         '''Defines the reverse divmod operator. Returns the tuple (other // self, other % self).'''
         return Self(other).__divmod__(self)
+    
+    @always_inline
+    fn __rpow__(self, other: Self) -> Self:
+        '''Defines the reverse `**` power operator. Returns other ** self.'''
+        return other ** self
+
+    @always_inline
+    fn __rpow__[__: None = None](self, other: Self.Lane) -> Self:
+        '''Defines the reverse `**` power operator. Returns other ** self.'''
+        return Self(other.re, other.im) ** self
+        
+    @always_inline
+    fn __rpow__(self, other: Self.Coef) -> Self:
+        '''Defines the reverse `**` power operator. Returns other ** self.'''
+        return Self(other) ** self
 
     # In-place arithmetic #############
     
@@ -676,7 +677,7 @@ struct ComplexSIMD[type: DType, size: Int](
     @always_inline
     fn norm(self) -> Self.Coef:
         '''Returns the absolute value of a complex number.'''
-        return abs(self).re
+        return math.sqrt(self.squared_norm())
     
     @always_inline
     fn modulus(self) -> Self.Coef:
@@ -686,7 +687,7 @@ struct ComplexSIMD[type: DType, size: Int](
     @always_inline
     fn arg(self) -> Self.Coef:
         '''Returns the argument atan2(b, a) of a complex number a + bi.'''
-        return _math.atan2(self.im, self.re)
+        return math.atan2(self.im, self.re)
     
     @always_inline
     fn phase(self) -> Self.Coef:
@@ -706,35 +707,35 @@ struct ComplexSIMD[type: DType, size: Int](
     @always_inline
     fn exp(self) -> Self:
         '''Returns the exponential e^(a + bi) of a complex number a + bi.'''
-        var r: Self.Coef = _math.exp(self.re)
-        return Self(r * _math.cos(self.im), r * _math.sin(self.im))
+        var r: Self.Coef = math.exp(self.re)
+        return Self(r * math.cos(self.im), r * math.sin(self.im))
     
     @always_inline
     fn sqrt(self) -> Self:
         '''Returns the square root of a complex number using the principal branch.'''
-        var r: Self.Coef = _math.sqrt(self.norm())
+        var r: Self.Coef = math.sqrt(self.norm())
         var theta: Self.Coef = self.arg() / 2
-        return Self(r * _math.cos(theta), r * _math.sin(theta))
+        return Self(r * math.cos(theta), r * math.sin(theta))
 
     @always_inline
     fn log(self) -> Self:
         '''Returns the natural logarithm of a complex number using the principal branch.'''
-        return Self(_math.log(self.norm()), self.arg())
+        return Self(math.log(self.norm()), self.arg())
     
     @always_inline
     fn log(self, base: Self.Coef) -> Self:
         '''Returns the logarithm in base `base` of a complex number using the principal branch.'''
-        return self.log() / _math.log(base)
+        return self.log() / math.log(base)
     
     @always_inline
     fn sin(self) -> Self:
         '''Returns the sine of a complex number.'''
-        return Self(_math.sin(self.re) * _math.cosh(self.im), _math.cos(self.re) * _math.sinh(self.im))
+        return Self(math.sin(self.re) * math.cosh(self.im), math.cos(self.re) * math.sinh(self.im))
 
     @always_inline
     fn cos(self) -> Self:
         '''Returns the cosine of a complex number.'''
-        return Self(_math.cos(self.re) * _math.cosh(self.im), -_math.sin(self.re) * _math.sinh(self.im))
+        return Self(math.cos(self.re) * math.cosh(self.im), -math.sin(self.re) * math.sinh(self.im))
     
     @always_inline
     fn tan(self) -> Self:
@@ -759,12 +760,12 @@ struct ComplexSIMD[type: DType, size: Int](
     @always_inline
     fn sinh(self) -> Self:
         '''Returns the hyperbolic sine of a complex number.'''
-        return Self(_math.sinh(self.re) * _math.cos(self.im), _math.cosh(self.re) * _math.sin(self.im))
+        return Self(math.sinh(self.re) * math.cos(self.im), math.cosh(self.re) * math.sin(self.im))
     
     @always_inline
     fn cosh(self) -> Self:
         '''Returns the hyperbolic cosine of a complex number.'''
-        return Self(_math.cosh(self.re) * _math.cos(self.im), _math.sinh(self.re) * _math.sin(self.im))
+        return Self(math.cosh(self.re) * math.cos(self.im), math.sinh(self.re) * math.sin(self.im))
     
     @always_inline
     fn tanh(self) -> Self:
@@ -794,9 +795,9 @@ struct ComplexSIMD[type: DType, size: Int](
         var sqrt_term: Self = (Self(1) - self * self).sqrt()
         var result: Self = Self(0, -1) * (Self(-self.im, self.re) + sqrt_term).log()
         if result.re < -_halfpi:
-            return Self(-result.re - _math.pi, -result.im)
+            return Self(-result.re - math.pi, -result.im)
         if result.re > _halfpi:
-            return Self(_math.pi - result.re, -result.im)
+            return Self(math.pi - result.re, -result.im)
         return result
 
     @always_inline
@@ -825,9 +826,9 @@ struct ComplexSIMD[type: DType, size: Int](
         '''
         var result: Self = (self + (self * self + Self(1)).sqrt()).log()
         if result.im < -_halfpi:
-            return Self(-result.re, -result.im - _math.pi)
+            return Self(-result.re, -result.im - math.pi)
         if result.im > _halfpi:
-            return Self(-result.re, -result.im + _math.pi)
+            return Self(-result.re, -result.im + math.pi)
         return result
     
     @always_inline
@@ -851,12 +852,12 @@ struct ComplexSIMD[type: DType, size: Int](
     @always_inline
     fn floor(self) -> Self:
         '''Returns a complex number with the floor function applied to the real and imaginary parts.'''
-        return Self(_math.floor(self.re), _math.floor(self.im))
+        return Self(math.floor(self.re), math.floor(self.im))
     
     @always_inline
     fn ceil(self) -> Self:
         '''Returns a complex number with the ceiling function applied to the real and imaginary parts.'''
-        return Self(_math.ceil(self.re), _math.ceil(self.im))
+        return Self(math.ceil(self.re), math.ceil(self.im))
     
     @always_inline
     fn to_polar(self) -> Tuple[Self.Coef, Self.Coef]:
@@ -992,17 +993,17 @@ struct ComplexSIMD[type: DType, size: Int](
     @always_inline
     fn is_finite(self) -> SIMD[DType.bool, Self.size]:
         '''Returns True if the real and imaginary components are zero.'''
-        return _math.isfinite(self.re) and _math.isfinite(self.im)
+        return math.isfinite(self.re) and math.isfinite(self.im)
     
     @always_inline
     fn is_infinite(self) -> SIMD[DType.bool, Self.size]:
         '''Returns True if the real or imaginary part is infinite.'''
-        return _math.isinf(self.re) or _math.isinf(self.im)
+        return math.isinf(self.re) or math.isinf(self.im)
     
     @always_inline
     fn is_nan(self) -> SIMD[DType.bool, Self.size]:
         '''Returns True if the real or imaginary part is nan.'''
-        return _math.isnan(self.re) or _math.isnan(self.im)
+        return math.isnan(self.re) or math.isnan(self.im)
     
     @always_inline
     fn is_unit(self, tol: Scalar[Self.type] = Self._tol_default) -> SIMD[DType.bool, Self.size]:

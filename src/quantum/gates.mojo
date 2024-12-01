@@ -2,7 +2,7 @@ from math import sqrt, cos, sin, pi
 from collections import Set
 from utils import Variant
 
-from cplx import CMatrix, ComplexScalar
+from ..cplx import CMatrix, ComplexScalar
 from .bit import Qubit
 
 
@@ -106,7 +106,7 @@ struct Gate[type: DType, tol: Scalar[type] = 1e-12](Formattable, Sized, Stringab
 
 # Unparameterized single-qubit gates ############
 
-fn x[type: DType]() -> CMatrix[type]:
+fn x[type: DType]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         0, 1, 
         1, 0,
@@ -114,7 +114,7 @@ fn x[type: DType]() -> CMatrix[type]:
 fn X[type: DType](q: Qubit) raises -> Gate[type]:
     return Gate[type]('X', x[type](), List[Qubit, True](q))
 
-fn y[type: DType]() -> CMatrix[type]:
+fn y[type: DType]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         0, ComplexScalar[type](0, -1), 
         ComplexScalar[type](0, 1), 0,
@@ -122,7 +122,7 @@ fn y[type: DType]() -> CMatrix[type]:
 fn Y[type: DType](q: Qubit) raises -> Gate[type]:
     return Gate[type]('Y', y[type](), List[Qubit, True](q))
 
-fn z[type: DType]() -> CMatrix[type]:
+fn z[type: DType]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         1, 0, 
         0, -1,
@@ -130,7 +130,7 @@ fn z[type: DType]() -> CMatrix[type]:
 fn Z[type: DType](q: Qubit) raises -> Gate[type]:
     return Gate[type]('Z', z[type](), List[Qubit, True](q))
 
-fn h[type: DType]() -> CMatrix[type]:
+fn h[type: DType]() raises -> CMatrix[type]:
     var inv_sqrt2: Scalar[type] = sqrt(2)
     return CMatrix[type](2, 2,
         inv_sqrt2, inv_sqrt2, 
@@ -139,7 +139,7 @@ fn h[type: DType]() -> CMatrix[type]:
 fn H[type: DType](q: Qubit) raises -> Gate[type]:
     return Gate[type]('H', h[type](), List[Qubit, True](q))     
 
-fn s[type: DType]() -> CMatrix[type]:
+fn s[type: DType]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         1, 0, 
         0, ComplexScalar[type](0, 1),
@@ -147,7 +147,7 @@ fn s[type: DType]() -> CMatrix[type]:
 fn S[type: DType](q: Qubit) raises -> Gate[type]:
     return Gate[type]('S', s[type](), List[Qubit, True](q))
 
-fn t[type: DType]() -> CMatrix[type]:
+fn t[type: DType]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         1, 0, 
         0, ComplexScalar[type](0, pi / 4).exp(),
@@ -169,7 +169,7 @@ fn CCX[type: DType](control1: Qubit, control2: Qubit, target: Qubit) raises -> G
 
 # Parameterized single-qubit gates ##############
 
-fn rx[type: DType](t: Scalar[type]) -> CMatrix[type]:
+fn rx[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
     var a = ComplexScalar[type](cos(t / 2), 0)
     var b = ComplexScalar[type](0, -sin(t / 2))
     return CMatrix[type](2, 2,
@@ -180,7 +180,7 @@ fn RX[type: DType](q: Qubit, theta: Scalar[type]) raises -> Gate[type]:
     return Gate[type]('RX', rx[type](theta), List[Qubit, True](q), List[Scalar[type], True](theta))
 
 
-fn ry[type: DType](t: Scalar[type]) -> CMatrix[type]:
+fn ry[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
     var a = ComplexScalar[type](cos(t / 2), 0)
     var b = ComplexScalar[type](sin(t / 2), 0)
     return CMatrix[type](2, 2,
@@ -190,7 +190,7 @@ fn ry[type: DType](t: Scalar[type]) -> CMatrix[type]:
 fn RY[type: DType](q: Qubit, theta: Scalar[type]) raises -> Gate[type]:
     return Gate[type]('RY', ry[type](theta), List[Qubit, True](q), List[Scalar[type], True](theta))
 
-fn rz[type: DType](t: Scalar[type]) -> CMatrix[type]:
+fn rz[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
     var c: Scalar[type] = cos(t / 2)
     var s: Scalar[type] = sin(t / 2)
     return CMatrix[type](2, 2,
@@ -200,7 +200,7 @@ fn rz[type: DType](t: Scalar[type]) -> CMatrix[type]:
 fn RZ[type: DType](q: Qubit, theta: Scalar[type]) raises -> Gate[type]:
     return Gate[type]('RZ', rz[type](theta), List[Qubit, True](q), List[Scalar[type], True](theta))
 
-fn u[type: DType](t: Scalar[type], p: Scalar[type], l: Scalar[type]) -> CMatrix[type]:
+fn u[type: DType](t: Scalar[type], p: Scalar[type], l: Scalar[type]) raises -> CMatrix[type]:
     var ct: Scalar[type] = cos(t / 2)
     var st: Scalar[type] = sin(t / 2)
     return CMatrix[type](2, 2,

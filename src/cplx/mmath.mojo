@@ -1,5 +1,5 @@
 from math import inf as INF, ceil, log
-from collections import Dict, List
+from collections import List
 from sys import simdwidthof
 from algorithm import parallelize, vectorize
 from memory import memcpy
@@ -14,10 +14,10 @@ fn kron_sequential[type: DType](a: CMatrix[type], b: CMatrix[type]) -> CMatrix[t
     var block: CMatrix[type]
     for r_a in range(a.rows):
         for c_a in range(a.cols):
-            block = a.__getitem_noraise__(r_a, c_a) * b
+            block = a.load_crd[1](r_a, c_a) * b
             for r_b in range(b.rows):
                 for c_b in range(b.cols):
-                    result.__setitem_noraise__(r_a * b.rows + r_b, c_a * b.cols + c_b, block.__getitem_noraise__(r_b, c_b))
+                    result.store_crd[1](r_a * b.rows + r_b, c_a * b.cols + c_b, block.load_crd[1](r_b, c_b))
     return result
 
 
@@ -35,7 +35,7 @@ fn _kron_par_a_rows[type: DType](a: CMatrix[type], b: CMatrix[type]) -> CMatrix[
     @parameter
     fn par_row_a(r_a: Int):
         for c_a in range(a.cols):
-            var a_elem: ComplexScalar[type] = a.__getitem_noraise__(r_a, c_a)
+            var a_elem: ComplexScalar[type] = a.load_crd[1](r_a, c_a)
             @parameter
             fn vec_col_b[simd_width: Int](c_b: Int):
                 for r_b in range(b.rows):
@@ -54,7 +54,7 @@ fn _kron_par_a_cols[type: DType](a: CMatrix[type], b: CMatrix[type]) -> CMatrix[
     @parameter
     fn par_col_a(c_a: Int):
         for r_a in range(a.rows):
-            var a_elem: ComplexScalar[type] = a.__getitem_noraise__(r_a, c_a)
+            var a_elem: ComplexScalar[type] = a.load_crd[1](r_a, c_a)
             @parameter
             fn vec_col_b[simd_width: Int](c_b: Int):
                 for r_b in range(b.rows):
@@ -80,8 +80,8 @@ fn swap_rows[type: DType](A: CMatrix[type], r1: Int, r2: Int) raises -> CMatrix[
     # memcpy(result.re + r2 * result.cols, A.re + r1 * A.cols, A.cols)
     # memcpy(result.im + r2 * result.cols, A.im + r1 * A.cols, A.cols)
     for c in range(A.cols):
-        result.__setitem_noraise__(r1, c, A.__getitem_noraise__(r2, c))
-        result.__setitem_noraise__(r2, c, A.__getitem_noraise__(r1, c))
+        result.store_crd[1](r1, c, A.load_crd[1](r2, c))
+        result.store_crd[1](r2, c, A.load_crd[1](r1, c))
     return result 
 
 
@@ -103,9 +103,9 @@ fn swap_rows_inplace[type: DType](A: CMatrix[type], r1: Int, r2: Int) raises:
     # memcpy(A.re + r2_start, row_r1.re, cols)
     # memcpy(A.im + r2_start, row_r1.im, cols)
     for c in range(A.cols):
-        var p: ComplexScalar[type] = A.__getitem_noraise__(r1, c)
-        A.__setitem_noraise__(r1, c, A.__getitem_noraise__(r2, c))
-        A.__setitem_noraise__(r2, c, p)
+        var p: ComplexScalar[type] = A.load_crd[1](r1, c)
+        A.store_crd[1](r1, c, A.load_crd[1](r2, c))
+        A.store_crd[1](r2, c, p)
 
 
 fn swap_cols[type: DType](A: CMatrix[type], c1: Int, c2: Int) raises -> CMatrix[type]:
@@ -116,8 +116,8 @@ fn swap_cols[type: DType](A: CMatrix[type], c1: Int, c2: Int) raises -> CMatrix[
         raise Error('Invalid col indices')
     var result = A
     for r in range(A.rows):
-        result.__setitem_noraise__(r, c1, A.__getitem_noraise__(r, c2))
-        result.__setitem_noraise__(r, c2, A.__getitem_noraise__(r, c1))
+        result.store_crd[1](r, c1, A.load_crd[1](r, c2))
+        result.store_crd[1](r, c2, A.load_crd[1](r, c1))
     return result 
 
 
@@ -128,9 +128,9 @@ fn swap_cols_inplace[type: DType](A: CMatrix[type], c1: Int, c2: Int) raises:
     if not 0 <= c1 < A.cols or not 0 <= c2 < A.cols:
         raise Error('Invalid col indices')
     for r in range(A.rows):
-        var p: ComplexScalar[type] = A.__getitem_noraise__(r, c1)
-        A.__setitem_noraise__(r, c1, A.__getitem_noraise__(r, c2))
-        A.__setitem_noraise__(r, c2, p)
+        var p: ComplexScalar[type] = A.load_crd[1](r, c1)
+        A.store_crd[1](r, c1, A.load_crd[1](r, c2))
+        A.store_crd[1](r, c2, p)
 
 
 fn swap_vals[type: DType](A: CMatrix[type], r1: Int, c1: Int, r2: Int, c2: Int) raises -> CMatrix[type]:
@@ -142,8 +142,8 @@ fn swap_vals[type: DType](A: CMatrix[type], r1: Int, c1: Int, r2: Int, c2: Int) 
     if not 0 <= c1 < A.cols or not 0 <= c2 < A.cols:
         raise Error('Invalid col indices')
     var result = A
-    result.__setitem_noraise__(r1, c1, A.__getitem_noraise__(r2, c2))
-    result.__setitem_noraise__(r2, c2, A.__getitem_noraise__(r1, c1))
+    result.store_crd[1](r1, c1, A.load_crd[1](r2, c2))
+    result.store_crd[1](r2, c2, A.load_crd[1](r1, c1))
     return result 
 
 
@@ -155,9 +155,9 @@ fn swap_vals_inplace[type: DType](inout A: CMatrix[type], r1: Int, c1: Int, r2: 
         raise Error('Invalid row indices')
     if not 0 <= c1 < A.cols or not 0 <= c2 < A.cols:
         raise Error('Invalid col indices')
-    var p1: ComplexScalar[type] = A.__getitem_noraise__(r1, c1)
-    A.__setitem_noraise__(r1, c1, A.__getitem_noraise__(r2, c2))
-    A.__setitem_noraise__(r2, c2, p1)
+    var p1: ComplexScalar[type] = A.load_crd[1](r1, c1)
+    A.store_crd[1](r1, c1, A.load_crd[1](r2, c2))
+    A.store_crd[1](r2, c2, p1)
 
 
 fn augmented_ref[type: DType, tol: Scalar[type] = 1e-15](A: CMatrix[type], B: CMatrix[type]) raises -> CMatrix[type]:
@@ -168,26 +168,26 @@ fn augmented_ref[type: DType, tol: Scalar[type] = 1e-15](A: CMatrix[type], B: CM
 
     while h < A.rows and k < A.cols:
         # Find the k-th pivot:
-        var i_max: Scalar[type] = Aaug.__getitem_noraise__(h, k).norm()
+        var i_max: Scalar[type] = Aaug.load_crd[1](h, k).norm()
         var i_argmax: Int = h
         for i in range(h + 1, A.rows):
-            var i_norm: Scalar[type] = Aaug.__getitem_noraise__(i, k).norm()
+            var i_norm: Scalar[type] = Aaug.load_crd[1](i, k).norm()
             if i_norm > i_max:
                 i_max = i_norm
                 i_argmax = i
-        if Aaug.__getitem_noraise__(i_argmax, k).norm() < tol:
+        if Aaug.load_crd[1](i_argmax, k).norm() < tol:
             # No pivot in this column, pass to next column
             k += 1
         else:
             swap_rows_inplace(Aaug, h, i_argmax)
             # Do for all rows below pivot:
             for i in range(h + 1, A.rows):
-                var f: ComplexScalar[type] = Aaug.__getitem_noraise__(i, k) / Aaug.__getitem_noraise__(h, k)
+                var f: ComplexScalar[type] = Aaug.load_crd[1](i, k) / Aaug.load_crd[1](h, k)
                 # Fill with zeros the lower part of pivot column:
-                Aaug.__setitem_noraise__(i, k, ComplexScalar[type](0))
+                Aaug.store_crd[1](i, k, ComplexScalar[type](0))
                 # Do for all remaining elements in current row:
                 for j in range(k + 1, A.cols + B.cols):
-                    Aaug.__setitem_noraise__(i, j, Aaug.__getitem_noraise__(i, j) - Aaug.__getitem_noraise__(h, j) * f)
+                    Aaug.store_crd[1](i, j, Aaug.load_crd[1](i, j) - Aaug.load_crd[1](h, j) * f)
             # Increase pivot row and column 
             h += 1; k += 1
     return Aaug
@@ -202,7 +202,7 @@ fn solve[type: DType, tol: Scalar[type] = 1e-15](A: CMatrix[type], B: CMatrix[ty
     var aug_ref: CMatrix[type] = augmented_ref[tol=tol](A, B)
 
     for i in range(A.rows):
-        if aug_ref.__getitem_noraise__(i, i).norm() < tol:
+        if aug_ref.load_crd[1](i, i).norm() < tol:
             raise Error('Matrix is singular or nearly singular')
 
     # Back substitution
@@ -211,8 +211,8 @@ fn solve[type: DType, tol: Scalar[type] = 1e-15](A: CMatrix[type], B: CMatrix[ty
         for i in range(A.rows - 1, -1, -1):
             var dot = ComplexScalar[type](0)
             for j in range(i + 1, A.cols):
-                dot += aug_ref.__getitem_noraise__(i, j) * X.__getitem_noraise__(j, c)
-            X.__setitem_noraise__(i, c, (aug_ref.__getitem_noraise__(i, c + A.cols) - dot) / aug_ref.__getitem_noraise__(i, i))
+                dot += aug_ref.load_crd[1](i, j) * X.load_crd[1](j, c)
+            X.store_crd[1](i, c, (aug_ref.load_crd[1](i, c + A.cols) - dot) / aug_ref.load_crd[1](i, i))
     return X
 
 
@@ -223,12 +223,12 @@ fn one_norm[type: DType](A: CMatrix[type]) -> SIMD[type, 1]:
     fn sum_abs_cols(c: Int):
         var col_sum = ComplexScalar[type]()
         for r in range(A.rows):
-            col_sum += abs(A.__getitem_noraise__(r, c))
-        col_sums.__setitem_noraise__(c, col_sum)
+            col_sum += abs(A.load_crd[1](r, c))
+        col_sums.store_idx[1](c, col_sum)
     parallelize[sum_abs_cols](A.cols, A.cols)
-    var max: SIMD[type, 1] = col_sums.__getitem_noraise__(0).re
+    var max: SIMD[type, 1] = col_sums.load_idx[1](0).re
     for c in range(1, A.cols):
-        if (cs := col_sums.__getitem_noraise__(c).re) > max:
+        if (cs := col_sums.load_idx[1](c).re) > max:
             max = cs
     return max
 
@@ -259,18 +259,18 @@ fn matrix_power[type: DType](A: CMatrix[type], n: Int) raises -> CMatrix[type]:
 
 fn mmax[type: DType](A: CMatrix[type]) -> ComplexScalar[type]:
     '''Returns the maximum value (by modulus) of the matrix.'''
-    var mx: ComplexScalar[type] = A.__getitem_noraise__(0)
+    var mx: ComplexScalar[type] = A.load_idx[1](0)
     for idx in range(A.size):
-        if (m := A.__getitem_noraise__(idx)) > mx:  # ComplexSIMD's are compared by norm
+        if (m := A.load_idx[1](idx)) > mx:  # ComplexSIMD's are compared by norm
             mx = m
     return mx
 
 
 fn mmin[type: DType](A: CMatrix[type]) -> ComplexScalar[type]:
     '''Returns the minimum value (by modulus) of the matrix.'''
-    var mx: ComplexScalar[type] = A.__getitem_noraise__(0)
+    var mx: ComplexScalar[type] = A.load_idx[1](0)
     for idx in range(A.size):
-        if (m := A.__getitem_noraise__(idx)) < mx:  # ComplexSIMD's are compared by norm
+        if (m := A.load_idx[1](idx)) < mx:  # ComplexSIMD's are compared by norm
             mx = m
     return mx
 
@@ -283,9 +283,9 @@ fn hstack[type: DType](A: CMatrix[type], B: CMatrix[type]) raises -> CMatrix[typ
     for r in range(A.rows):
         # TODO: Change to memcpy
         for c in range(A.cols):
-            result.__setitem_noraise__(r, c, A.__getitem_noraise__(r, c))
+            result.store_crd[1](r, c, A.load_crd[1](r, c))
         for c in range(B.cols):
-            result.__setitem_noraise__(r, c + A.cols, B.__getitem_noraise__(r, c))
+            result.store_crd[1](r, c + A.cols, B.load_crd[1](r, c))
     return result
 
 
@@ -297,9 +297,9 @@ fn vstack[type: DType](A: CMatrix[type], B: CMatrix[type]) raises -> CMatrix[typ
     for c in range(A.cols):
         # TODO: Change to memcpy
         for r in range(A.rows):
-            result.__setitem_noraise__(r, c, A.__getitem_noraise__(r, c))
+            result.store_crd[1](r, c, A.load_crd[1](r, c))
         for r in range(B.rows):
-            result.__setitem_noraise__(r + A.rows, c, B.__getitem_noraise__(r, c))
+            result.store_crd[1](r + A.rows, c, B.load_crd[1](r, c))
     return result
 
 
