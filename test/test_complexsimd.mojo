@@ -1,0 +1,167 @@
+from testing import assert_true, assert_false
+import math
+
+from ._testing import _assert_almost_equal
+from src import ComplexSIMD, ComplexScalar
+
+alias type = DType.float64
+
+def run_complexsimd_tests():
+    print('Running ComplexSIMD tests')
+    test_init()
+    test_static_construction()
+    test_arithmetic()
+    test_other()
+    test_compare()
+    test_item_access()
+    print('All tests passed')
+
+def test_init():
+    c = ComplexScalar[type]()
+    _assert_almost_equal(c.re, 0, 'init')
+    _assert_almost_equal(c.im, 0, 'init')
+    c = ComplexScalar[type](Scalar[type](8.4))
+    _assert_almost_equal(c.re, 8.4, 'init')
+    _assert_almost_equal(c.im, 0, 'init')
+    c = ComplexScalar[type](Scalar[type](8.4), Scalar[type](-3))
+    _assert_almost_equal(c.re, 8.4, 'init')
+    _assert_almost_equal(c.im, -3, 'init')
+    c = ComplexScalar[type]((Scalar[type](8.4), Scalar[type](-3)))
+    _assert_almost_equal(c.re, 8.4, 'init')
+    _assert_almost_equal(c.im, -3, 'init')
+    c = ComplexScalar[type]((8.4, -3.0))
+    _assert_almost_equal(c.re, 8.4, 'init')
+    _assert_almost_equal(c.im, -3, 'init')
+
+def test_static_construction():
+    c = ComplexScalar[type].from_polar(1, 3 * math.pi / 2)
+    _assert_almost_equal(c.re, 0, 'from_polar')
+    _assert_almost_equal(c.im, -1, 'from_polar')
+    c = ComplexScalar[type].from_exp(1, 3 * math.pi / 2)
+    _assert_almost_equal(c.re, 0, 'from_exp')
+    _assert_almost_equal(c.im, -1, 'from_exp')
+    c = ComplexScalar[type].zero()
+    _assert_almost_equal(c.re, 0, 'zero')
+    _assert_almost_equal(c.im, 0, 'zero')
+    c = ComplexScalar[type].one()
+    _assert_almost_equal(c.re, 1, 'one')
+    _assert_almost_equal(c.im, 0, 'one')
+    c = ComplexScalar[type].i()
+    _assert_almost_equal(c.re, 0, 'i')
+    _assert_almost_equal(c.im, 1, 'i')
+
+def test_arithmetic():
+    c1 = ComplexScalar[type](1.8, -3)
+    c2 = ComplexScalar[type](-2.7, 0.2)
+    _assert_almost_equal(-c1.re, -1.8, 'neg')
+    _assert_almost_equal(-c1.im, 3, 'neg')
+    s = c1 + c2
+    _assert_almost_equal(s.re, 1.8 - 2.7, 'add')
+    _assert_almost_equal(s.im, -3 + 0.2, 'add')
+    s = c1 - c2
+    _assert_almost_equal(s.re, 1.8 + 2.7, 'sub')
+    _assert_almost_equal(s.im, -3 - 0.2, 'sub')
+    s = c1 * c2
+    _assert_almost_equal(s.re, 1.8 * -2.7 - -3 * 0.2, 'mul')
+    _assert_almost_equal(s.im, 1.8 * 0.2 + -2.7 * -3, 'mul')
+    s = c1 / c2
+    _assert_almost_equal(s.re, (1.8 * -2.7 + -3 * 0.2) / (2.7**2 + 0.2**2), 'truediv')
+    _assert_almost_equal(s.im, (-3 * -2.7 - 1.8 * 0.2) / (2.7**2 + 0.2**2), 'truediv')
+    s = c1 / c2
+    _assert_almost_equal(s.re, (1.8 * -2.7 + -3 * 0.2) / (2.7**2 + 0.2**2), 'truediv')
+    _assert_almost_equal(s.im, (-3 * -2.7 - 1.8 * 0.2) / (2.7**2 + 0.2**2), 'truediv')
+    s = c1 ** 4
+    _assert_almost_equal(s.re, (c1 * c1 * c1 * c1).re, 'pow')
+    _assert_almost_equal(s.im, (c1 * c1 * c1 * c1).im, 'pow')
+    s = c1 ** c2
+    _assert_almost_equal(s.re, -0.04153388366103172, 'pow', atol=1e-8)
+    _assert_almost_equal(s.im, 0.004549592267721891, 'pow', atol=1e-8)
+
+def test_other():
+    c1 = ComplexScalar[type](1.8, -3)
+    s = c1.reciprocal()
+    _assert_almost_equal(s.re, 1.8 / (1.8**2 + 3**2), 'reciprocal')
+    _assert_almost_equal(s.im, 3 / (1.8**2 + 3**2), 'reciprocal')
+    n = c1.squared_norm()
+    _assert_almost_equal(n, 1.8**2 + 3**2, 'squared_norm')
+    n = c1.norm()
+    _assert_almost_equal(n, math.sqrt(c1.squared_norm()), 'norm')
+    s = c1.exp()
+    _assert_almost_equal(s.re, -5.989105224609375, 'exp', atol=1e-6)
+    _assert_almost_equal(s.im, -0.853726267814636, 'exp', atol=1e-6)
+    s = c1.sqrt()
+    _assert_almost_equal(s.re, 1.6276626586914062, 'sqrt', atol=1e-6)
+    _assert_almost_equal(s.im, -0.921566903591156, 'sqrt', atol=1e-6)
+    s = c1.log()
+    _assert_almost_equal(s.re, 1.252354621887207, 'log', atol=1e-6)
+    _assert_almost_equal(s.im, -1.03037679195404, 'log', atol=1e-6)
+    s = c1.sin()
+    _assert_almost_equal(s.re, 9.80436897277832, 'sin', atol=1e-6)
+    _assert_almost_equal(s.im, 2.27608180046081, 'sin', atol=1e-6)
+    s = c1.cos()
+    _assert_almost_equal(s.re, -2.28739333152771, 'cos', atol=1e-6)
+    _assert_almost_equal(s.im, 9.755884170532227, 'cos', atol=1e-6)
+    s = c1.sinh()
+    _assert_almost_equal(s.re, -2.9127302169799805, 'sinh', atol=1e-6)
+    _assert_almost_equal(s.im, -0.4385266304016113, 'sinh', atol=1e-6)
+    s = c1.cosh()
+    _assert_almost_equal(s.re, -3.0763750076293945, 'cosh', atol=1e-6)
+    _assert_almost_equal(s.im, -0.4151996374130249, 'cosh', atol=1e-6)
+    s = c1.asin()
+    _assert_almost_equal(s.re, 0.5229187607765198, 'asin', atol=1e-6)
+    _assert_almost_equal(s.im, -1.955434441566467, 'asin', atol=1e-6)
+    s = c1.acos()
+    _assert_almost_equal(s.re, 1.047877550125122, 'acos', atol=1e-6)
+    _assert_almost_equal(s.im, 1.955434560775756, 'acos', atol=1e-6)
+    s = c1.atan()
+    _assert_almost_equal(s.re, 1.4158157110214233, 'atan', atol=1e-6)
+    _assert_almost_equal(s.im, -0.244342565536499, 'atan', atol=1e-6)
+    s = c1.asinh()
+    _assert_almost_equal(s.re, 1.9362674951553345, 'asinh', atol=1e-6)
+    _assert_almost_equal(s.im, -1.011839628219604, 'asinh', atol=1e-6)
+    s = c1.acosh()
+    _assert_almost_equal(s.re, 1.955434560775756, 'acosh', atol=1e-6)
+    _assert_almost_equal(s.im, -1.04787755012512, 'acosh', atol=1e-6)
+    s = c1.atanh()
+    _assert_almost_equal(s.re, 0.13945896923542023, 'atanh', atol=1e-6)
+    _assert_almost_equal(s.im, -1.3256329298019419, 'atanh', atol=1e-6)
+    r, t = c1.to_polar()
+    _assert_almost_equal(ComplexScalar[type].from_polar(r, t).re, c1.re, 'to_polar')
+    _assert_almost_equal(ComplexScalar[type].from_polar(r, t).im, c1.im, 'to_polar')
+    s = c1.normalize()
+    _assert_almost_equal(s.norm(), 1, 'normalize')
+
+def test_compare():
+    c1 = ComplexScalar[type](1.8, -3)
+    c2 = ComplexScalar[type](-2.7, 0.2)
+    assert_true(c1 == c1, 'eq')
+    assert_false(c1 == c2, 'eq')
+    assert_true(c1 != c2, 'ne')
+    assert_false(c1 != c1, 'ne')
+    assert_true(c1 > c2, 'gt')
+    assert_false(c2 > c1, 'gt')
+    assert_false(c1 > c1, 'gt')
+    assert_true(c1 >= c2, 'ge')
+    assert_false(c2 >= c1, 'ge')
+    assert_true(c1 >= c1, 'ge')
+    assert_true(c2 < c1, 'lt')
+    assert_false(c1 < c2, 'lt')
+    assert_false(c1 < c1, 'lt')
+    assert_true(c2 <= c1, 'le')
+    assert_false(c1 <= c2, 'le')
+    assert_true(c1 <= c1, 'le')
+
+def test_item_access():
+    c = ComplexSIMD[type, 4](2.1, -4.4)
+    for i in range(4):
+        _assert_almost_equal(c[i].re, 2.1, 'getitem')
+        _assert_almost_equal(c[i].im, -4.4, 'getitem')
+    for i in range(4):
+        c[i] = ComplexScalar[type](i, -i)
+    for i in range(4):
+        _assert_almost_equal(c[i].re, i, 'setitem')
+        _assert_almost_equal(c[i].im, -i, 'setitem')
+    s = c.slice[2, offset=1]()
+    for i in range(2):
+        _assert_almost_equal(s[i].re, i + 1, 'slice')
+        _assert_almost_equal(s[i].im, -i - 1, 'slice')
