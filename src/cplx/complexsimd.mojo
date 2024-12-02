@@ -167,7 +167,7 @@ struct ComplexSIMD[type: DType, size: Int](
     
     # Format ##########################
 
-    @always_inline
+    @no_inline
     @staticmethod
     fn _fmt_float(owned st: String, max_digits: Int) -> String:
         if 'nan' in st or 'inf' in st: 
@@ -213,7 +213,7 @@ struct ComplexSIMD[type: DType, size: Int](
             re_str += '+'
         return re_str + im_str 
 
-    @no_inline
+    @always_inline
     fn __str__(self) -> String:
         '''Formats the Complex as a String.'''
         return self.__str__(max_digits=8)
@@ -232,12 +232,12 @@ struct ComplexSIMD[type: DType, size: Int](
         out += ']'
         return out
     
-    @no_inline
+    @always_inline
     fn __repr__(self) -> String:
         '''Formats the Complex as a String.'''
         return self.__str__(max_digits=0)
     
-    @no_inline
+    @always_inline
     fn format_to(self, inout writer: Formatter) -> None:
         '''Formats the Complex as a String.'''
         writer.write(self.__str__())
@@ -382,7 +382,6 @@ struct ComplexSIMD[type: DType, size: Int](
         '''Round the real and imaginary parts of the complex number.'''
         return Self(round(self.re, ndigits), round(self.im, ndigits))
 
-    @always_inline
     fn __pow__(self, other: Self) -> Self:
         '''Defines the `**` power operator. Returns self ** other.'''
         if other.im == 0:
@@ -408,7 +407,6 @@ struct ComplexSIMD[type: DType, size: Int](
         '''Defines the `**` power operator. Returns self ** other.'''
         return self ** Self(other)
     
-    @always_inline
     @staticmethod
     fn _fast_int_pow(owned a: Self, b: Int) -> Self:
         if b == 1:
@@ -1006,22 +1004,22 @@ struct ComplexSIMD[type: DType, size: Int](
         return math.isnan(self.re) or math.isnan(self.im)
     
     @always_inline
-    fn is_unit(self, tol: Scalar[Self.type] = Self._tol_default) -> SIMD[DType.bool, Self.size]:
+    fn is_unit[tol: Scalar[Self.type] = Self._tol_default](self) -> SIMD[DType.bool, Self.size]:
         '''Returns True if abs(self - 1) < tol.'''
         return abs(self - Self(1)) < tol
     
     @always_inline
-    fn is_close(self, other: Self, tol: Scalar[Self.type] = Self._tol_default) -> SIMD[DType.bool, Self.size]:
+    fn is_close[tol: Scalar[Self.type] = Self._tol_default](self, other: Self) -> SIMD[DType.bool, Self.size]:
         '''Returns True if abs(self - other) < tol.'''
         return abs(self - other) < tol
     
     @always_inline
-    fn is_close[__: None = None](self, other: Self.Lane, tol: Scalar[Self.type] = Self._tol_default) -> Bool:
+    fn is_close[tol: Scalar[Self.type] = Self._tol_default, __: None = None](self, other: Self.Lane) -> Bool:
         '''Returns True if abs(self - other) < tol.'''
         return all(abs(self - other) < tol)
     
     @always_inline
-    fn is_close(self, other: Self.Coef, tol: Scalar[Self.type] = Self._tol_default) -> SIMD[DType.bool, Self.size]:
+    fn is_close[tol: Scalar[Self.type] = Self._tol_default, __: None = None](self, other: Self.Coef) -> SIMD[DType.bool, Self.size]:
         '''Returns True if abs(self - other) < tol.'''
         return abs(self - other) < tol
     

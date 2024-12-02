@@ -36,7 +36,6 @@ struct CMatrix[type: DType](
             memset_zero(self.re.address, self.size)
             memset_zero(self.im.address, self.size)
 
-    @always_inline
     fn __init__(inout self, rows: Int, cols: Int, *data: ComplexScalar[Self.type]) raises:
         if len(data) > rows * cols:
             raise Error('More elements provided than fit in the cmatrix')
@@ -49,7 +48,6 @@ struct CMatrix[type: DType](
         for idx in range(len(data)):
             self.store_idx[1](idx, data[idx])
 
-    @always_inline
     fn __init__(inout self, data: List[ComplexScalar[Self.type], True]):
         self.rows = 1
         self.cols = len(data)
@@ -60,7 +58,6 @@ struct CMatrix[type: DType](
         for idx in range(len(data)):
             self.store_idx[1](idx, data[idx])
 
-    @always_inline
     fn __init__(inout self, data: List[List[ComplexScalar[Self.type], True]]) raises:
         self.rows = len(data)
         self.cols = len(data[0])
@@ -75,7 +72,6 @@ struct CMatrix[type: DType](
             for c in range(self.cols):
                 self.store_crd[1](r, c, data[r][c])
 
-    @always_inline
     fn __copyinit__(inout self, existing: Self):
         self.rows = existing.rows
         self.cols = existing.cols
@@ -183,7 +179,7 @@ struct CMatrix[type: DType](
 
     # String conversion ###############
 
-    @no_inline
+    @always_inline
     fn __str__(self) -> String:
         return self._get_str_rep(max_lines=6)
     
@@ -233,11 +229,11 @@ struct CMatrix[type: DType](
         out += ' DType: ' + str(Self.type) + ' | Size: (' + str(self.rows) + ', ' + str(self.cols) + ')'
         return out
 
-    @no_inline
+    @always_inline
     fn __repr__(self) -> String:
         return self._get_str_rep(max_lines=0)
     
-    @no_inline
+    @always_inline
     fn format_to(self, inout writer: Formatter):
         writer.write(str(self))
     
@@ -252,11 +248,6 @@ struct CMatrix[type: DType](
             raise Error('Invalid column index: ' + str(col))
         return self.load_idx[1](row * self.cols + col)
     
-    # @always_inline
-    # fn __getitem_noraise__(self, row: Int, col: Int) -> ComplexScalar[Self.type]:
-    #     '''Get the value at the specified row and col without checking index validity.'''
-    #     return self.load_idx[1](row * self.cols + col)
-    
     @always_inline
     fn __getitem__(self, idx: Int) raises -> ComplexScalar[Self.type]:
         '''Get the value at the specified index. 
@@ -267,14 +258,6 @@ struct CMatrix[type: DType](
             raise Error('Invalid index: '+ str(idx))
         return self.load_idx[1](idx)
     
-    # @always_inline
-    # fn __getitem_noraise__(self, idx: Int) -> ComplexScalar[Self.type]:
-    #     '''Get the value at the specified index without checking index validity.
-    #     Matrices are indexed from index 0 at postion (0, 0) to index size - 1 
-    #     at position (rows - 1, cols - 1) in row-major order.
-    #     '''
-    #     return self.load_idx[1](idx)
-    
     @always_inline
     fn __setitem__(self, row: Int, col: Int, val: ComplexScalar[Self.type]) raises:
         '''Set the value at the specified row and col.'''
@@ -283,11 +266,6 @@ struct CMatrix[type: DType](
         if col < 0 or col >= self.cols:
             raise Error('Invalid column index: ' + str(col))
         self.store_crd[1](row, col, val)
-    
-    # @always_inline
-    # fn __setitem_noraise__(self, row: Int, col: Int, val: ComplexScalar[Self.type]):
-    #     '''Set the value at the specified row and col without checking index validity.'''
-    #     self.store_crd[1](row, col, val)
     
     @always_inline
     fn __setitem__(self, idx: Int, val: ComplexScalar[Self.type]) raises:
@@ -298,14 +276,6 @@ struct CMatrix[type: DType](
         if idx < 0 or idx >= self.size:
             raise Error('Invalid index: '+ str(idx))
         self.store_idx[1](idx, val)
-    
-    # @always_inline
-    # fn __setitem_noraise__(self, idx: Int, val: ComplexScalar[Self.type]):
-    #     '''Set the value at the specified index without checking index validity. 
-    #     Matrices are indexed from index 0 at postion (0, 0) to index size - 1 
-    #     at position (rows - 1, cols - 1) in row-major order.
-    #     '''
-    #     self.store_idx[1](idx, val)
 
     @always_inline
     fn load_idx[width: Int](self, idx: Int) -> ComplexSIMD[Self.type, width]:
@@ -347,7 +317,6 @@ struct CMatrix[type: DType](
 
     # Helper functions ################
 
-    @always_inline
     fn _parallelize_vectorize_op[
         func: fn[width: Int](r: Int, c: Int) capturing -> ComplexSIMD[Self.type, width]
     ](self) -> Self:
@@ -372,7 +341,6 @@ struct CMatrix[type: DType](
             parallelize[op_col](self.cols, self.cols)
             return result
     
-    @always_inline
     fn _parallelize_vectorize_op_inplace[
         func: fn[width: Int](r: Int, c: Int) capturing -> ComplexSIMD[Self.type, width]
     ](self):  
@@ -538,16 +506,6 @@ struct CMatrix[type: DType](
     fn __truediv__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Defines the `/` divide operator. Returns self / other.'''
         return self.__mul__(other.reciprocal())
-        # if self._is_col_dominant:
-        #     @parameter
-        #     fn div_r[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
-        #         return self.load_crd[simd_width](r, c) / other
-        #     return self._parallelize_vectorize_op[div_r]()
-        # else:
-        #     @parameter
-        #     fn div_c[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
-        #         return self.strided_load_idx[simd_width](r * self.cols + c, self.cols) / other
-        #     return self._parallelize_vectorize_op[div_c]()
     
     @always_inline
     fn __floordiv__(self, other: Self) raises -> Self:
@@ -625,7 +583,6 @@ struct CMatrix[type: DType](
         '''Defines the divmod operator. Returns (self // other, self % other).'''
         return (self // other, self % other)
     
-    @always_inline
     fn __matmul__(self, other: Self) raises -> Self:
         '''Defines the `@` matrix multiply operator. Returns self @ other.'''
         self._assert_matmul_compatible(other)
@@ -770,16 +727,6 @@ struct CMatrix[type: DType](
     fn __itruediv__(self, other: ComplexScalar[Self.type]):
         '''Defines the `/=` in-place divide operator.'''
         self.__imul__(other.reciprocal())
-        # if self._is_col_dominant:
-        #     @parameter
-        #     fn div_r[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
-        #         return self.load_crd[simd_width](r, c) / other
-        #     self._parallelize_vectorize_op_inplace[div_r]()
-        # else:
-        #     @parameter
-        #     fn div_c[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
-        #         return self.strided_load_idx[simd_width](r * self.cols + c, self.cols) / other
-        #     self._parallelize_vectorize_op_inplace[div_c]()
 
     @always_inline
     fn __ifloordiv__(self, other: Self) raises:
@@ -848,7 +795,6 @@ struct CMatrix[type: DType](
             self._parallelize_vectorize_op_inplace[mod_c]()
     
     # TODO: Make it better
-    @always_inline
     fn __imatmul__(inout self, other: Self) raises:
         '''Defines the `@=` in-place matrix multiply operator. Only valid for square matrices.'''
         self._assert_matmul_compatible(other)
@@ -976,7 +922,6 @@ struct CMatrix[type: DType](
             self.im.store[width=simd_width](idx, -self.im.load[width=simd_width](idx))
         vectorize[conj_simd, simdwidthof[Self.type]()](self.size)
     
-    @always_inline
     fn dag(self) -> Self:
         '''Return the conjugate-transpose of the matrix.'''
         var result = Self(rows=self.cols, cols=self.rows, fill_zeros=False)
@@ -1002,7 +947,6 @@ struct CMatrix[type: DType](
     # # TODO: Make it better
     # # This can most definitely be done better with something like
     # # buffer.Buffer or algorithm.reduce
-    @always_inline
     fn sum(self) -> ComplexScalar[Self.type]:
         if self._is_col_dominant:
             var row_sums = Self(rows=self.rows, cols=1, fill_zeros=False)
@@ -1031,7 +975,6 @@ struct CMatrix[type: DType](
                 total += col_sums.load_idx[1](c)
             return total 
     
-    @always_inline
     fn echelon[tol: Scalar[Self.type] = Self._tol_default](self) -> Self:
         '''Return the row echelon form of self.'''
         var A = self
@@ -1060,7 +1003,6 @@ struct CMatrix[type: DType](
                 h += 1; k += 1
         return A
 
-    @always_inline
     fn det[tol: Scalar[type] = Self._tol_default](self) raises -> ComplexScalar[Self.type]:
         '''Return the determinant of self.'''
         if self.rows != self.cols:
@@ -1075,7 +1017,6 @@ struct CMatrix[type: DType](
     fn determinant[tol: Scalar[type] = Self._tol_default](self) raises -> ComplexScalar[Self.type]:
         return self.det[tol]()
     
-    @always_inline
     fn inv[tol: SIMD[Self.type, 1] = Self._tol_default](self) raises -> Self:
         '''Return the inverse of a square matrix.'''
         alias zero = ComplexScalar[Self.type](0)
@@ -1229,7 +1170,6 @@ struct CMatrix[type: DType](
         '''Fill a matrix with ones in-place.'''
         self.fill(ComplexScalar[Self.type](0, 1))
 
-    @always_inline
     fn fill_diag(self, val: ComplexScalar[Self.type], offset: Int = 0):
         '''Fill the diagonal at index offset of a matrix with val in-place.'''
         var stride = self.cols + 1
@@ -1249,18 +1189,21 @@ struct CMatrix[type: DType](
 
     @always_inline
     fn fill_range(self):
+        '''Fill the matrix with values from range(self.size) in row-major order.'''
         memset_zero(self.im.address, self.size)
         for idx in range(self.size):
             self.re.store[width=1](idx, SIMD[type, 1](idx))
     
     @always_inline
     fn fill_range(self, start: Int):
+        '''Fill the matrix with values from range(start, start + self.size) in row-major order.'''
         memset_zero(self.im.address, self.size)
         for idx in range(self.size):
             self.re.store[width=1](idx, SIMD[type, 1](idx + start))
     
     @always_inline
     fn fill_range(self, start: Int, step: Int):
+        '''Fill the matrix with values from range(start, start + self.size * step, step) in row-major order.'''
         memset_zero(self.im.address, self.size)
         for idx in range(self.size):
             self.re.store[width=1](idx, SIMD[type, 1](step * idx + start))
@@ -1294,7 +1237,6 @@ struct CMatrix[type: DType](
     # Comparison operators ############
 
     # TODO: Make it better
-    @always_inline
     fn matrix_equals(self, other: Self) -> Bool:
         '''Returns True if self is the same shape as other and all elements 
         are equal, False otherwise.
@@ -1308,7 +1250,6 @@ struct CMatrix[type: DType](
         return True
     
     # TODO: Make it better
-    @always_inline
     fn is_close[tol: Scalar[Self.type] = Self._tol_default](self, other: Self) -> Bool:
         '''Returns True if self is the same shape as other and corresponding elements 
         are within tol of each other, False otherwise.
@@ -1317,25 +1258,22 @@ struct CMatrix[type: DType](
             return False
         for r in range(self.rows):
             for c in range(self.cols):
-                if not self.load_crd[1](r, c).is_close(other.load_crd[1](r, c), tol):
+                if not self.load_crd[1](r, c).is_close[tol](other.load_crd[1](r, c)):
                     return False
         return True
 
     # TODO: Make it better
-    @always_inline
     fn is_close[tol: Scalar[Self.type] = Self._tol_default](self, other: ComplexScalar[Self.type]) -> Bool:
         '''Returns True all elements of self are within tol of other, False otherwise.'''
         for r in range(self.rows):
             for c in range(self.cols):
-                if not self.load_crd[1](r, c).is_close(other, tol):
+                if not self.load_crd[1](r, c).is_close[tol](other):
                     return False
         return True
 
-    @always_inline
     fn __eq__(self, other: Self) raises -> Self:
         '''Returns a CMatrix with ones in the positions in which self 
-        is equal to other and zeros elsewhere. The returned matrix has
-        the order of self.
+        is equal to other and zeros elsewhere.
         '''
         self._assert_same_shape(other)
         alias one = SIMD[Self.type, 1](1)
@@ -1355,8 +1293,7 @@ struct CMatrix[type: DType](
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
-    
-    @always_inline
+
     fn __eq__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Returns a CMatrix with ones in the positions in which self 
         is equal to other and zeros elsewhere.
@@ -1378,12 +1315,10 @@ struct CMatrix[type: DType](
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
-    
-    @always_inline
+
     fn __ne__(self, other: Self) raises -> Self:
         '''Returns a CMatrix with ones in the positions in which self 
-        is not equal to other and zeros elsewhere. The returned matrix has
-        the order of self.
+        is not equal to other and zeros elsewhere.
         '''
         self._assert_same_shape(other)
         alias one = SIMD[Self.type, 1](1)
@@ -1403,8 +1338,7 @@ struct CMatrix[type: DType](
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
-    
-    @always_inline
+
     fn __ne__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Returns a CMatrix with ones in the positions in which self 
         is not equal to other and zeros elsewhere.
@@ -1426,12 +1360,10 @@ struct CMatrix[type: DType](
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
-    
-    @always_inline
+
     fn __gt__(self, other: Self) raises -> Self:
         '''Returns a CMatrix with ones in the positions in which self 
-        is greater than other and zeros elsewhere. The returned matrix has
-        the order of self.
+        is greater than other and zeros elsewhere.
         '''
         self._assert_same_shape(other)
         alias one = SIMD[Self.type, 1](1)
@@ -1451,8 +1383,7 @@ struct CMatrix[type: DType](
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
-    
-    @always_inline
+
     fn __gt__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Returns a CMatrix with ones in the positions in which self 
         is greater than other and zeros elsewhere.
@@ -1474,12 +1405,10 @@ struct CMatrix[type: DType](
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
-    
-    @always_inline
+
     fn __ge__(self, other: Self) raises -> Self:
         '''Returns a CMatrix with ones in the positions in which self 
-        is greater than or equal to other and zeros elsewhere. The returned matrix has
-        the order of self.
+        is greater than or equal to other and zeros elsewhere.
         '''
         self._assert_same_shape(other)
         alias one = SIMD[Self.type, 1](1)
@@ -1499,8 +1428,7 @@ struct CMatrix[type: DType](
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
-    
-    @always_inline
+
     fn __ge__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Returns a CMatrix with ones in the positions in which self 
         is greater than or equal to other and zeros elsewhere.
@@ -1522,12 +1450,10 @@ struct CMatrix[type: DType](
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
-    
-    @always_inline
+
     fn __lt__(self, other: Self) raises -> Self:
         '''Returns a CMatrix with ones in the positions in which self 
-        is less than other and zeros elsewhere. The returned matrix has
-        the order of self.
+        is less than other and zeros elsewhere.
         '''
         self._assert_same_shape(other)
         alias one = SIMD[Self.type, 1](1)
@@ -1547,8 +1473,7 @@ struct CMatrix[type: DType](
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
-    
-    @always_inline
+
     fn __lt__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Returns a CMatrix with ones in the positions in which self 
         is less than other and zeros elsewhere.
@@ -1570,12 +1495,10 @@ struct CMatrix[type: DType](
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
-    
-    @always_inline
+
     fn __le__(self, other: Self) raises -> Self:
         '''Returns a CMatrix with ones in the positions in which self 
-        is less than or equal to other and zeros elsewhere. The returned matrix has
-        the order of self.
+        is less than or equal to other and zeros elsewhere.
         '''
         self._assert_same_shape(other)
         alias one = SIMD[Self.type, 1](1)
@@ -1595,8 +1518,7 @@ struct CMatrix[type: DType](
                         result.re.store[width=1](r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
-    
-    @always_inline
+
     fn __le__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Returns a CMatrix with ones in the positions in which self 
         is less than or equal to other and zeros elsewhere.
