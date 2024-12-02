@@ -15,6 +15,7 @@ def run_csrcmatrix_tests():
     test_arithmetic()
     test_matmul()
     test_shape()
+    test_compare()
     print('All tests passed')
 
 def test_init():
@@ -569,8 +570,177 @@ def test_shape():
     _assert_matrix_equal(m1.transpose().to_dense(), m1.to_dense().transpose(), 'transpose')
     _assert_matrix_equal(CSRCMatrix[type](6, 6).transpose().to_dense(), CSRCMatrix[type](6, 6).to_dense(), 'transpose')
     _assert_matrix_equal(CSRCMatrix[type](0, 0).transpose().to_dense(), CSRCMatrix[type](0, 0).to_dense(), 'transpose')
+    _assert_matrix_equal(m1.reshape(4, 6).to_dense(), m1.to_dense().reshape(4, 6), 'reshape')
+    _assert_matrix_equal(m1.reshape(6, 4).to_dense(), m1.to_dense().reshape(6, 4), 'reshape')
+    _assert_matrix_equal(m1.reshape(3, 8).to_dense(), m1.to_dense().reshape(3, 8), 'reshape')
+    _assert_matrix_equal(m1.reshape(8, 3).to_dense(), m1.to_dense().reshape(8, 3), 'reshape')
+    _assert_matrix_equal(m1.reshape(2, 12).to_dense(), m1.to_dense().reshape(2, 12), 'reshape')
+    _assert_matrix_equal(m1.reshape(12, 2).to_dense(), m1.to_dense().reshape(12, 2), 'reshape')
+    _assert_matrix_equal(m1.reshape(1, 24).to_dense(), m1.to_dense().reshape(1, 24), 'reshape')
+    _assert_matrix_equal(m1.reshape(24, 1).to_dense(), m1.to_dense().reshape(24, 1), 'reshape')
+    _assert_matrix_equal(CSRCMatrix[type](200, 54).reshape(20, 540).to_dense(), CMatrix[type](20, 540), 'reshape')
+    with assert_raises(contains='reshape'):
+        _ = m1.reshape(4, 7)
 
+def test_compare():
+    m1 = CSRCMatrix[type](4, 6,
+        (1, 1, ComplexScalar[type](30, 5)),
+        (0, 0, ComplexScalar[type](10)),
+        (0, 1, ComplexScalar[type](20)),
+        (1, 3, ComplexScalar[type](40)),
+        (3, 5, ComplexScalar[type](80)),
+        (2, 2, ComplexScalar[type](50)),
+        (1, 3, ComplexScalar[type](60)),
+        (2, 4, ComplexScalar[type](70)),
+    )
+    assert_true(m1.matrix_equals(m1), 'matrix_equals')
+    assert_true(m1.is_close(m1), 'is_close')
+    m2 = CSRCMatrix[type](5, 6,
+        (1, 1, ComplexScalar[type](30, 5)),
+        (0, 0, ComplexScalar[type](10)),
+        (0, 1, ComplexScalar[type](20)),
+        (1, 3, ComplexScalar[type](40)),
+        (3, 5, ComplexScalar[type](80)),
+        (2, 2, ComplexScalar[type](50)),
+        (1, 3, ComplexScalar[type](60)),
+        (2, 4, ComplexScalar[type](70)),
+    )
+    assert_false(m1.matrix_equals(m2), 'matrix_equals')
+    assert_false(m1.is_close(m2), 'is_close')
+    m2 = CSRCMatrix[type](4, 5,
+        (1, 1, ComplexScalar[type](30, 5)),
+        (0, 0, ComplexScalar[type](10)),
+        (0, 1, ComplexScalar[type](20)),
+        (1, 3, ComplexScalar[type](40)),
+        (3, 3, ComplexScalar[type](80)),
+        (2, 2, ComplexScalar[type](50)),
+        (1, 3, ComplexScalar[type](60)),
+        (2, 4, ComplexScalar[type](70)),
+    )
+    assert_false(m1.matrix_equals(m2), 'matrix_equals')
+    assert_false(m1.is_close(m2), 'is_close')
+    m2 = CSRCMatrix[type](4, 6,
+        (1, 1, ComplexScalar[type](30, 5.00000001)),
+        (0, 0, ComplexScalar[type](10)),
+        (0, 1, ComplexScalar[type](20)),
+        (1, 3, ComplexScalar[type](40)),
+        (3, 5, ComplexScalar[type](80)),
+        (2, 2, ComplexScalar[type](50)),
+        (1, 3, ComplexScalar[type](60)),
+        (2, 4, ComplexScalar[type](70)),
+    )
+    assert_false(m1.matrix_equals(m2), 'matrix_equals')
+    assert_false(m1.is_close[1e-15](m2), 'is_close')
+    assert_true(m1.is_close[1e-5](m2), 'is_close')
+    m2 = CSRCMatrix[type](4, 6,
+        (1, 1, ComplexScalar[type](30, 5)),
+        (0, 0, ComplexScalar[type](10)),
+        (0, 1, ComplexScalar[type](20)),
+        (1, 3, ComplexScalar[type](40)),
+        (3, 5, ComplexScalar[type](80)),
+        (2, 2, ComplexScalar[type](50)),
+        (1, 3, ComplexScalar[type](60)),
+        (2, 4, ComplexScalar[type](70)),
+        (3, 4, ComplexScalar[type](0.0000001))
+    )
+    assert_false(m1.matrix_equals(m2), 'matrix_equals')
+    assert_false(m1.is_close[1e-15](m2), 'is_close')
+    assert_true(m1.is_close[1e-5](m2), 'is_close')
+    assert_false(m1.is_close(0))
+    assert_true((CSRCMatrix[type](1000, 32456).is_close(0)), 'is_close')
+    m2 = CSRCMatrix[type](12, 56)
+    for r in range(12):
+        for c in range(56):
+            m2[r, c] = (6, 9)
+    assert_true(m2.is_close((6, 9)))
+    assert_true(m2.is_close[1.5]((7, 8)))
+    assert_false(m2.is_close[1.4]((7, 8)))
+    assert_equal((m1 == m1).sum().re, m1.rows * m1.cols, 'eq')
+    assert_equal((m1 == m1).sum().im, 0, 'eq')
+    m2 = CSRCMatrix[type](4, 6,
+        (1, 1, ComplexScalar[type](30, 5)),
+        (0, 0, ComplexScalar[type](10)),
+        (0, 1, ComplexScalar[type](20)),
+        (1, 3, ComplexScalar[type](40)),
+        (3, 4, ComplexScalar[type](80)),
+        (2, 2, ComplexScalar[type](50)),
+        (1, 3, ComplexScalar[type](60)),
+        (2, 4, ComplexScalar[type](70)),
+    )
+    for r in range(4):
+        for c in range(6):
+            if (r == 3 and c == 4) or (r == 3 and c == 5):
+                assert_equal((m1 == m2)[r, c].re, 0, 'eq')
+                assert_equal((m1 == m2)[r, c].im, 0, 'eq')
+            else:
+                assert_equal((m1 == m2)[r, c].re, 1, 'eq')
+                assert_equal((m1 == m2)[r, c].im, 0, 'eq')
+    with assert_raises():
+        _ = m1 == CSRCMatrix[type](4, 5)
+    cm1 = CMatrix[type](8, 7)
+    cm1.fill_range()
+    cm2 = CMatrix[type](8, 7)
+    cm2.fill_range(0, -1)
+    for r in range(8):
+        for c in range(7):
+            if r == 0 and c == 0:
+                assert_equal((CSRCMatrix(cm1) == CSRCMatrix(cm2))[r, c].re, 1, 'eq')
+                assert_equal((CSRCMatrix(cm1) == CSRCMatrix(cm2))[r, c].im, 0, 'eq')
+            else:
+                assert_equal((CSRCMatrix(cm1) == CSRCMatrix(cm2))[r, c].re, 0, 'eq')
+                assert_equal((CSRCMatrix(cm1) == CSRCMatrix(cm2))[r, c].im, 0, 'eq')
+    _assert_matrix_equal((m1 == m1).to_dense(), m1.to_dense().ones_like(), 'eq')
+    _assert_matrix_equal((m1 == CSRCMatrix[type](m1.rows, m1.cols)).to_dense(), m1.to_dense() == m1.to_dense().zeros_like(), 'eq')
+    _assert_matrix_equal((m1 == (30, 5)).to_dense(), m1.to_dense() == (30, 5), 'eq')
+    _assert_matrix_equal((m1 == 0).to_dense(), m1.to_dense() == 0, 'eq')
+    _assert_matrix_equal((CSRCMatrix[type](5, 6) == 0).to_dense(), CMatrix[type](5, 6).ones_like(), 'eq')
+    _assert_matrix_equal((CSRCMatrix[type](5, 6) == 2).to_dense(), CMatrix[type](5, 6).zeros_like(), 'eq')
+    m2 = CSRCMatrix[type](4, 6,
+        (1, 1, ComplexScalar[type](35, 5)),
+        (0, 0, ComplexScalar[type](10)),
+        (0, 1, ComplexScalar[type](22)),
+        (1, 3, ComplexScalar[type](40)),
+        (1, 4, ComplexScalar[type](80)),
+        (3, 2, ComplexScalar[type](60)),
+        (1, 3, ComplexScalar[type](60)),
+        (2, 2, ComplexScalar[type](70)),
+    )
+    _assert_matrix_equal((m1 != m1).to_dense(), m1.to_dense().zeros_like(), 'ne')
+    _assert_matrix_equal((m1 != CSRCMatrix[type](m1.rows, m1.cols)).to_dense(), m1.to_dense() != m1.to_dense().zeros_like(), 'ne')
+    _assert_matrix_equal((m1 != m2).to_dense(), m1.to_dense() != m2.to_dense(), 'ne')
+    _assert_matrix_equal((m1 != (30, 5)).to_dense(), m1.to_dense() != (30, 5), 'ne')
+    _assert_matrix_equal((m1 != 0).to_dense(), m1.to_dense() != 0, 'ne')
+    _assert_matrix_equal((CSRCMatrix[type](5, 6) != 0).to_dense(), CMatrix[type](5, 6).zeros_like(), 'ne')
+    _assert_matrix_equal((CSRCMatrix[type](5, 6) != 2).to_dense(), CMatrix[type](5, 6).ones_like(), 'ne')
 
+    _assert_matrix_equal((m1 > m1).to_dense(), m1.to_dense().zeros_like(), 'gt')
+    _assert_matrix_equal((m1 > CSRCMatrix[type](m1.rows, m1.cols)).to_dense(), m1.to_dense() > m1.to_dense().zeros_like(), 'gt')
+    _assert_matrix_equal((m1 > m2).to_dense(), m1.to_dense() > m2.to_dense(), 'gt')
+    _assert_matrix_equal((m1 > (30, 5)).to_dense(), m1.to_dense() > (30, 5), 'gt')
+    _assert_matrix_equal((m1 > 0).to_dense(), m1.to_dense() > 0, 'gt')
+    _assert_matrix_equal((CSRCMatrix[type](5, 6) > 0).to_dense(), CMatrix[type](5, 6).zeros_like(), 'gt')
+    _assert_matrix_equal((CSRCMatrix[type](5, 6) > 2).to_dense(), CMatrix[type](5, 6).zeros_like(), 'gt')
 
+    _assert_matrix_equal((m1 >= m1).to_dense(), m1.to_dense().ones_like(), 'ge')
+    _assert_matrix_equal((m1 >= CSRCMatrix[type](m1.rows, m1.cols)).to_dense(), m1.to_dense() >= m1.to_dense().zeros_like(), 'ge')
+    _assert_matrix_equal((m1 >= m2).to_dense(), m1.to_dense() >= m2.to_dense(), 'ge')
+    _assert_matrix_equal((m1 >= (30, 5)).to_dense(), m1.to_dense() >= (30, 5), 'ge')
+    _assert_matrix_equal((m1 >= 0).to_dense(), m1.to_dense() >= 0, 'ge')
+    _assert_matrix_equal((CSRCMatrix[type](5, 6) >= 0).to_dense(), CMatrix[type](5, 6).ones_like(), 'ge')
+    _assert_matrix_equal((CSRCMatrix[type](5, 6) >= 2).to_dense(), CMatrix[type](5, 6).zeros_like(), 'ge')
 
+    _assert_matrix_equal((m1 < m1).to_dense(), m1.to_dense().zeros_like(), 'lt')
+    _assert_matrix_equal((m1 < CSRCMatrix[type](m1.rows, m1.cols)).to_dense(), m1.to_dense() < m1.to_dense().zeros_like(), 'lt')
+    _assert_matrix_equal((m1 < m2).to_dense(), m1.to_dense() < m2.to_dense(), 'lt')
+    _assert_matrix_equal((m1 < (30, 5)).to_dense(), m1.to_dense() < (30, 5), 'lt')
+    _assert_matrix_equal((m1 < 0).to_dense(), m1.to_dense() < 0, 'lt')
+    _assert_matrix_equal((CSRCMatrix[type](5, 6) < 0).to_dense(), CMatrix[type](5, 6).zeros_like(), 'lt')
+    _assert_matrix_equal((CSRCMatrix[type](5, 6) < 2).to_dense(), CMatrix[type](5, 6).ones_like(), 'lt')
 
+    _assert_matrix_equal((m1 <= m1).to_dense(), m1.to_dense().ones_like(), 'le')
+    _assert_matrix_equal((m1 <= CSRCMatrix[type](m1.rows, m1.cols)).to_dense(), m1.to_dense() <= m1.to_dense().zeros_like(), 'le')
+    _assert_matrix_equal((m1 <= m2).to_dense(), m1.to_dense() <= m2.to_dense(), 'le')
+    _assert_matrix_equal((m1 <= (30, 5)).to_dense(), m1.to_dense() <= (30, 5), 'le')
+    _assert_matrix_equal((m1 <= 0).to_dense(), m1.to_dense() <= 0, 'le')
+    _assert_matrix_equal((CSRCMatrix[type](5, 6) <= 0).to_dense(), CMatrix[type](5, 6).ones_like(), 'le')
+    _assert_matrix_equal((CSRCMatrix[type](5, 6) <= 2).to_dense(), CMatrix[type](5, 6).ones_like(), 'le')

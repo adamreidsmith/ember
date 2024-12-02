@@ -1,5 +1,7 @@
-from algorithm import parallelize
-from math import nan
+# TODO: (Maybe) switch lists to buffers
+
+from algorithm import parallelize, map
+from math import nan, sqrt
 from collections import Dict
 
 from .complexsimd import ComplexScalar
@@ -15,7 +17,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
 #     Representable,
 #     StringableCollectionElement,
 # ):
-    # alias _tol_default: Scalar[Self.type] = 1e-12
+    alias _tol_default: Scalar[Self.type] = 1e-12
     # Values less than or equal to Self.zero_threshold are considered zero
 
     var rows: Int
@@ -70,7 +72,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                 indices.append(i)
         sort[cmp_fn=cmp_fn](indices)
 
-        # Sort v and col_idx using indices and count the number of elements in each row
+        # Sort v and col_idx using indices
         var row_indices = List[Int, True]()
         for i in indices:
             self.v.append(data[i[]][2])
@@ -79,7 +81,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
 
         # Remove any duplicates
         var i: Int = 1
-        while i < len(self.v):
+        while i < self.v.size:
             if self.col_idx[i] == self.col_idx[i - 1] and row_indices[i] == row_indices[i - 1]:
                 self.v[i - 1] += self.v.pop(i)
                 _ = self.col_idx.pop(i)
@@ -101,18 +103,18 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         cols: Int, 
         row_idx: List[Int, True], 
         col_idx: List[Int, True], 
-        val: List[ComplexScalar[Self.type], True]
+        vals: List[ComplexScalar[Self.type], True]
     ) raises:
         '''Initialize a CSRCMatrix from lists of row indices, column indices, and values.'''
-        if len(val) != len(col_idx) or len(val) != len(row_idx):
+        if vals.size != col_idx.size or vals.size != row_idx.size:
             raise Error(
                 'Row indices, column indices, and values must be the same length; found lengths ' 
-                + str(len(row_idx)) + ', '
-                + str(len(col_idx)) + ', '
-                + str(len(val))
+                + str(row_idx.size) + ', '
+                + str(col_idx.size) + ', '
+                + str(vals.size)
             )
 
-        for i in range(len(col_idx)):
+        for i in range(col_idx.size):
             if col_idx[i] >= cols or col_idx[i] < 0:
                 raise Error('Column index ' + str(col_idx[i]) + ' is out of range for a matrix with ' + str(cols) + ' columns')
             if row_idx[i] >= rows or row_idx[i] < 0:
@@ -134,21 +136,21 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
 
         # TODO: Gotta be a better way to do this
         indices = List[Int, True]()
-        for i in range(len(val)):
-            if val[i] > Self.zero_threshold:
+        for i in range(vals.size):
+            if vals[i] > Self.zero_threshold:
                 indices.append(i)
         sort[cmp_fn=cmp_fn](indices)
 
         # Sort v and col_idx using indices
         var row_indices = List[Int, True]()
         for i in indices:
-            self.v.append(val[i[]])
+            self.v.append(vals[i[]])
             self.col_idx.append(col_idx[i[]])
             row_indices.append(row_idx[i[]])
 
         # Remove any duplicates
         var i: Int = 1
-        while i < len(self.v):
+        while i < self.v.size:
             if self.col_idx[i] == self.col_idx[i - 1] and row_indices[i] == row_indices[i - 1]:
                 self.v[i - 1] += self.v.pop(i)
                 _ = self.col_idx.pop(i)
@@ -186,7 +188,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         # Process each row based on sorted row keys
         var row_ptr: Int = 0
         for row in range(self.rows):
-            if row_ptr < len(row_keys) and row == row_keys[row_ptr]:
+            if row_ptr < row_keys.size and row == row_keys[row_ptr]:
                 row_ptr += 1
 
                 # Extract and sort column indices
@@ -203,7 +205,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                         self.v.append(val)
 
             # Update row index pointer
-            self.row_idx.append(len(self.col_idx))
+            self.row_idx.append(self.col_idx.size)
     
     fn __init__(inout self, dense: CMatrix[Self.type]):
         '''Initialize a CSRCMatrix from a dense CMatrix.'''
@@ -220,7 +222,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                 if val > Self.zero_threshold:
                     self.v.append(val)
                     self.col_idx.append(col)
-            self.row_idx.append(len(self.v))
+            self.row_idx.append(self.v.size)
 
     
     # # These should be the same as what's created by @value
@@ -292,35 +294,35 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                 + ')'
             )
     
-    @always_inline
-    fn _assert_matmul_compatible(self, other: Self) raises:
-        if self.cols != other.rows:
-            raise Error(
-                'Cannot multiply matrices with shapes (' 
-                + str(self.rows) 
-                + ', ' 
-                + str(self.cols) 
-                + ') and (' 
-                + str(other.rows) 
-                + ', ' 
-                + str(other.cols) 
-                + ')'
-            )
+    # @always_inline
+    # fn _assert_matmul_compatible(self, other: Self) raises:
+    #     if self.cols != other.rows:
+    #         raise Error(
+    #             'Cannot multiply matrices with shapes (' 
+    #             + str(self.rows) 
+    #             + ', ' 
+    #             + str(self.cols) 
+    #             + ') and (' 
+    #             + str(other.rows) 
+    #             + ', ' 
+    #             + str(other.cols) 
+    #             + ')'
+    #         )
         
-    @always_inline
-    fn _assert_matmul_compatible(self, other: CMatrix[Self.type]) raises:
-        if self.cols != other.rows:
-            raise Error(
-                'Cannot multiply matrices with shapes (' 
-                + str(self.rows) 
-                + ', ' 
-                + str(self.cols) 
-                + ') and (' 
-                + str(other.rows) 
-                + ', ' 
-                + str(other.cols) 
-                + ')'
-            )
+    # @always_inline
+    # fn _assert_matmul_compatible(self, other: CMatrix[Self.type]) raises:
+    #     if self.cols != other.rows:
+    #         raise Error(
+    #             'Cannot multiply matrices with shapes (' 
+    #             + str(self.rows) 
+    #             + ', ' 
+    #             + str(self.cols) 
+    #             + ') and (' 
+    #             + str(other.rows) 
+    #             + ', ' 
+    #             + str(other.cols) 
+    #             + ')'
+    #         )
     
     @always_inline
     fn _assert_reshape_compatible(self, new_rows: Int, new_cols: Int) raises:
@@ -352,7 +354,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
     @always_inline
     fn n_nonzero(self) -> Int:
         '''Returns the number of non-zero elements in the matrix.'''
-        var nonzero: Int = len(self.v)
+        var nonzero: Int = self.v.size
         for v in self.v:
             if v[] <= Self.zero_threshold:
                 nonzero -= 1
@@ -361,7 +363,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
     @always_inline
     fn n_stored(self) -> Int:
         '''Returns the number of elements stored in the matrix.'''
-        return len(self.v)
+        return self.v.size
 
     @always_inline
     fn is_square(self) -> Bool:
@@ -407,7 +409,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         var left = self.row_idx[row]
         var right = self.row_idx[row + 1] - 1
 
-        # Search for the column in the row
+        # Search for the column in the row with a binary search
         while left <= right:
             var mid: Int = (left + right) // 2
             var curr_col: Int = self.col_idx[mid]
@@ -441,7 +443,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                     _ = self.v.pop(i)
                     _ = self.col_idx.pop(i)
                     # Update row_idx accordingly
-                    for j in range(row + 1, len(self.row_idx)):
+                    for j in range(row + 1, self.row_idx.size):
                         self.row_idx[j] -= 1
                 else:
                     self.v[i] = val
@@ -458,7 +460,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         self.col_idx.insert(start, col)
 
         # Update row_idx for subsequent rows
-        for i in range(row + 1, len(self.row_idx)):
+        for i in range(row + 1, self.row_idx.size):
             self.row_idx[i] += 1
 
     fn _setitem_noraise(inout self, row: Int, col: Int, val: ComplexScalar[Self.type]):
@@ -468,7 +470,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         var left: Int = start
         var right: Int = end - 1
 
-        # Search for the column in the row
+        # Search for the column in the row with a binary search
         while left <= right:
             var mid: Int = (left + right) // 2
             var curr_col: Int = self.col_idx[mid]
@@ -478,7 +480,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                     _ = self.v.pop(mid)
                     _ = self.col_idx.pop(mid)
                     # Update row_idx accordingly
-                    for j in range(row + 1, len(self.row_idx)):
+                    for j in range(row + 1, self.row_idx.size):
                         self.row_idx[j] -= 1
                 else:
                     self.v[mid] = val
@@ -497,10 +499,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         self.col_idx.insert(left, col)
 
         # Update row_idx for subsequent rows
-        for i in range(row + 1, len(self.row_idx)):
+        for i in range(row + 1, self.row_idx.size):
             self.row_idx[i] += 1
 
-    @always_inline
     fn __contains__(self, coords: Tuple[Int, Int]) raises -> Bool:
         '''Returns True if self[r, c] is stored, False otherwise.'''
         row, col = coords
@@ -551,7 +552,6 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                 row_ptr += 1
         return result
     
-    @always_inline
     fn extract_column_as_sparse(self, col: Int) raises -> Self:
         '''Extract the specified column from the sparse matrix and return it as a sparse matrix.'''
         if col < 0 or col >= self.cols:
@@ -565,10 +565,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                     result.v.append(self.v[i])
                     result.col_idx.append(0)
                     break
-            result.row_idx[row + 1] = len(result.v)
+            result.row_idx[row + 1] = result.v.size
         return result
     
-    @always_inline
     fn extract_column_as_matrix(self, col: Int) raises -> CMatrix[Self.type]:
         '''Extract the specified column from the sparse matrix and return it as a CMatrix.'''
         if col < 0 or col >= self.cols:
@@ -600,7 +599,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
     fn __neg__(self) -> Self:
         '''Defines the `-` unary negation operator. Returns -self.'''
         var result: Self = self
-        for i in range(len(self.v)):
+        for i in range(self.v.size):
             result.v[i] = -self.v[i]
         return result
     
@@ -673,10 +672,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
             if result_row_vals:
                 result.v.extend(result_row_vals)
                 result.col_idx.extend(result_row_cols)
-            result.row_idx.append(len(result.v))
+            result.row_idx.append(result.v.size)
         return result
     
-    @always_inline
     fn __add__(self, other: CMatrix[Self.type]) raises -> CMatrix[Self.type]:
         '''Defines the `+` add operator. Returns a CMatrix of self + other.'''
         self._assert_same_shape(other)
@@ -689,7 +687,6 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         return result
 
     # # Parallelization may add more overhead than value
-    # @always_inline
     # fn __add__(self, other: CMatrix[Self.type]) raises -> CMatrix[Self.type]:
     #     '''Defines the `+` add operator. Returns a CMatrix of self + other.'''
     #     self._assert_same_shape(other)
@@ -807,10 +804,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
             if result_row_vals:
                 result.v.extend(result_row_vals)
                 result.col_idx.extend(result_row_cols)
-            result.row_idx.append(len(result.v))
+            result.row_idx.append(result.v.size)
         return result
 
-    @always_inline
     fn __sub__(self, other: CMatrix[Self.type]) raises -> CMatrix[Self.type]:
         '''Defines the `-` subtraction operator. Returns a CMatrix of self - other.'''
         self._assert_same_shape(other)
@@ -823,7 +819,6 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         return result
 
     # # Parallelization may add more overhead than value
-    # @always_inline
     # fn __sub__(self, other: CMatrix[Self.type]) raises -> CMatrix[Self.type]:
     #     '''Defines the `-` subtraction operator. Returns a CMatrix of self - other.'''
     #     self._assert_same_shape(other)
@@ -922,10 +917,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
             if result_row_vals:
                 result.v.extend(result_row_vals)
                 result.col_idx.extend(result_row_cols)
-            result.row_idx.append(len(result.v))
+            result.row_idx.append(result.v.size)
         return result
     
-    @always_inline
     fn __mul__(self, other: CMatrix[Self.type]) raises -> CMatrix[Self.type]:
         '''Defines the `*` multiplication operator. Returns a CMatrix of self * other.'''
         self._assert_same_shape(other)
@@ -938,7 +932,6 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         return result
 
     # # Parallelization may add more overhead than value
-    # @always_inline
     # fn __mul__(self, other: CMatrix[Self.type]) raises -> CMatrix[Self.type]:
     #     '''Defines the `*` multiplication operator. Returns a CMatrix of self * other.'''
     #     self._assert_same_shape(other)
@@ -952,7 +945,6 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
     #     parallelize[mul_row](self.rows, self.rows)
     #     return result
 
-    @always_inline
     fn __mul__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Defines the `*` product operator. Returns self * other.'''
         # This method fails if other is NaN. However, following the
@@ -966,7 +958,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                 if val > Self.zero_threshold:
                     result.v.append(val)
                     result.col_idx.append(self.col_idx[i])
-            result.row_idx[row + 1] = len(result.v)
+            result.row_idx[row + 1] = result.v.size
         return result
     
     @always_inline
@@ -1004,7 +996,6 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         '''Defines the `/` divide operator. Returns self / other.'''
         return self * other.reciprocal()
 
-    @always_inline
     fn __truediv__(self, other: CMatrix[Self.type]) raises -> CMatrix[Self.type]:
         '''Defines the `/` divide operator. Returns a CMatrix of self / other.'''
         self._assert_same_shape(other)
@@ -1021,7 +1012,6 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         return result
 
     # # Parallelization may add more overhead than value
-    # @always_inline
     # fn __truediv__(self, other: CMatrix[Self.type]) raises -> CMatrix[Self.type]:
     #     '''Defines the `/` divide operator. Returns a CMatrix of self / other.'''
     #     self._assert_same_shape(other)
@@ -1069,7 +1059,6 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         '''Raises. Dividing a sparse matrix by a sparse matrix is not supported.'''
         raise Error('Dividing a sparse matrix by a sparse matrix is not supported')
 
-    @always_inline
     fn __floordiv__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Defines the `//` floor divide operator. Returns self // other.'''
         var result = Self(self.rows, self.cols)
@@ -1079,10 +1068,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                 if val > Self.zero_threshold:
                     result.v.append(val)
                     result.col_idx.append(self.col_idx[i])
-            result.row_idx[row + 1] = len(result.v)
+            result.row_idx[row + 1] = result.v.size
         return result
 
-    @always_inline
     fn __floordiv__(self, other: CMatrix[Self.type]) raises -> CMatrix[Self.type]:
         '''Defines the `//` floor divide operator. Returns a CMatrix of self // other.'''
         self._assert_same_shape(other)
@@ -1099,7 +1087,6 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         return result
 
     # # Parallelization may add more overhead than value
-    # @always_inline
     # fn __floordiv__(self, other: CMatrix[Self.type]) raises -> CMatrix[Self.type]:
     #     '''Defines the `//` floor divide operator. Returns a CMatrix of self // other.'''
     #     self._assert_same_shape(other)
@@ -1147,7 +1134,6 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         '''Raises. The modulo operation between sparse matrices is not supported.'''
         raise Error('The modulo operation between sparse matrices is not supported')
     
-    @always_inline
     fn __mod__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Defines the `%` mod operator. Returns self % other.'''
         var result = Self(self.rows, self.cols)
@@ -1157,10 +1143,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                 if val > Self.zero_threshold:
                     result.v.append(val)
                     result.col_idx.append(self.col_idx[i])
-            result.row_idx[row + 1] = len(result.v)
+            result.row_idx[row + 1] = result.v.size
         return result
 
-    @always_inline
     fn __mod__(self, other: CMatrix[Self.type]) raises -> CMatrix[Self.type]:
         '''Defines the `%` floor divide operator. Returns a CMatrix of self % other.'''
         self._assert_same_shape(other)
@@ -1177,7 +1162,6 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         return result
 
     # # Parallelization may add more overhead than value
-    # @always_inline
     # fn __mod__(self, other: CMatrix[Self.type]) raises -> CMatrix[Self.type]:
     #     '''Defines the `%` floor divide operator. Returns a CMatrix of self % other.'''
     #     self._assert_same_shape(other)
@@ -1308,7 +1292,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                     result_v.append(workspace[k[]])
             
             # Update row index
-            result_row_idx.append(len(result_col_idx))
+            result_row_idx.append(result_col_idx.size)
         return Self(
             rows=self.rows,
             cols=other.cols,
@@ -1357,7 +1341,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
             var self_end: Int = self.row_idx[r + 1]
             # If row r is empty, don't bother looping over other
             if self_start == self_end:
-                result.row_idx[r + 1] = len(result.v)
+                result.row_idx[r + 1] = result.v.size
                 continue
             # Loop over rows of other
             for c in range(other.rows):
@@ -1387,7 +1371,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                 if dot > Self.zero_threshold:
                     result.v.append(dot)
                     result.col_idx.append(c)
-            result.row_idx[r + 1] = len(result.v)
+            result.row_idx[r + 1] = result.v.size
         return result
 
     @always_inline
@@ -1414,134 +1398,81 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         # return self._sparse_matmul_gustavson(other)
         return self._sparse_matmul_hash(other)
 
-    # # Other math ######################
+    # Other math ######################
 
-    # @always_inline
-    # fn __abs__(self) -> Self:
-    #     '''Returns a matrix with the absolute value applied to each element.'''
-    #     if self._is_col_dominant:
-    #         @parameter
-    #         fn abs_r[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
-    #             return self.load_crd[simd_width](r, c).__abs__()
-    #         return self._parallelize_vectorize_op[abs_r]()
-    #     else:
-    #         @parameter
-    #         fn abs_c[simd_width: Int](r: Int, c: Int) -> ComplexSIMD[Self.type, simd_width]:
-    #             return self.strided_load_idx[simd_width](r * self.cols + c, self.cols).__abs__()
-    #         return self._parallelize_vectorize_op[abs_c]()
-    
-    # @always_inline
-    # fn conj(self) -> Self:
-    #     '''Return the conjugate of the matrix.'''
-    #     var result: Self = self
-    #     @parameter
-    #     fn conj_simd[simd_width: Int](idx: Int):
-    #         result.im.store[width=simd_width](idx, -self.im.load[width=simd_width](idx))
-    #     vectorize[conj_simd, simdwidthof[Self.type]()](self.size)
-    #     return result
-    
-    # @always_inline
-    # fn iconj(self):
-    #     '''Conjugate the matrix in-place.'''
-    #     @parameter
-    #     fn conj_simd[simd_width: Int](idx: Int):
-    #         self.im.store[width=simd_width](idx, -self.im.load[width=simd_width](idx))
-    #     vectorize[conj_simd, simdwidthof[Self.type]()](self.size)
-    
-    # @always_inline
-    # fn dag(self) -> Self:
-    #     '''Return the conjugate-transpose of the matrix.'''
-    #     var result = Self(rows=self.cols, cols=self.rows, fill_zeros=False)
-    #     @parameter
-    #     fn transpose_row(r: Int):
-    #         @parameter
-    #         fn transpose_col[simd_width: Int](c: Int):
-    #             result.strided_store_idx[simd_width](
-    #                 c * result.cols + r, 
-    #                 result.cols, 
-    #                 self.load_crd[simd_width](r, c).conj(),
-    #             )
-    #         vectorize[transpose_col, simdwidthof[Self.type]()](self.cols)
-    #     parallelize[transpose_row](self.rows, self.rows)
-    #     return result
-    
-    # # alias dagger = Self.dag
-    # @always_inline
-    # fn dagger(self) -> Self:
-    #     '''Return the conjugate-transpose of the matrix. Alias of dag.'''
-    #     return self.dag()
+    @always_inline
+    fn __abs__(self) -> Self:
+        '''Applies the absolute value to each element.'''
+        var result: Self = self
+        for i in range(self.v.size):
+            result.v[i] = abs(result.v[i])
+        return result
 
-    # # # TODO: Make it better
-    # # # This can most definitely be done better with something like
-    # # # buffer.Buffer or algorithm.reduce
-    # @always_inline
-    # fn sum(self) -> ComplexScalar[Self.type]:
-    #     if self._is_col_dominant:
-    #         var row_sums = Self(rows=self.rows, cols=1, fill_zeros=False)
-    #         @parameter
-    #         fn sum_rows(r: Int):
-    #             var row_sum = ComplexScalar[Self.type]()
-    #             for c in range(self.cols):
-    #                 row_sum += self[r, c]
-    #             row_sums[r] = row_sum
-    #         parallelize[sum_rows](self.rows, self.rows)
-    #         var total = ComplexScalar[Self.type]()
-    #         for r in range(self.rows):
-    #             total += row_sums[r]
-    #         return total 
-    #     else:
-    #         var col_sums = Self(rows=1, cols=self.cols, fill_zeros=False)
-    #         @parameter
-    #         fn sum_cols(c: Int):
-    #             var col_sum = ComplexScalar[Self.type]()
-    #             for r in range(self.rows):
-    #                 col_sum += self[r, c]
-    #             col_sums[c] = col_sum
-    #         parallelize[sum_cols](self.cols, self.cols)
-    #         var total = ComplexScalar[Self.type]()
-    #         for c in range(self.cols):
-    #             total += col_sums[c]
-    #         return total 
+    
+    @always_inline
+    fn conj(self) -> Self:
+        '''Applies the conjugate to each element.'''
+        var result: Self = self
+        for i in range(self.v.size):
+            result.v[i] = result.v[i].conj()
+        return result
+    
+    @always_inline
+    fn iconj(inout self):
+        '''Conjugate the matrix in-place.'''
+        for i in range(self.v.size):
+            self.v[i] = self.v[i].conj()
+    
+    fn dag(self) -> Self:
+        '''Return the conjugate-transpose of the matrix.'''
+        # Count non-zero elements in each column and cumsum
+        var t_row_idx = List[Int, True](0) * (self.cols + 1)
+        for c in self.col_idx:
+            t_row_idx[c[] + 1] += 1
+        for i in range(1, self.cols + 1):
+            t_row_idx[i] += t_row_idx[i - 1]
+        
+        # Prepare data and indices for transposed matrix
+        # This data will be overwritten
+        var t_v: List[ComplexScalar[Self.type], True] = self.v
+        var t_col_idx: List[Int, True] = self.col_idx
+        var col_current_pos = List[Int, True](0) * self.cols
+        
+        for row in range(self.rows):
+            for i in range(self.row_idx[row], self.row_idx[row + 1]):
+                var col: Int = self.col_idx[i]
+                var insert_pos: Int = t_row_idx[col] + col_current_pos[col]
+                t_v[insert_pos] = self.v[i].conj()
+                t_col_idx[insert_pos] = row
+                col_current_pos[col] += 1
+        return Self(
+            rows=self.cols,
+            cols=self.rows,
+            size=self.size,
+            v=t_v,
+            col_idx=t_col_idx,
+            row_idx=t_row_idx
+        )
+    
+    @always_inline
+    fn dagger(self) -> Self:
+        '''Return the conjugate-transpose of the matrix. Alias of dag.'''
+        return self.dag()
+
+    @always_inline
+    fn sum(self) -> ComplexScalar[Self.type]:
+        var s = ComplexScalar[Self.type]()
+        for v in self.v:
+            s += v[]
+        return s
     
     # @always_inline
     # fn echelon[tol: Scalar[Self.type] = Self._tol_default](self) -> Self:
     #     '''Return the row echelon form of self.'''
-    #     var A = self
-    #     var h: Int = 0
-    #     var k: Int = 0
-    #     while h < self.rows and k < self.cols:
-    #         var i_max: Scalar[Self.type] = A[h, k].norm()
-    #         var i_argmax: Int = h
-    #         for i in range(h + 1, self.rows):
-    #             var i_norm: Scalar[Self.type] = A[i, k].norm()
-    #             if i_norm > i_max:
-    #                 i_max = i_norm
-    #                 i_argmax = i
-    #         if A[i_argmax, k].norm() < tol:
-    #             k += 1
-    #         else:
-    #             for c in range(self.cols):
-    #                 var p: ComplexScalar[Self.type] = A[h, c]
-    #                 A[h, c] = A[i_argmax, c]
-    #                 A[i_argmax, c] = p
-    #             for i in range(h + 1, self.rows):
-    #                 var f: ComplexScalar[type] = A[i, k] / A[h, k]
-    #                 A[i, k] = ComplexScalar[type](0)
-    #                 for j in range(k + 1, self.cols):
-    #                     A[i, j] -= A[h, j] * f
-    #             h += 1; k += 1
-    #     return A
 
     # @always_inline
     # fn det[tol: Scalar[type] = Self._tol_default](self) raises -> ComplexScalar[Self.type]:
     #     '''Return the determinant of self.'''
-    #     if self.rows != self.cols:
-    #         raise Error('Only square matrices have determinants')
-    #     var echelon: Self = self.echelon()
-    #     var d = ComplexScalar[Self.type](1)
-    #     for i in range(self.rows):
-    #         d *= echelon[i, i]
-    #     return d
     
     # @always_inline
     # fn determinant[tol: Scalar[type] = Self._tol_default](self) raises -> ComplexScalar[Self.type]:
@@ -1550,61 +1481,17 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
     # @always_inline
     # fn inv[tol: SIMD[Self.type, 1] = Self._tol_default](self) raises -> Self:
     #     '''Return the inverse of a square matrix.'''
-    #     alias zero = ComplexScalar[Self.type](0)
-    #     alias one = ComplexScalar[Self.type](1)
-
-    #     if self.rows != self.cols:
-    #         raise Error('Only square matrices are invertible')
-        
-    #     var augmented = Self(rows=self.rows, cols=2 * self.cols, fill_zeros=True)
-    #     for r in range(self.rows):
-    #         memcpy(augmented.re + r * augmented.cols, self.re + r * self.cols, self.cols)
-    #         memcpy(augmented.im + r * augmented.cols, self.im + r * self.cols, self.cols)
-    #         augmented[r, self.cols + r] = one
-        
-    #     for i in range(self.rows):
-    #         if augmented[i, i].norm() < tol:
-    #             for j in range(i + 1, self.rows):
-    #                 if augmented[j, i].norm() >= tol:
-    #                     var i_start: Int = i * augmented.cols
-    #                     var j_start: Int = j * augmented.cols
-    #                     var row_i = Self(rows=1, cols=augmented.cols, fill_zeros=False)
-    #                     memcpy(row_i.re, augmented.re + i_start, augmented.cols)
-    #                     memcpy(row_i.im, augmented.im + i_start, augmented.cols)
-    #                     memcpy(augmented.re + i_start, augmented.re + j_start, augmented.cols)
-    #                     memcpy(augmented.im + i_start, augmented.im + j_start, augmented.cols)
-    #                     memcpy(augmented.re + j_start, row_i.re, augmented.cols)
-    #                     memcpy(augmented.im + j_start, row_i.im, augmented.cols)
-    #                     break
-    #             else:
-    #                 raise Error('Matrix is not invertible')
-
-    #         var pivot: ComplexScalar[Self.type] = augmented[i, i]
-    #         for j in range(augmented.cols):
-    #             augmented[i, j] /= pivot
-
-    #         for j in range(self.rows):
-    #             if j != i:
-    #                 var factor: ComplexScalar[Self.type] = augmented[j, i]
-    #                 for k in range(augmented.cols):
-    #                     augmented[j, k] -= factor * augmented[i, k]
-        
-    #     var result = Self(rows=self.rows, cols=self.cols, fill_zeros=False)
-    #     for i in range(self.rows):
-    #         memcpy(result.re + i * self.cols, augmented.re + i * augmented.cols + self.cols, self.cols)
-    #         memcpy(result.im + i * self.cols, augmented.im + i * augmented.cols + self.cols, self.cols)
-    #     return result
 
     # @always_inline
     # fn inverse(self) raises -> Self:
     #     '''Return the inverse of a square matrix. Alias of inv.'''
     #     return self.inv()
 
-    # @always_inline
-    # fn frobenius_norm(self) raises -> Scalar[Self.type]:
-    #     '''Return the Frobenius norm of self.'''
-    #     var norm = self.__abs__()
-    #     return sqrt((norm * norm).sum().re)
+    @always_inline
+    fn frobenius_norm(self) raises -> Scalar[Self.type]:
+        '''Return the Frobenius norm of self.'''
+        var norm = self.__abs__()
+        return sqrt((norm * norm).sum().re)
 
     # Shape operations ################
 
@@ -1624,16 +1511,12 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         var col_current_pos = List[Int, True](0) * self.cols
         
         for row in range(self.rows):
-            var row_start: Int = self.row_idx[row]
-            var row_end: Int = self.row_idx[row + 1]
-            for i in range(row_start, row_end):
+            for i in range(self.row_idx[row], self.row_idx[row + 1]):
                 var col: Int = self.col_idx[i]
-                var val: ComplexScalar[Self.type] = self.v[i]
                 var insert_pos: Int = t_row_idx[col] + col_current_pos[col]
-                t_v[insert_pos] = val
+                t_v[insert_pos] = self.v[i]
                 t_col_idx[insert_pos] = row
                 col_current_pos[col] += 1
-        
         return Self(
             rows=self.cols,
             cols=self.rows,
@@ -1643,482 +1526,549 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
             row_idx=t_row_idx
         )
 
+    fn reshape(self, new_rows: Int, new_cols: Int) raises -> Self:
+        '''Return a reshaped matrix.'''
+        self._assert_reshape_compatible(new_rows, new_cols)
+        var result_col_idx = List[Int, True]()
+        var result_row_idx = List[Int, True](0)
+        var prev_row: Int = 0
+        for r in range(self.rows):
+            for i in range(self.row_idx[r], self.row_idx[r + 1]):
+                # Compute element's index in row major format
+                var idx = r * self.cols + self.col_idx[i]
+                var new_row = idx // new_cols
+                while prev_row < new_row:
+                    result_row_idx.append(result_col_idx.size)
+                    prev_row += 1
+                result_col_idx.append(idx % new_cols)
+        while result_row_idx.size < new_rows + 1:
+            result_row_idx.append(result_col_idx.size)
+        return Self(rows=new_rows, cols=new_cols, size=self.size, v=self.v, col_idx=result_col_idx, row_idx=result_row_idx)
 
-    # @always_inline
-    # fn reshape(self, new_rows: Int, new_cols: Int) raises -> Self:
-    #     '''Return a reshaped matrix.'''
-    #     self._assert_reshape_compatible(new_rows, new_cols)
-    #     var result= Self(rows=new_rows, cols=new_cols, fill_zeros=False)
-    #     memcpy(result.re, self.re, self.size)
-    #     memcpy(result.im, self.im, self.size)
-    #     return result
-    
-    # @always_inline
-    # fn ireshape(inout self, new_rows: Int, new_cols: Int) raises:
-    #     '''Reshape self, in-place.'''
-    #     self._assert_reshape_compatible(new_rows, new_cols)
-    #     self.rows = new_rows
-    #     self.cols = new_cols
-    #     self._is_col_dominant = self.cols >= self.rows
-    
-    # @always_inline
-    # fn flatten_to_row(self) -> Self:
-    #     '''Return a flattened row matrix.'''
-    #     var result = Self(rows=1, cols=self.size, fill_zeros=False)
-    #     memcpy(result.re, self.re, self.size)
-    #     memcpy(result.im, self.im, self.size)
-    #     return result
+    # Fill operations #################
 
-    # @always_inline
-    # fn iflatten_to_row(inout self):
-    #     '''Flatten self to a row, in-place.'''
-    #     self.rows = 1
-    #     self.cols = self.size
-    #     self._is_col_dominant = True
-    
-    # @always_inline
-    # fn flatten_to_column(self) -> Self:
-    #     '''Return a flattened column matrix.'''
-    #     var result = Self(rows=self.size, cols=1, fill_zeros=False)
-    #     memcpy(result.re, self.re, self.size)
-    #     memcpy(result.im, self.im, self.size)
-    #     return result
+    @always_inline
+    fn fill_zero(inout self):
+        '''Fill the sparse matrix with zeros in-place.'''
+        self.v = List[ComplexScalar[Self.type], True]()
+        self.col_idx = List[Int, True]()
+        self.row_idx = List[Int, True](0) * (self.rows + 1)
 
-    # @always_inline
-    # fn iflatten_to_column(inout self):
-    #     '''Flatten self to a row, in-place.'''
-    #     self.rows = self.size
-    #     self.cols = 1
-    #     self._is_col_dominant = False
-    
-    # @always_inline
-    # fn transpose(self) -> Self:
-    #     '''Return the transpose of the matrix.'''
-    #     var result = Self(rows=self.cols, cols=self.rows, fill_zeros=False)
-    #     @parameter
-    #     fn transpose_row(r: Int):
-    #         for c in range(self.cols):
-    #             result[c, r] = self[r, c]
-    #     parallelize[transpose_row](self.rows, self.rows)
-    #     return result
+    @always_inline
+    fn zeros_like(self) -> Self:
+        '''Return a matrix of zeros with the same shape as self.'''
+        return Self(rows=self.rows, cols=self.cols)
 
-    # # TODO: Make an efficient in-place transpose
+    # Comparison operators ############
 
-    # # Fill operations #################
+    # TODO: Make it better
+    fn matrix_equals(self, other: Self) -> Bool:
+        '''Returns True if self is the same shape as other and all elements 
+        are equal, False otherwise.
+        '''
+        if self.rows != other.rows or self.cols != other.cols:
+            return False
+        if self.v.size != other.v.size:
+            return False
+        for i in range(self.v.size):
+            if self.v[i] != other.v[i] or self.col_idx[i] != other.col_idx[i]:
+                return False
+        for i in range(self.row_idx.size):
+            if self.row_idx[i] != other.row_idx[i]:
+                return False
+        return True
+    
+    fn is_close[tol: Scalar[Self.type] = Self._tol_default](self, other: Self) -> Bool:
+        '''Returns True if self is the same shape as other and corresponding elements 
+        are within tol of each other, False otherwise.
+        '''
+        if self.rows != other.rows or self.cols != other.cols:
+            return False
+        for row in range(self.rows):
+            var self_ptr: Int = self.row_idx[row]
+            var self_end: Int = self.row_idx[row + 1]
+            var other_ptr: Int = other.row_idx[row]
+            var other_end: Int = other.row_idx[row + 1]
 
-    # @always_inline
-    # fn fill_zero(self):
-    #     '''Fill a matrix with zeros in-place.'''
-    #     memset_zero(self.re.address, self.size)
-    #     memset_zero(self.im.address, self.size)
-    
-    # @always_inline
-    # fn fill(self, val: ComplexScalar[Self.type]):
-    #     '''Fill a matrix with val in-place.'''
-    #     @parameter
-    #     fn fill_row(r: Int):
-    #         @parameter
-    #         fn fill_col[simd_width: Int](c: Int):
-    #             self.store_crd[simd_width](r, c, ComplexSIMD[Self.type, simd_width](val.re, val.im))
-    #         vectorize[fill_col, simdwidthof[Self.type]()](self.cols)
-    #     parallelize[fill_row](self.rows, self.rows)
-    
-    # @always_inline
-    # fn fill_one(self):
-    #     '''Fill a matrix with ones in-place.'''
-    #     self.fill(ComplexScalar[Self.type](1, 0))
-    
-    # @always_inline
-    # fn fill_i(self):
-    #     '''Fill a matrix with ones in-place.'''
-    #     self.fill(ComplexScalar[Self.type](0, 1))
+            while self_ptr < self_end and other_ptr < other_end:
+                var self_col: Int = self.col_idx[self_ptr]
+                var other_col: Int = other.col_idx[other_ptr]
 
-    # @always_inline
-    # fn fill_diag(self, val: ComplexScalar[Self.type], offset: Int = 0):
-    #     '''Fill the diagonal at index offset of a matrix with val in-place.'''
-    #     var stride = self.cols + 1
-    #     var n_diag_elements: Int = (
-    #         min(self.rows, self.cols - offset) 
-    #         if offset >= 0 
-    #         else min(self.rows + offset, self.cols)
-    #     )
-    #     var idx: Int
-    #     @parameter
-    #     fn fill_diag_simd_rp[simd_width: Int](p: Int):
-    #         idx = p * stride + offset if offset >= 0 else p * stride - offset * self.cols
-    #         self.strided_store_idx[simd_width](
-    #             idx, stride, ComplexSIMD[Self.type, simd_width](val.re, val.im)
-    #         )
-    #     vectorize[fill_diag_simd_rp, simdwidthof[Self.type]()](n_diag_elements)
+                if self_col == other_col:
+                    if not self.v[self_ptr].is_close[tol](other.v[other_ptr]):
+                        return False
+                    self_ptr += 1
+                    other_ptr += 1
+                elif self_col < other_col:
+                    if not self.v[self_ptr].is_close[tol](0):
+                        return False
+                    self_ptr += 1
+                else:
+                    if not other.v[other_ptr].is_close[tol](0):
+                        return False
+                    other_ptr += 1
 
-    # @always_inline
-    # fn fill_range(self):
-    #     memset_zero(self.im.address, self.size)
-    #     for idx in range(self.size):
-    #         self.re.store[width=1](idx, SIMD[type, 1](idx))
-    
-    # @always_inline
-    # fn fill_range(self, start: Int):
-    #     memset_zero(self.im.address, self.size)
-    #     for idx in range(self.size):
-    #         self.re.store[width=1](idx, SIMD[type, 1](idx + start))
-    
-    # @always_inline
-    # fn fill_range(self, start: Int, step: Int):
-    #     memset_zero(self.im.address, self.size)
-    #     for idx in range(self.size):
-    #         self.re.store[width=1](idx, SIMD[type, 1](step * idx + start))
+            while self_ptr < self_end:
+                if not self.v[self_ptr].is_close[tol](0):
+                    return False
+                self_ptr += 1
+            while other_ptr < other_end:
+                if not other.v[other_ptr].is_close[tol](0):
+                    return False
+                other_ptr += 1
+        return True
 
-    # @always_inline
-    # fn zeros_like(self) -> Self:
-    #     '''Return a matrix of zeros with the same shape as self.'''
-    #     return Self(rows=self.rows, cols=self.cols, fill_zeros=True)
-    
-    # @always_inline
-    # fn ones_like(self) -> Self:
-    #     '''Return a matrix of ones with the same shape as self.'''
-    #     var result: Self = Self(rows=self.rows, cols=self.cols, fill_zeros=False)
-    #     result.fill_one()
-    #     return result
-    
-    # @always_inline
-    # fn i_like(self) -> Self:
-    #     '''Return a matrix of i's with the same shape as self.'''
-    #     var result: Self = Self(rows=self.rows, cols=self.cols, fill_zeros=False)
-    #     result.fill_i()
-    #     return result
-    
-    # @always_inline
-    # fn eye_like(self) -> Self:
-    #     '''Return an identity matrix with the same shape as self.'''
-    #     var result: Self = Self(rows=self.rows, cols=self.cols, fill_zeros=True)
-    #     result.fill_diag(ComplexScalar[Self.type](1, 0))
-    #     return result
+    fn is_close[tol: Scalar[Self.type] = Self._tol_default](self, other: ComplexScalar[Self.type]) -> Bool:
+        '''Returns True all elements of self are within tol of other, False otherwise.'''
+        if self.v.size < self.size and not other.is_close[tol](0):
+            return False
+        for v in self.v:
+            if not other.is_close[tol](v[]):
+                return False
+        return True
 
-    # # Comparison operators ############
+    fn __eq__(self, other: Self) raises -> Self:
+        '''Returns a CSRCMatrix with ones in the positions in which self 
+        is equal to other and zeros elsewhere.
+        '''
+        self._assert_same_shape(other)
+        var result_col_idx = List[Int, True]()
+        var result_row_idx = List[Int, True](0)
+        for row in range(self.rows):
+            var self_ptr: Int = self.row_idx[row]
+            var self_end: Int = self.row_idx[row + 1]
+            var other_ptr: Int = other.row_idx[row]
+            var other_end: Int = other.row_idx[row + 1]
+            var current_col: Int = 0
+            # Track whether we've processed all columns for this row
+            while current_col < self.cols:
+                # Get current column for each matrix (or max column if done)
+                var self_col: Int = self.cols if self_ptr >= self_end else self.col_idx[self_ptr]
+                var other_col: Int = self.cols if other_ptr >= other_end else other.col_idx[other_ptr]
+                if current_col < self_col and current_col < other_col:
+                    # Both matrices have zero at this column
+                    result_col_idx.append(current_col)
+                elif current_col == self_col and current_col == other_col:
+                    # Both matrices have non-zero values at this column
+                    if self.v[self_ptr] == other.v[other_ptr]:
+                        result_col_idx.append(current_col)
+                    self_ptr += 1
+                    other_ptr += 1
+                elif current_col == self_col:
+                    # Only self has a non-zero value at this column
+                    self_ptr += 1
+                else:
+                    # Only other has a non-zero value at this column
+                    other_ptr += 1
+                # Move to the next column
+                current_col += 1
+            result_row_idx.append(result_col_idx.size)
+        return Self(
+            rows=self.rows,
+            cols=self.cols,
+            size=self.size,
+            v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
+            col_idx=result_col_idx,
+            row_idx=result_row_idx,
+        )
 
-    # # TODO: Make it better
-    # @always_inline
-    # fn matrix_equals(self, other: Self) -> Bool:
-    #     '''Returns True if self is the same shape as other and all elements 
-    #     are equal, False otherwise.
-    #     '''
-    #     if self.rows != other.rows or self.cols != other.cols:
-    #         return False
-    #     for r in range(self.rows):
-    #         for c in range(self.cols):
-    #             if self[r, c] != other[r, c]:
-    #                 return False
-    #     return True
-    
-    # # TODO: Make it better
-    # @always_inline
-    # fn is_close[tol: Scalar[Self.type] = Self._tol_default](self, other: Self) -> Bool:
-    #     '''Returns True if self is the same shape as other and corresponding elements 
-    #     are within tol of each other, False otherwise.
-    #     '''
-    #     if self.rows != other.rows or self.cols != other.cols:
-    #         return False
-    #     for r in range(self.rows):
-    #         for c in range(self.cols):
-    #             if not self[r, c].is_close(other[r, c], tol):
-    #                 return False
-    #     return True
+    fn __eq__(self, other: ComplexScalar[Self.type]) raises -> Self:
+        '''Returns a CSRCMatrix with ones in the positions in which self 
+        is equal to other and zeros elsewhere.
+        '''
+        var other_is_zero: Bool = other == 0
+        var result_col_idx = List[Int, True]()
+        var result_row_idx = List[Int, True](0)
+        for row in range(self.rows):
+            var self_ptr: Int = self.row_idx[row]
+            var self_end: Int = self.row_idx[row + 1]
+            for col in range(self.cols):
+                var self_col = self.cols if self_ptr >= self_end else self.col_idx[self_ptr]
+                if col < self_col:
+                    # Self is zero at this column
+                    if other_is_zero:
+                        result_col_idx.append(col)
+                else:
+                    # Self is non-zero at this column
+                    if other == self.v[self_ptr]:
+                        result_col_idx.append(col)
+                    self_ptr += 1
+            result_row_idx.append(result_col_idx.size)
+        return Self(
+            rows=self.rows, 
+            cols=self.cols, 
+            size=self.size, 
+            v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
+            col_idx=result_col_idx,
+            row_idx=result_row_idx,
+        )
 
-    # # TODO: Make it better
-    # @always_inline
-    # fn is_close[tol: Scalar[Self.type] = Self._tol_default](self, other: ComplexScalar[Self.type]) -> Bool:
-    #     '''Returns True all elements of self are within tol of other, False otherwise.'''
-    #     for r in range(self.rows):
-    #         for c in range(self.cols):
-    #             if not self[r, c].is_close(other, tol):
-    #                 return False
-    #     return True
+    fn __ne__(self, other: Self) raises -> Self:
+        '''Returns a CSRCMatrix with ones in the positions in which self 
+        is not equal to other and zeros elsewhere.
+        '''
+        self._assert_same_shape(other)
+        var result_col_idx = List[Int, True]()
+        var result_row_idx = List[Int, True](0)
+        for row in range(self.rows):
+            var self_ptr: Int = self.row_idx[row]
+            var self_end: Int = self.row_idx[row + 1]
+            var other_ptr: Int = other.row_idx[row]
+            var other_end: Int = other.row_idx[row + 1]
+            var current_col: Int = 0
+            # Track whether we've processed all columns for this row
+            while current_col < self.cols:
+                # Get current column for each matrix (or max column if done)
+                var self_col: Int = self.cols if self_ptr >= self_end else self.col_idx[self_ptr]
+                var other_col: Int = self.cols if other_ptr >= other_end else other.col_idx[other_ptr]
+                if current_col == self_col and current_col == other_col:
+                    # Both matrices have non-zero values at this column
+                    if self.v[self_ptr] != other.v[other_ptr]:
+                        result_col_idx.append(current_col)
+                    self_ptr += 1
+                    other_ptr += 1
+                elif current_col == self_col:
+                    # Only self has a non-zero value at this column
+                    result_col_idx.append(current_col)
+                    self_ptr += 1
+                elif current_col == other_col:
+                    # Only other has a non-zero value at this column
+                    result_col_idx.append(current_col)
+                    other_ptr += 1
+                # Move to the next column
+                current_col += 1
+            result_row_idx.append(result_col_idx.size)
+        return Self(
+            rows=self.rows, 
+            cols=self.cols, 
+            size=self.size, 
+            v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
+            col_idx=result_col_idx,
+            row_idx=result_row_idx,
+        )
 
-    # @always_inline
-    # fn __eq__(self, other: Self) raises -> Self:
-    #     '''Returns a CMatrix with ones in the positions in which self 
-    #     is equal to other and zeros elsewhere. The returned matrix has
-    #     the order of self.
-    #     '''
-    #     self._assert_same_shape(other)
-    #     alias one = SIMD[Self.type, 1](1)
-    #     var result: Self = Self(self.rows, self.cols, fill_zeros=True)
-    #     if self._is_col_dominant:
-    #         @parameter
-    #         fn row_eq(r: Int):
-    #             for c in range(self.cols):
-    #                 if self[r, c] == other[r, c]:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[row_eq](self.rows, self.rows)
-    #     else:
-    #         @parameter
-    #         fn col_eq(c: Int):
-    #             for r in range(self.rows):
-    #                 if self[r, c] == other[r, c]:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[col_eq](self.cols, self.cols)
-    #     return result
+    fn __ne__(self, other: ComplexScalar[Self.type]) raises -> Self:
+        '''Returns a CSRCMatrix with ones in the positions in which self 
+        is not equal to other and zeros elsewhere.
+        '''
+        var other_is_non_zero: Bool = other != 0
+        var result_col_idx = List[Int, True]()
+        var result_row_idx = List[Int, True](0)
+        for row in range(self.rows):
+            var self_ptr: Int = self.row_idx[row]
+            var self_end: Int = self.row_idx[row + 1]
+            for col in range(self.cols):
+                var self_col = self.cols if self_ptr >= self_end else self.col_idx[self_ptr]
+                if col < self_col:
+                    # Self is zero at this column
+                    if other_is_non_zero:
+                        result_col_idx.append(col)
+                else:
+                    # Self is non-zero at this column
+                    if other != self.v[self_ptr]:
+                        result_col_idx.append(col)
+                    self_ptr += 1
+            result_row_idx.append(result_col_idx.size)
+        return Self(
+            rows=self.rows,
+            cols=self.cols, 
+            size=self.size, 
+            v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
+            col_idx=result_col_idx,
+            row_idx=result_row_idx,
+        )
+
+    fn __gt__(self, other: Self) raises -> Self:
+        '''Returns a CSRCMatrix with ones in the positions in which self 
+        is greater than other and zeros elsewhere.
+        '''
+        self._assert_same_shape(other)
+        var result_col_idx = List[Int, True]()
+        var result_row_idx = List[Int, True](0)
+        for row in range(self.rows):
+            var self_ptr: Int = self.row_idx[row]
+            var self_end: Int = self.row_idx[row + 1]
+            var other_ptr: Int = other.row_idx[row]
+            var other_end: Int = other.row_idx[row + 1]
+            var current_col: Int = 0
+            # Track whether we've processed all columns for this row
+            while current_col < self.cols:
+                # Get current column for each matrix (or max column if done)
+                var self_col: Int = self.cols if self_ptr >= self_end else self.col_idx[self_ptr]
+                var other_col: Int = self.cols if other_ptr >= other_end else other.col_idx[other_ptr]
+                if current_col == self_col and current_col == other_col:
+                    # Both matrices have non-zero values at this column
+                    if self.v[self_ptr] > other.v[other_ptr]:
+                        result_col_idx.append(current_col)
+                    self_ptr += 1
+                    other_ptr += 1
+                elif current_col == self_col:
+                    # Only self has a non-zero value at this column
+                    result_col_idx.append(current_col)
+                    self_ptr += 1
+                elif current_col == other_col:
+                    # Only other has a non-zero value at this column
+                    other_ptr += 1
+                # Move to the next column
+                current_col += 1
+            result_row_idx.append(result_col_idx.size)
+        return Self(
+            rows=self.rows,
+            cols=self.cols,
+            size=self.size,
+            v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
+            col_idx=result_col_idx,
+            row_idx=result_row_idx,
+        )
     
-    # @always_inline
-    # fn __eq__(self, other: ComplexScalar[Self.type]) -> Self:
-    #     '''Returns a CMatrix with ones in the positions in which self 
-    #     is equal to other and zeros elsewhere.
-    #     '''
-    #     alias one = SIMD[Self.type, 1](1)
-    #     var result: Self = Self(rows=self.rows, cols=self.cols, fill_zeros=True)
-    #     if self._is_col_dominant:
-    #         @parameter
-    #         fn row_eq(r: Int):
-    #             for c in range(self.cols):
-    #                 if self[r, c] == other:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[row_eq](self.rows, self.rows)
-    #     else:
-    #         @parameter
-    #         fn col_eq(c: Int):
-    #             for r in range(self.rows):
-    #                 if self[r, c] == other:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[col_eq](self.cols, self.cols)
-    #     return result
+    fn __gt__(self, other: ComplexScalar[Self.type]) raises -> Self:
+        '''Returns a CSRCMatrix with ones in the positions in which self 
+        is greater than other and zeros elsewhere.
+        '''
+        var result_col_idx = List[Int, True]()
+        var result_row_idx = List[Int, True](0)
+        for row in range(self.rows):
+            var self_ptr: Int = self.row_idx[row]
+            var self_end: Int = self.row_idx[row + 1]
+            for col in range(self.cols):
+                var self_col = self.cols if self_ptr >= self_end else self.col_idx[self_ptr]
+                if col == self_col:
+                    # Self is non-zero at this column
+                    if self.v[self_ptr] > other:
+                        result_col_idx.append(col)
+                    self_ptr += 1
+            result_row_idx.append(result_col_idx.size)
+        return Self(
+            rows=self.rows,
+            cols=self.cols, 
+            size=self.size, 
+            v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
+            col_idx=result_col_idx,
+            row_idx=result_row_idx,
+        )
     
-    # @always_inline
-    # fn __ne__(self, other: Self) raises -> Self:
-    #     '''Returns a CMatrix with ones in the positions in which self 
-    #     is not equal to other and zeros elsewhere. The returned matrix has
-    #     the order of self.
-    #     '''
-    #     self._assert_same_shape(other)
-    #     alias one = SIMD[Self.type, 1](1)
-    #     var result: Self = Self(self.rows, self.cols, fill_zeros=True)
-    #     if self._is_col_dominant:
-    #         @parameter
-    #         fn row_eq(r: Int):
-    #             for c in range(self.cols):
-    #                 if self[r, c] != other[r, c]:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[row_eq](self.rows, self.rows)
-    #     else:
-    #         @parameter
-    #         fn col_eq(c: Int):
-    #             for r in range(self.rows):
-    #                 if self[r, c] != other[r, c]:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[col_eq](self.cols, self.cols)
-    #     return result
+    fn __ge__(self, other: Self) raises -> Self:
+        '''Returns a CSRCMatrix with ones in the positions in which self 
+        is greater than or equal to other and zeros elsewhere.
+        '''
+        self._assert_same_shape(other)
+        var result_col_idx = List[Int, True]()
+        var result_row_idx = List[Int, True](0)
+        for row in range(self.rows):
+            var self_ptr: Int = self.row_idx[row]
+            var self_end: Int = self.row_idx[row + 1]
+            var other_ptr: Int = other.row_idx[row]
+            var other_end: Int = other.row_idx[row + 1]
+            var current_col: Int = 0
+            # Track whether we've processed all columns for this row
+            while current_col < self.cols:
+                # Get current column for each matrix (or max column if done)
+                var self_col: Int = self.cols if self_ptr >= self_end else self.col_idx[self_ptr]
+                var other_col: Int = self.cols if other_ptr >= other_end else other.col_idx[other_ptr]
+                if current_col < self_col and current_col < other_col:
+                    # Both matrices have zero at this column
+                    result_col_idx.append(current_col)
+                elif current_col == self_col and current_col == other_col:
+                    # Both matrices have non-zero values at this column
+                    if self.v[self_ptr] >= other.v[other_ptr]:
+                        result_col_idx.append(current_col)
+                    self_ptr += 1
+                    other_ptr += 1
+                elif current_col == self_col:
+                    # Only self has a non-zero value at this column
+                    result_col_idx.append(current_col)
+                    self_ptr += 1
+                else:
+                    # Only other has a non-zero value at this column
+                    other_ptr += 1
+                # Move to the next column
+                current_col += 1
+            result_row_idx.append(result_col_idx.size)
+        return Self(
+            rows=self.rows,
+            cols=self.cols,
+            size=self.size,
+            v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
+            col_idx=result_col_idx,
+            row_idx=result_row_idx,
+        )
+
+    fn __ge__(self, other: ComplexScalar[Self.type]) raises -> Self:
+        '''Returns a CSRCMatrix with ones in the positions in which self 
+        is greater than or equal to other and zeros elsewhere.
+        '''
+        var other_is_zero: Bool = other == 0
+        var result_col_idx = List[Int, True]()
+        var result_row_idx = List[Int, True](0)
+        for row in range(self.rows):
+            var self_ptr: Int = self.row_idx[row]
+            var self_end: Int = self.row_idx[row + 1]
+            for col in range(self.cols):
+                var self_col = self.cols if self_ptr >= self_end else self.col_idx[self_ptr]
+                if col < self_col:
+                    # Self is zero at this column
+                    if other_is_zero:
+                        result_col_idx.append(col)
+                else:
+                    # Self is non-zero at this column
+                    if self.v[self_ptr] >= other:
+                        result_col_idx.append(col)
+                    self_ptr += 1
+            result_row_idx.append(result_col_idx.size)
+        return Self(
+            rows=self.rows, 
+            cols=self.cols, 
+            size=self.size, 
+            v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
+            col_idx=result_col_idx,
+            row_idx=result_row_idx,
+        )
     
-    # @always_inline
-    # fn __ne__(self, other: ComplexScalar[Self.type]) -> Self:
-    #     '''Returns a CMatrix with ones in the positions in which self 
-    #     is not equal to other and zeros elsewhere.
-    #     '''
-    #     alias one = SIMD[Self.type, 1](1)
-    #     var result: Self = Self(rows=self.rows, cols=self.cols, fill_zeros=True)
-    #     if self._is_col_dominant:
-    #         @parameter
-    #         fn row_eq(r: Int):
-    #             for c in range(self.cols):
-    #                 if self[r, c] != other:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[row_eq](self.rows, self.rows)
-    #     else:
-    #         @parameter
-    #         fn col_eq(c: Int):
-    #             for r in range(self.rows):
-    #                 if self[r, c] != other:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[col_eq](self.cols, self.cols)
-    #     return result
+    fn __lt__(self, other: Self) raises -> Self:
+        '''Returns a CSRCMatrix with ones in the positions in which self 
+        is less than other and zeros elsewhere.
+        '''
+        self._assert_same_shape(other)
+        var result_col_idx = List[Int, True]()
+        var result_row_idx = List[Int, True](0)
+        for row in range(self.rows):
+            var self_ptr: Int = self.row_idx[row]
+            var self_end: Int = self.row_idx[row + 1]
+            var other_ptr: Int = other.row_idx[row]
+            var other_end: Int = other.row_idx[row + 1]
+            var current_col: Int = 0
+            # Track whether we've processed all columns for this row
+            while current_col < self.cols:
+                # Get current column for each matrix (or max column if done)
+                var self_col: Int = self.cols if self_ptr >= self_end else self.col_idx[self_ptr]
+                var other_col: Int = self.cols if other_ptr >= other_end else other.col_idx[other_ptr]
+                if current_col == self_col and current_col == other_col:
+                    # Both matrices have non-zero values at this column
+                    if self.v[self_ptr] < other.v[other_ptr]:
+                        result_col_idx.append(current_col)
+                    self_ptr += 1
+                    other_ptr += 1
+                elif current_col == self_col:
+                    # Only self has a non-zero value at this column
+                    self_ptr += 1
+                elif current_col == other_col:
+                    # Only other has a non-zero value at this column
+                    result_col_idx.append(current_col)
+                    other_ptr += 1
+                # Move to the next column
+                current_col += 1
+            result_row_idx.append(result_col_idx.size)
+        return Self(
+            rows=self.rows,
+            cols=self.cols,
+            size=self.size,
+            v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
+            col_idx=result_col_idx,
+            row_idx=result_row_idx,
+        )
+
+    fn __lt__(self, other: ComplexScalar[Self.type]) raises -> Self:
+        '''Returns a CSRCMatrix with ones in the positions in which self 
+        is less than other and zeros elsewhere.
+        '''
+        var other_is_non_zero: Bool = other != 0
+        var result_col_idx = List[Int, True]()
+        var result_row_idx = List[Int, True](0)
+        for row in range(self.rows):
+            var self_ptr: Int = self.row_idx[row]
+            var self_end: Int = self.row_idx[row + 1]
+            for col in range(self.cols):
+                var self_col = self.cols if self_ptr >= self_end else self.col_idx[self_ptr]
+                if col < self_col:
+                    # Self is zero at this column
+                    if other_is_non_zero:
+                        result_col_idx.append(col)
+                else:
+                    # Self is non-zero at this column
+                    if self.v[self_ptr] < other:
+                        result_col_idx.append(col)
+                    self_ptr += 1
+            result_row_idx.append(result_col_idx.size)
+        return Self(
+            rows=self.rows, 
+            cols=self.cols, 
+            size=self.size, 
+            v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
+            col_idx=result_col_idx,
+            row_idx=result_row_idx,
+        )
     
-    # @always_inline
-    # fn __gt__(self, other: Self) raises -> Self:
-    #     '''Returns a CMatrix with ones in the positions in which self 
-    #     is greater than other and zeros elsewhere. The returned matrix has
-    #     the order of self.
-    #     '''
-    #     self._assert_same_shape(other)
-    #     alias one = SIMD[Self.type, 1](1)
-    #     var result: Self = Self(self.rows, self.cols, fill_zeros=True)
-    #     if self._is_col_dominant:
-    #         @parameter
-    #         fn row_eq(r: Int):
-    #             for c in range(self.cols):
-    #                 if self[r, c] > other[r, c]:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[row_eq](self.rows, self.rows)
-    #     else:
-    #         @parameter
-    #         fn col_eq(c: Int):
-    #             for r in range(self.rows):
-    #                 if self[r, c] > other[r, c]:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[col_eq](self.cols, self.cols)
-    #     return result
-    
-    # @always_inline
-    # fn __gt__(self, other: ComplexScalar[Self.type]) -> Self:
-    #     '''Returns a CMatrix with ones in the positions in which self 
-    #     is greater than other and zeros elsewhere.
-    #     '''
-    #     alias one = SIMD[Self.type, 1](1)
-    #     var result: Self = Self(rows=self.rows, cols=self.cols, fill_zeros=True)
-    #     if self._is_col_dominant:
-    #         @parameter
-    #         fn row_eq(r: Int):
-    #             for c in range(self.cols):
-    #                 if self[r, c] > other:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[row_eq](self.rows, self.rows)
-    #     else:
-    #         @parameter
-    #         fn col_eq(c: Int):
-    #             for r in range(self.rows):
-    #                 if self[r, c] > other:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[col_eq](self.cols, self.cols)
-    #     return result
-    
-    # @always_inline
-    # fn __ge__(self, other: Self) raises -> Self:
-    #     '''Returns a CMatrix with ones in the positions in which self 
-    #     is greater than or equal to other and zeros elsewhere. The returned matrix has
-    #     the order of self.
-    #     '''
-    #     self._assert_same_shape(other)
-    #     alias one = SIMD[Self.type, 1](1)
-    #     var result: Self = Self(self.rows, self.cols, fill_zeros=True)
-    #     if self._is_col_dominant:
-    #         @parameter
-    #         fn row_eq(r: Int):
-    #             for c in range(self.cols):
-    #                 if self[r, c] >= other[r, c]:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[row_eq](self.rows, self.rows)
-    #     else:
-    #         @parameter
-    #         fn col_eq(c: Int):
-    #             for r in range(self.rows):
-    #                 if self[r, c] >= other[r, c]:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[col_eq](self.cols, self.cols)
-    #     return result
-    
-    # @always_inline
-    # fn __ge__(self, other: ComplexScalar[Self.type]) -> Self:
-    #     '''Returns a CMatrix with ones in the positions in which self 
-    #     is greater than or equal to other and zeros elsewhere.
-    #     '''
-    #     alias one = SIMD[Self.type, 1](1)
-    #     var result: Self = Self(rows=self.rows, cols=self.cols, fill_zeros=True)
-    #     if self._is_col_dominant:
-    #         @parameter
-    #         fn row_eq(r: Int):
-    #             for c in range(self.cols):
-    #                 if self[r, c] >= other:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[row_eq](self.rows, self.rows)
-    #     else:
-    #         @parameter
-    #         fn col_eq(c: Int):
-    #             for r in range(self.rows):
-    #                 if self[r, c] >= other:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[col_eq](self.cols, self.cols)
-    #     return result
-    
-    # @always_inline
-    # fn __lt__(self, other: Self) raises -> Self:
-    #     '''Returns a CMatrix with ones in the positions in which self 
-    #     is less than other and zeros elsewhere. The returned matrix has
-    #     the order of self.
-    #     '''
-    #     self._assert_same_shape(other)
-    #     alias one = SIMD[Self.type, 1](1)
-    #     var result: Self = Self(self.rows, self.cols, fill_zeros=True)
-    #     if self._is_col_dominant:
-    #         @parameter
-    #         fn row_eq(r: Int):
-    #             for c in range(self.cols):
-    #                 if self[r, c] < other[r, c]:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[row_eq](self.rows, self.rows)
-    #     else:
-    #         @parameter
-    #         fn col_eq(c: Int):
-    #             for r in range(self.rows):
-    #                 if self[r, c] < other[r, c]:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[col_eq](self.cols, self.cols)
-    #     return result
-    
-    # @always_inline
-    # fn __lt__(self, other: ComplexScalar[Self.type]) -> Self:
-    #     '''Returns a CMatrix with ones in the positions in which self 
-    #     is less than other and zeros elsewhere.
-    #     '''
-    #     alias one = SIMD[Self.type, 1](1)
-    #     var result: Self = Self(rows=self.rows, cols=self.cols, fill_zeros=True)
-    #     if self._is_col_dominant:
-    #         @parameter
-    #         fn row_eq(r: Int):
-    #             for c in range(self.cols):
-    #                 if self[r, c] < other:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[row_eq](self.rows, self.rows)
-    #     else:
-    #         @parameter
-    #         fn col_eq(c: Int):
-    #             for r in range(self.rows):
-    #                 if self[r, c] < other:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[col_eq](self.cols, self.cols)
-    #     return result
-    
-    # @always_inline
-    # fn __le__(self, other: Self) raises -> Self:
-    #     '''Returns a CMatrix with ones in the positions in which self 
-    #     is less than or equal to other and zeros elsewhere. The returned matrix has
-    #     the order of self.
-    #     '''
-    #     self._assert_same_shape(other)
-    #     alias one = SIMD[Self.type, 1](1)
-    #     var result: Self = Self(self.rows, self.cols, fill_zeros=True)
-    #     if self._is_col_dominant:
-    #         @parameter
-    #         fn row_eq(r: Int):
-    #             for c in range(self.cols):
-    #                 if self[r, c] <= other[r, c]:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[row_eq](self.rows, self.rows)
-    #     else:
-    #         @parameter
-    #         fn col_eq(c: Int):
-    #             for r in range(self.rows):
-    #                 if self[r, c] <= other[r, c]:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[col_eq](self.cols, self.cols)
-    #     return result
-    
-    # @always_inline
-    # fn __le__(self, other: ComplexScalar[Self.type]) -> Self:
-    #     '''Returns a CMatrix with ones in the positions in which self 
-    #     is less than or equal to other and zeros elsewhere.
-    #     '''
-    #     alias one = SIMD[Self.type, 1](1)
-    #     var result: Self = Self(rows=self.rows, cols=self.cols, fill_zeros=True)
-    #     if self._is_col_dominant:
-    #         @parameter
-    #         fn row_eq(r: Int):
-    #             for c in range(self.cols):
-    #                 if self[r, c] <= other:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[row_eq](self.rows, self.rows)
-    #     else:
-    #         @parameter
-    #         fn col_eq(c: Int):
-    #             for r in range(self.rows):
-    #                 if self[r, c] <= other:
-    #                     result.re.store[width=1](r * self.cols + c, one)
-    #         parallelize[col_eq](self.cols, self.cols)
-    #     return result
+    fn __le__(self, other: Self) raises -> Self:
+        '''Returns a CSRCMatrix with ones in the positions in which self 
+        is less than or equal to other and zeros elsewhere.
+        '''
+        self._assert_same_shape(other)
+        var result_col_idx = List[Int, True]()
+        var result_row_idx = List[Int, True](0)
+        for row in range(self.rows):
+            var self_ptr: Int = self.row_idx[row]
+            var self_end: Int = self.row_idx[row + 1]
+            var other_ptr: Int = other.row_idx[row]
+            var other_end: Int = other.row_idx[row + 1]
+            var current_col: Int = 0
+            # Track whether we've processed all columns for this row
+            while current_col < self.cols:
+                # Get current column for each matrix (or max column if done)
+                var self_col: Int = self.cols if self_ptr >= self_end else self.col_idx[self_ptr]
+                var other_col: Int = self.cols if other_ptr >= other_end else other.col_idx[other_ptr]
+                if current_col < self_col and current_col < other_col:
+                    # Both matrices have zero at this column
+                    result_col_idx.append(current_col)
+                elif current_col == self_col and current_col == other_col:
+                    # Both matrices have non-zero values at this column
+                    if self.v[self_ptr] <= other.v[other_ptr]:
+                        result_col_idx.append(current_col)
+                    self_ptr += 1
+                    other_ptr += 1
+                elif current_col == self_col:
+                    # Only self has a non-zero value at this column
+                    self_ptr += 1
+                else:
+                    # Only other has a non-zero value at this column
+                    result_col_idx.append(current_col)
+                    other_ptr += 1
+                # Move to the next column
+                current_col += 1
+            result_row_idx.append(result_col_idx.size)
+        return Self(
+            rows=self.rows,
+            cols=self.cols,
+            size=self.size,
+            v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
+            col_idx=result_col_idx,
+            row_idx=result_row_idx,
+        )
+
+    fn __le__(self, other: ComplexScalar[Self.type]) raises -> Self:
+        '''Returns a CSRCMatrix with ones in the positions in which self 
+        is less than or equal to other and zeros elsewhere.
+        '''
+        var result_col_idx = List[Int, True]()
+        var result_row_idx = List[Int, True](0)
+        for row in range(self.rows):
+            var self_ptr: Int = self.row_idx[row]
+            var self_end: Int = self.row_idx[row + 1]
+            for col in range(self.cols):
+                var self_col = self.cols if self_ptr >= self_end else self.col_idx[self_ptr]
+                if col < self_col:
+                    # Self is zero at this column
+                    result_col_idx.append(col)
+                else:
+                    # Self is non-zero at this column
+                    if self.v[self_ptr] <= other:
+                        result_col_idx.append(col)
+                    self_ptr += 1
+            result_row_idx.append(result_col_idx.size)
+        return Self(
+            rows=self.rows, 
+            cols=self.cols, 
+            size=self.size, 
+            v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
+            col_idx=result_col_idx,
+            row_idx=result_row_idx,
+        )
