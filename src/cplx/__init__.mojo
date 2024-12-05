@@ -14,6 +14,7 @@ from .cmatrix import CMatrix
 from .mmath import (
     kron,
     kron_sequential,
+    sparse_kron,
     swap_cols,
     swap_cols_inplace,
     swap_rows,
