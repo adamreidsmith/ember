@@ -9,14 +9,13 @@ from .cmatrix import CMatrix
 
 
 @value
-struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
-# (
-#     Absable,
-#     Formattable, 
-#     Sized, 
-#     Representable,
-#     StringableCollectionElement,
-# ):
+struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
+    Absable,
+    Formattable, 
+    Sized, 
+    Representable,
+    StringableCollectionElement,
+):
     alias _tol_default: Scalar[Self.type] = 1e-12
     # Values less than or equal to Self.zero_threshold are considered zero
 
@@ -26,8 +25,6 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
     var v: List[ComplexScalar[Self.type], True]
     var col_idx: List[Int, True]
     var row_idx: List[Int, True]
-
-    alias _csnan = ComplexScalar[type](nan[Self.type](), nan[Self.type]())
 
     # Initialization ##################
 
@@ -41,13 +38,21 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         self.col_idx = List[Int, True]()
         self.row_idx = List[Int, True](0) * (rows + 1) 
 
-    fn __init__(inout self, rows: Int, cols: Int, *data: Tuple[Int, Int, ComplexScalar[Self.type]]) raises:
+    fn __init__(
+        inout self, rows: Int, cols: Int, *data: Tuple[Int, Int, ComplexScalar[Self.type]]
+    ) raises:
         '''Initialize a CSRCMatrix from tuples (row index, column index, value).'''
         for t in data:
             if t[][1] >= cols or t[][1] < 0:
-                raise Error('Column index ' + str(t[][1]) + ' is out of range for a matrix with ' + str(cols) + ' columns')
+                raise Error(
+                    'Column index ' + str(t[][1]) + ' is out of range for a matrix with ' 
+                    + str(cols) + ' columns'
+                )
             if t[][0] >= rows or t[][0] < 0:
-                raise Error('Row index ' + str(t[][0]) + ' is out of range for a matrix with ' + str(rows) + ' rows')
+                raise Error(
+                    'Row index ' + str(t[][0]) + ' is out of range for a matrix with ' 
+                    + str(rows) + ' rows'
+                )
 
         self.rows = rows
         self.cols = cols
@@ -88,51 +93,51 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                 _ = row_indices.pop(i)
             else:
                 i += 1
-        
-        # Count the number of elements in each row
-        for idx in row_indices:
-            self.row_idx[idx[] + 1] += 1
 
-        # Compute the cumulative sum of self.row_idx
-        for i in range(1, rows + 1):
-            self.row_idx[i] += self.row_idx[i - 1]
+        self.row_idx = self._sorted_row_indices_to_idx(rows, row_indices)
 
     fn __init__(
         inout self, 
         rows: Int, 
         cols: Int, 
-        row_idx: List[Int, True], 
-        col_idx: List[Int, True], 
+        row_indices: List[Int, True], 
+        col_indices: List[Int, True], 
         vals: List[ComplexScalar[Self.type], True]
     ) raises:
         '''Initialize a CSRCMatrix from lists of row indices, column indices, and values.'''
-        if vals.size != col_idx.size or vals.size != row_idx.size:
+        if vals.size != col_indices.size or vals.size != row_indices.size:
             raise Error(
-                'Row indices, column indices, and values must be the same length; found lengths ' 
-                + str(row_idx.size) + ', '
-                + str(col_idx.size) + ', '
+                'Row indices, column indices, and values must be the same length; found lengths '
+                + str(row_indices.size) + ', '
+                + str(col_indices.size) + ', '
                 + str(vals.size)
             )
 
-        for i in range(col_idx.size):
-            if col_idx[i] >= cols or col_idx[i] < 0:
-                raise Error('Column index ' + str(col_idx[i]) + ' is out of range for a matrix with ' + str(cols) + ' columns')
-            if row_idx[i] >= rows or row_idx[i] < 0:
-                raise Error('Row index ' + str(row_idx[i]) + ' is out of range for a matrix with ' + str(rows) + ' rows')
+        for i in range(col_indices.size):
+            if col_indices[i] >= cols or col_indices[i] < 0:
+                raise Error(
+                    'Column index ' + str(col_indices[i]) 
+                    + ' is out of range for a matrix with ' + str(cols) + ' columns'
+                )
+            if row_indices[i] >= rows or row_indices[i] < 0:
+                raise Error(
+                    'Row index ' + str(row_indices[i]) 
+                    + ' is out of range for a matrix with ' + str(rows) + ' rows'
+                )
 
         self.rows = rows
         self.cols = cols
         self.size = rows * cols
         self.v = List[ComplexScalar[Self.type], True]()
         self.col_idx = List[Int, True]()
-        self.row_idx = List[Int, True](0) * (rows + 1)
+        self.row_idx = List[Int, True]()
 
         @parameter
         fn cmp_fn(i: Int, j: Int) -> Bool:
             # Sort first by row, then by column
-            if row_idx[i] == row_idx[j]:
-                return col_idx[i] < col_idx[j]
-            return row_idx[i] < row_idx[j]
+            if row_indices[i] == row_indices[j]:
+                return col_indices[i] < col_indices[j]
+            return row_indices[i] < row_indices[j]
 
         # TODO: Gotta be a better way to do this
         indices = List[Int, True]()
@@ -141,33 +146,29 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                 indices.append(i)
         sort[cmp_fn=cmp_fn](indices)
 
-        # Sort v and col_idx using indices
-        var row_indices = List[Int, True]()
+        # Sort v and col_indices using indices
+        var row_idx = List[Int, True]()
         for i in indices:
             self.v.append(vals[i[]])
-            self.col_idx.append(col_idx[i[]])
-            row_indices.append(row_idx[i[]])
+            self.col_idx.append(col_indices[i[]])
+            row_idx.append(row_indices[i[]])
 
         # Remove any duplicates
         var i: Int = 1
         while i < self.v.size:
-            if self.col_idx[i] == self.col_idx[i - 1] and row_indices[i] == row_indices[i - 1]:
+            if self.col_idx[i] == self.col_idx[i - 1] and row_idx[i] == row_idx[i - 1]:
                 self.v[i - 1] += self.v.pop(i)
                 _ = self.col_idx.pop(i)
-                _ = row_indices.pop(i)
+                _ = row_idx.pop(i)
             else:
                 i += 1
-        
-        # Count the number of elements in each row
-        for idx in row_indices:
-            self.row_idx[idx[] + 1] += 1
-
-        # Compute the cumulative sum of self.row_idx
-        for i in range(1, rows + 1):
-            self.row_idx[i] += self.row_idx[i - 1]
+        self.row_idx = self._sorted_row_indices_to_idx(rows, row_idx^)
     
     fn __init__(
-        inout self, rows: Int, cols: Int, sparse_dict: Dict[Int, Dict[Int, ComplexScalar[Self.type]]]
+        inout self, 
+        rows: Int, 
+        cols: Int, 
+        sparse_dict: Dict[Int, Dict[Int, ComplexScalar[Self.type]]],
     ) raises:
         '''Initialize a CSRCMatrix from a nested dictionary representation. 
         sparse_dict is a nested dictionary of non-zero entries: {row_index: {col_index: value}}.
@@ -224,25 +225,58 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                     self.col_idx.append(col)
             self.row_idx.append(self.v.size)
 
+    # Static constructors #############
+
+    @staticmethod
+    fn zero(rows: Int, cols: Int) -> Self:
+        '''Return a sparse matrix of zeros of the specified size.'''
+        return Self(rows, cols)
+
+    @staticmethod
+    fn eye(rows: Int, cols: Int) -> Self:
+        '''Return a sparse identity matrix of the specified size.'''
+        var result = Self(rows, cols)
+        result.fill_diag(ComplexScalar[Self.type](1))
+        return result
+
+    # Conversion operations and helpers
+
+    @always_inline
+    def to_dense(self) -> CMatrix[Self.type]:
+        '''Convert self to a dense CMatrix.'''
+        var dense = CMatrix[Self.type](self.rows, self.cols, fill_zeros=True)
+        for row in range(self.rows):
+            for k in range(self.row_idx[row], self.row_idx[row + 1]):
+                dense[row, self.col_idx[k]] = self.v[k]
+        return dense
+
+    fn _row_idx_to_indices(self) -> List[Int, True]:
+        '''Convert the list of index pointers to a list of row indices.'''
+        var row_indices = List[Int, True]()
+        for row in range(self.rows):
+            var row_start: Int = self.row_idx[row]
+            var row_end: Int = self.row_idx[row + 1]
+            if row_start == row_end:
+                continue
+            elif row_end - row_start == 1:
+                row_indices.append(row)
+            else:
+                row_indices.extend(List[Int, True](row) * (row_end - row_start))
+        return row_indices
     
-    # # These should be the same as what's created by @value
-    # @always_inline
-    # fn __copyinit__(inout self, existing: Self):
-    #     self.rows = existing.rows
-    #     self.cols = existing.cols
-    #     self.size = existing.size
-    #     self.v = existing.v
-    #     self.col_idx = existing.col_idx
-    #     self.row_idx = existing.row_idx
-    
-    # @always_inline
-    # fn __moveinit__(inout self, owned existing: Self):
-    #     self.rows = existing.rows
-    #     self.cols = existing.cols
-    #     self.size = existing.size
-    #     self.v = existing.v^
-    #     self.col_idx = existing.col_idx^
-    #     self.row_idx = existing.row_idx^
+    @staticmethod
+    fn _sorted_row_indices_to_idx(
+        rows: Int, owned row_indices: List[Int, True]
+    ) -> List[Int, True]:
+        '''Convert a list of sorted row indices to a list of index pointers.'''
+        var row_idx = List[Int, True](0) * (rows + 1)
+        # Count the number of elements in each row
+        for idx in row_indices:
+            row_idx[idx[] + 1] += 1
+        # Compute the cumulative sum of row_idx
+        for i in range(1, rows + 1):
+            row_idx[i] += row_idx[i - 1]
+        return row_idx^
 
     # String conversion ###############
 
@@ -294,36 +328,6 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                 + ')'
             )
     
-    # @always_inline
-    # fn _assert_matmul_compatible(self, other: Self) raises:
-    #     if self.cols != other.rows:
-    #         raise Error(
-    #             'Cannot multiply matrices with shapes (' 
-    #             + str(self.rows) 
-    #             + ', ' 
-    #             + str(self.cols) 
-    #             + ') and (' 
-    #             + str(other.rows) 
-    #             + ', ' 
-    #             + str(other.cols) 
-    #             + ')'
-    #         )
-        
-    # @always_inline
-    # fn _assert_matmul_compatible(self, other: CMatrix[Self.type]) raises:
-    #     if self.cols != other.rows:
-    #         raise Error(
-    #             'Cannot multiply matrices with shapes (' 
-    #             + str(self.rows) 
-    #             + ', ' 
-    #             + str(self.cols) 
-    #             + ') and (' 
-    #             + str(other.rows) 
-    #             + ', ' 
-    #             + str(other.cols) 
-    #             + ')'
-    #         )
-    
     @always_inline
     fn _assert_reshape_compatible(self, new_rows: Int, new_cols: Int) raises:
         if new_rows * new_cols != self.size:
@@ -338,7 +342,8 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                 + str(new_cols) 
                 + ')'
             )
-    
+
+
     # Properties ######################
 
     @always_inline
@@ -367,7 +372,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
 
     @always_inline
     fn is_square(self) -> Bool:
-        '''Return True if self is square and non-degenerate (rows, cols > 0), and False otherwise.'''
+        '''Return True if self is square and non-degenerate (rows, cols > 0), 
+        and False otherwise.
+        '''
         return self.rows == self.cols and self.rows > 0
     
     # @always_inline
@@ -502,7 +509,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         for i in range(row + 1, self.row_idx.size):
             self.row_idx[i] += 1
 
-    fn __contains__(self, coords: Tuple[Int, Int]) raises -> Bool:
+    fn __contains__(self, coords: Tuple[Int, Int]) -> Bool:
         '''Returns True if self[r, c] is stored, False otherwise.'''
         row, col = coords
         if row < 0 or row >= self.rows or col < 0 or col >= self.cols:
@@ -581,17 +588,6 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                     result.store_idx[1](row, self.v[i])
                     break
         return result
-
-    # Helper functions ################
-
-    @always_inline
-    def to_dense(self) -> CMatrix[Self.type]:
-        '''Convert self to a dense CMatrix.'''
-        var dense = CMatrix[Self.type](self.rows, self.cols, fill_zeros=True)
-        for row in range(self.rows):
-            for k in range(self.row_idx[row], self.row_idx[row + 1]):
-                dense[row, self.col_idx[k]] = self.v[k]
-        return dense
     
     # Math dunders ####################
 
@@ -683,7 +679,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
             var self_start: Int = self.row_idx[row]
             var self_end: Int = self.row_idx[row + 1]
             for i in range(self_start, self_end):
-                result.store_crd[1](row, self.col_idx[i], result.load_crd[1](row, self.col_idx[i]) + self.v[i])
+                result.store_crd[1](
+                    row, self.col_idx[i], result.load_crd[1](row, self.col_idx[i]) + self.v[i]
+                )
         return result
 
     # # Parallelization may add more overhead than value
@@ -696,7 +694,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
     #         var self_start: Int = self.row_idx[row]
     #         var self_end: Int = self.row_idx[row + 1]
     #         for i in range(self_start, self_end):
-    #             result.store_crd[1](row, self.col_idx[i], result.load_crd[1](row, self.col_idx[i]) + self.v[i])
+    #             result.store_crd[1](
+    #                 row, self.col_idx[i], result.load_crd[1](row, self.col_idx[i]) + self.v[i]
+    #             )
     #     parallelize[add_row](self.rows, self.rows)
     #     return result
 
@@ -815,7 +815,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
             var self_start: Int = self.row_idx[row]
             var self_end: Int = self.row_idx[row + 1]
             for i in range(self_start, self_end):
-                result.store_crd[1](row, self.col_idx[i], result.load_crd[1](row, self.col_idx[i]) + self.v[i])
+                result.store_crd[1](
+                    row, self.col_idx[i], result.load_crd[1](row, self.col_idx[i]) + self.v[i]
+                )
         return result
 
     # # Parallelization may add more overhead than value
@@ -828,7 +830,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
     #         var self_start: Int = self.row_idx[row]
     #         var self_end: Int = self.row_idx[row + 1]
     #         for i in range(self_start, self_end):
-    #             result.store_crd[1](row, self.col_idx[i], result.load_crd[1](row, self.col_idx[i]) + self.v[i])
+    #             result.store_crd[1](
+    #                 row, self.col_idx[i], result.load_crd[1](row, self.col_idx[i]) + self.v[i]
+    #             )
     #     parallelize[add_row](self.rows, self.rows)
     #     return result
 
@@ -849,8 +853,8 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
     
     @always_inline
     fn __rsub__(self, other: ComplexScalar[Self.type]) raises -> Self:
-        '''Defines the right `-` subtraction operator. Returns -self if other == 0, raises otherwise.
-        Subtracting a sparse matrix from a non-zero scalar is not supported.
+        '''Defines the right `-` subtraction operator. Returns -self if other == 0, raises
+        otherwise. Subtracting a sparse matrix from a non-zero scalar is not supported.
         '''
         if other <= Self.zero_threshold:
             return -self
@@ -928,7 +932,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
             var self_start: Int = self.row_idx[row]
             var self_end: Int = self.row_idx[row + 1]
             for i in range(self_start, self_end):
-                result.store_crd[1](row, self.col_idx[i], other.load_crd[1](row, self.col_idx[i]) * self.v[i])
+                result.store_crd[1](
+                    row, self.col_idx[i], other.load_crd[1](row, self.col_idx[i]) * self.v[i]
+                )
         return result
 
     # # Parallelization may add more overhead than value
@@ -941,7 +947,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
     #         var self_start: Int = self.row_idx[row]
     #         var self_end: Int = self.row_idx[row + 1]
     #         for i in range(self_start, self_end):
-    #             result.store_crd[1](row, self.col_idx[i], other.load_crd[1](row, self.col_idx[i]) * self.v[i])
+    #             result.store_crd[1](
+    #                 row, self.col_idx[i], other.load_crd[1](row, self.col_idx[i]) * self.v[i]
+    #             )
     #     parallelize[mul_row](self.rows, self.rows)
     #     return result
 
@@ -999,6 +1007,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
     fn __truediv__(self, other: CMatrix[Self.type]) raises -> CMatrix[Self.type]:
         '''Defines the `/` divide operator. Returns a CMatrix of self / other.'''
         self._assert_same_shape(other)
+        alias _csnan = ComplexScalar[type](nan[Self.type](), nan[Self.type]())
         var result = CMatrix[Self.type](self.rows, self.cols, fill_zeros=True)
         for row in range(self.rows):
             var row_ptr: Int = self.row_idx[row]
@@ -1008,13 +1017,14 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                     result.store_crd[1](row, c, self.v[row_ptr] / other.load_crd[1](row, c))
                     row_ptr += 1
                 elif other.load_crd[1](row, c) == 0:
-                    result.store_crd[1](row, c, Self._csnan)
+                    result.store_crd[1](row, c, _csnan)
         return result
 
     # # Parallelization may add more overhead than value
     # fn __truediv__(self, other: CMatrix[Self.type]) raises -> CMatrix[Self.type]:
     #     '''Defines the `/` divide operator. Returns a CMatrix of self / other.'''
     #     self._assert_same_shape(other)
+    #     alias _csnan = ComplexScalar[type](nan[Self.type](), nan[Self.type]())
     #     var result = CMatrix[Self.type](self.rows, self.cols, fill_zeros=True)
     #     @parameter
     #     fn div_row(row: Int):
@@ -1025,7 +1035,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
     #                 result.store_crd[1](row, c, self.v[row_ptr] / other.load_crd[1](row, c))
     #                 row_ptr += 1
     #             elif other.load_crd[1](row, c) == 0:
-    #                 result.store_crd[1](row, c, Self._csnan)
+    #                 result.store_crd[1](row, c, _csnan)
     #     parallelize[div_row](self.rows, self.rows)
     #     return result
     
@@ -1074,6 +1084,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
     fn __floordiv__(self, other: CMatrix[Self.type]) raises -> CMatrix[Self.type]:
         '''Defines the `//` floor divide operator. Returns a CMatrix of self // other.'''
         self._assert_same_shape(other)
+        alias _csnan = ComplexScalar[type](nan[Self.type](), nan[Self.type]())
         var result = CMatrix[Self.type](self.rows, self.cols, fill_zeros=True)
         for row in range(self.rows):
             var row_ptr: Int = self.row_idx[row]
@@ -1083,13 +1094,14 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                     result.store_crd[1](row, c, self.v[row_ptr] // other.load_crd[1](row, c))
                     row_ptr += 1
                 elif other.load_crd[1](row, c) == 0:
-                    result.store_crd[1](row, c, Self._csnan)
+                    result.store_crd[1](row, c, _csnan)
         return result
 
     # # Parallelization may add more overhead than value
     # fn __floordiv__(self, other: CMatrix[Self.type]) raises -> CMatrix[Self.type]:
     #     '''Defines the `//` floor divide operator. Returns a CMatrix of self // other.'''
     #     self._assert_same_shape(other)
+    #     alias _csnan = ComplexScalar[type](nan[Self.type](), nan[Self.type]())
     #     var result = CMatrix[Self.type](self.rows, self.cols, fill_zeros=True)
     #     @parameter
     #     fn div_row(row: Int):
@@ -1100,7 +1112,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
     #                 result.store_crd[1](row, c, self.v[row_ptr] // other.load_crd[1](row, c))
     #                 row_ptr += 1
     #             elif other.load_crd[1](row, c) == 0:
-    #                 result.store_crd[1](row, c, Self._csnan)
+    #                 result.store_crd[1](row, c, _csnan)
     #     parallelize[div_row](self.rows, self.rows)
     #     return result
 
@@ -1149,6 +1161,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
     fn __mod__(self, other: CMatrix[Self.type]) raises -> CMatrix[Self.type]:
         '''Defines the `%` floor divide operator. Returns a CMatrix of self % other.'''
         self._assert_same_shape(other)
+        alias _csnan = ComplexScalar[type](nan[Self.type](), nan[Self.type]())
         var result = CMatrix[Self.type](self.rows, self.cols, fill_zeros=True)
         for row in range(self.rows):
             var row_ptr: Int = self.row_idx[row]
@@ -1158,13 +1171,14 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                     result.store_crd[1](row, c, self.v[row_ptr] % other.load_crd[1](row, c))
                     row_ptr += 1
                 elif other.load_crd[1](row, c) == 0:
-                    result.store_crd[1](row, c, Self._csnan)
+                    result.store_crd[1](row, c, _csnan)
         return result
 
     # # Parallelization may add more overhead than value
     # fn __mod__(self, other: CMatrix[Self.type]) raises -> CMatrix[Self.type]:
     #     '''Defines the `%` floor divide operator. Returns a CMatrix of self % other.'''
     #     self._assert_same_shape(other)
+    #     alias _csnan = ComplexScalar[type](nan[Self.type](), nan[Self.type]())
     #     var result = CMatrix[Self.type](self.rows, self.cols, fill_zeros=True)
     #     @parameter
     #     fn div_row(row: Int):
@@ -1175,7 +1189,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
     #                 result.store_crd[1](row, c, self.v[row_ptr] % other.load_crd[1](row, c))
     #                 row_ptr += 1
     #             elif other.load_crd[1](row, c) == 0:
-    #                 result.store_crd[1](row, c, Self._csnan)
+    #                 result.store_crd[1](row, c, _csnan)
     #     parallelize[div_row](self.rows, self.rows)
     #     return result
 
@@ -1196,8 +1210,12 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
 
     @always_inline
     fn __imod__(inout self, other: CMatrix[Self.type]) raises:
-        '''Raises. The in-place modulo operation of a sparse matrix and a matrix is not supported.'''
-        raise Error('The in-place modulo operation of a sparse matrix and a matrix is not supported')
+        '''Raises. The in-place modulo operation of a sparse matrix and a matrix is not 
+        supported.
+        '''
+        raise Error(
+            'The in-place modulo operation of a sparse matrix and a matrix is not supported'
+        )
     
     @always_inline
     fn __imod__(inout self, other: ComplexScalar[Self.type]):
@@ -1215,8 +1233,12 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         return (self // other, self % other)
 
     @always_inline
-    fn __divmod__(self, other: CMatrix[Self.type]) raises -> Tuple[CMatrix[Self.type], CMatrix[Self.type]]:
-        '''Defines the divmod operator. Returns a tuple of CMatrix (self // other, self % other).'''
+    fn __divmod__(
+        self, other: CMatrix[Self.type]
+    ) raises -> Tuple[CMatrix[Self.type], CMatrix[Self.type]]:
+        '''Defines the divmod operator. Returns a tuple of CMatrix 
+        (self // other, self % other).
+        '''
         return (self // other, self % other)
     
     @always_inline
@@ -1235,7 +1257,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         @parameter
         fn dot(row: Int):
             for i in range(self.row_idx[row], self.row_idx[row + 1]):
-                result.store_idx[1](row, result.load_idx[1](row) + self.v[i] * vec.load_idx[1](self.col_idx[i]))
+                result.store_idx[1](
+                    row, result.load_idx[1](row) + self.v[i] * vec.load_idx[1](self.col_idx[i])
+                )
         parallelize[dot](self.rows, self.rows)
         return result
 
@@ -1249,13 +1273,17 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                     result.store_crd[1](
                         row,
                         col,
-                        result.load_crd[1](row, col) + self.v[i] * mat.load_crd[1](self.col_idx[i], col),
+                        result.load_crd[1](row, col) 
+                        + self.v[i] 
+                        * mat.load_crd[1](self.col_idx[i], col),
                     )
         parallelize[dot](self.rows, self.rows)
         return result
     
     fn _sparse_matmul_gustavson(self, other: Self) raises -> Self:
-        '''Matrix multiplication of a sparse matrix with a sparse matrix using Gustavson's algorithm.'''
+        '''Matrix multiplication of a sparse matrix with a sparse matrix using 
+        Gustavson's algorithm.
+        '''
         var result_v = List[ComplexScalar[type], True]()
         var result_col_idx = List[Int, True]()
         var result_row_idx = List[Int, True](0)
@@ -1303,7 +1331,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         )
     
     fn _sparse_matmul_hash(self, other: Self) raises -> Self:
-        '''Matrix multiplication of a sparse matrix with a sparse matrix using a hash-based approach.'''
+        '''Matrix multiplication of a sparse matrix with a sparse matrix using a 
+        hash-based approach.
+        '''
         result = Dict[Int, Dict[Int, ComplexScalar[Self.type]]]()
 
         # Iterate through the non-zero elements of self
@@ -1351,7 +1381,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                 if other_start == other_end:
                     continue
                 var dot = ComplexScalar[Self.type]()
-                # Pointers point to the column (and value) index in row r of self and row c of other
+                # Pointers point to the col (and value) index in row r of self and row c of other
                 var self_ptr: Int = self_start
                 var other_ptr: Int = other_start
                 while self_ptr < self_end and other_ptr < other_end:
@@ -1465,27 +1495,6 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
         for v in self.v:
             s += v[]
         return s
-    
-    # @always_inline
-    # fn echelon[tol: Scalar[Self.type] = Self._tol_default](self) -> Self:
-    #     '''Return the row echelon form of self.'''
-
-    # @always_inline
-    # fn det[tol: Scalar[type] = Self._tol_default](self) raises -> ComplexScalar[Self.type]:
-    #     '''Return the determinant of self.'''
-    
-    # @always_inline
-    # fn determinant[tol: Scalar[type] = Self._tol_default](self) raises -> ComplexScalar[Self.type]:
-    #     return self.det[tol]()
-    
-    # @always_inline
-    # fn inv[tol: SIMD[Self.type, 1] = Self._tol_default](self) raises -> Self:
-    #     '''Return the inverse of a square matrix.'''
-
-    # @always_inline
-    # fn inverse(self) raises -> Self:
-    #     '''Return the inverse of a square matrix. Alias of inv.'''
-    #     return self.inv()
 
     @always_inline
     fn frobenius_norm(self) raises -> Scalar[Self.type]:
@@ -1543,7 +1552,14 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                 result_col_idx.append(idx % new_cols)
         while result_row_idx.size < new_rows + 1:
             result_row_idx.append(result_col_idx.size)
-        return Self(rows=new_rows, cols=new_cols, size=self.size, v=self.v, col_idx=result_col_idx, row_idx=result_row_idx)
+        return Self(
+            rows=new_rows, 
+            cols=new_cols, 
+            size=self.size, 
+            v=self.v, 
+            col_idx=result_col_idx, 
+            row_idx=result_row_idx
+        )
 
     # Fill operations #################
 
@@ -1558,6 +1574,155 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
     fn zeros_like(self) -> Self:
         '''Return a matrix of zeros with the same shape as self.'''
         return Self(rows=self.rows, cols=self.cols)
+    
+    fn inset(
+        self, 
+        owned matrix: CMatrix[Self.type], 
+        row: Int, 
+        col: Int, 
+        row_stride: Int = 1, 
+        col_stride: Int = 1
+    ) raises -> Self:
+        '''Inset a matrix into a sparse matrix at position (row, col).'''
+        var end_row: Int = row + (matrix.rows - 1) * row_stride 
+        if row < 0 or end_row > self.rows - 1:
+            raise Error('Cannot inset matrix: row dimension exceeds sparse matrix rows')
+        var end_col: Int = col + (matrix.cols - 1) * col_stride 
+        if col < 0 or end_col > self.cols - 1:
+            raise Error('Cannot inset matrix: column dimension exceeds sparse matrix columns')
+
+        if self.v.size == 0:
+            return self._inset_into_zero(matrix^, row, col, row_stride, col_stride)
+        if matrix.cols == 1:
+            return self._inset_column(matrix^, row, col, row_stride)
+        return self._inset(matrix^, row, end_row, col, end_col, row_stride, col_stride)
+    
+    fn _inset_into_zero(
+        self, 
+        owned matrix: CMatrix[Self.type], 
+        row: Int, 
+        col: Int, 
+        row_stride: Int = 1, 
+        col_stride: Int = 1
+    ) -> Self:
+        '''Inset a matrix into a sparse zero matrix at position (row, col).'''
+        var result_v = List[ComplexScalar[Self.type], True]()
+        var result_col_idx = List[Int, True]()
+        var result_row_idx = List[Int, True](0) * (row + 1)
+        for r in range(matrix.rows):
+            for c in range(matrix.cols):
+                var val: ComplexScalar[Self.type] = matrix.load_crd[1](r, c)
+                if val > Self.zero_threshold:
+                    result_v.append(val)
+                    result_col_idx.append(col + c * col_stride)
+            if r and row_stride > 1:
+                result_row_idx.extend(List[Int, True](result_row_idx[-1]) * (row_stride - 1))
+            result_row_idx.append(result_v.size)
+        var n_remaining_rows = self.rows - 1 - row - (matrix.rows - 1) * row_stride
+        if n_remaining_rows > 0:
+            result_row_idx.extend(List[Int, True](result_row_idx[-1]) * n_remaining_rows)
+        return Self(
+            rows=self.rows,
+            cols=self.cols,
+            size=self.size,
+            v=result_v,
+            col_idx=result_col_idx,
+            row_idx=result_row_idx,
+        )
+    
+    fn _inset_column(self,
+        owned matrix: CMatrix[Self.type], 
+        row: Int, 
+        col: Int, 
+        row_stride: Int = 1, 
+    ) -> Self:
+        '''Inset a column matrix into a sparse zero matrix at position (row, col).'''
+        # If matrix is a column vector, we have to perform a search for the column index 
+        # on each row anyway, so just do it the simple way with the setter
+        var result: Self = self
+        for r in range(matrix.rows):
+            var new_val: ComplexScalar[Self.type] = matrix.load_idx[1](r)
+            var result_row_idx: Int = row + r * row_stride
+            if new_val == 0 and result.__contains__((result_row_idx, col)):
+                result._setitem_noraise(result_row_idx, col, 0)
+            elif new_val != 0:
+                result._setitem_noraise(result_row_idx, col, new_val)
+        return result
+        
+    fn _inset(
+        self, 
+        owned matrix: CMatrix[Self.type], 
+        row: Int, 
+        end_row: Int, 
+        col: Int, 
+        end_col: Int, 
+        row_stride: Int = 1, 
+        col_stride: Int = 1,
+    ) -> Self:
+        '''Inset a matrix into a sparse zero matrix at position (row, col).'''
+        var result_v = List[ComplexScalar[Self.type], True]()
+        var result_col_idx = List[Int, True]()
+        var result_row_idx = List[Int, True](0)
+        # Loop over rows of sparse matrix
+        for r in range(self.rows):
+            var self_start: Int = self.row_idx[r]
+            var self_end: Int = self.row_idx[r + 1]
+            if r < row or r > end_row or (r - row) % row_stride != 0:
+                # Outside the inset
+                result_v.extend(self.v[self_start:self_end])
+                result_col_idx.extend(self.col_idx[self_start:self_end])
+            else:
+                var self_ptr: Int = self_start
+                for c in range(self.cols):
+                    var val_in_loc: Bool = self_ptr < self_end and c == self.col_idx[self_ptr]
+                    var outside_inset: Bool = c < col or c > end_col or (c - col) % col_stride != 0
+                    if val_in_loc and outside_inset:
+                        result_v.append(self.v[self_ptr])
+                        result_col_idx.append(c)
+                    elif not outside_inset:
+                        var val: ComplexScalar[Self.type] = matrix.load_crd[1](
+                            (r - row) // row_stride, (c - col) // col_stride
+                        )
+                        if val > Self.zero_threshold:
+                            result_v.append(val)
+                            result_col_idx.append(c)
+                    if val_in_loc:
+                        self_ptr += 1
+            result_row_idx.append(result_v.size)
+        return Self(
+            rows=self.rows,
+            cols=self.cols,
+            size=self.size,
+            v=result_v,
+            col_idx=result_col_idx,
+            row_idx=result_row_idx,
+        )
+
+    fn fill_diag(inout self, val: ComplexScalar[Self.type], offset: Int = 0):
+        '''Fill the diagonal at index offset with val in-place.'''
+        var n_diag_elements: Int = (
+            min(self.rows, self.cols - offset)
+            if offset >= 0
+            else min(self.rows + offset, self.cols)
+        )
+        var start_row: Int
+        var start_col: Int
+        if offset >= 0:
+            start_row = 0
+            start_col = offset
+        else:
+            start_row = offset
+            start_col = 0
+        for i in range(n_diag_elements):
+            # Setter performs a binary search each row
+            self._setitem_noraise(start_row + i, start_col + i, val)
+
+    @always_inline
+    fn eye_like(self) -> Self:
+        '''Return an identity matrix with the same shape as self.'''
+        var result: Self = Self(rows=self.rows, cols=self.cols)
+        result.fill_diag(ComplexScalar[Self.type](1))
+        return result
 
     # Comparison operators ############
 
@@ -1618,7 +1783,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
                 other_ptr += 1
         return True
 
-    fn is_close[tol: Scalar[Self.type] = Self._tol_default](self, other: ComplexScalar[Self.type]) -> Bool:
+    fn is_close[tol: Scalar[Self.type] = Self._tol_default](
+        self, other: ComplexScalar[Self.type]
+    ) -> Bool:
         '''Returns True all elements of self are within tol of other, False otherwise.'''
         if self.v.size < self.size and not other.is_close[tol](0):
             return False
@@ -1644,7 +1811,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
             while current_col < self.cols:
                 # Get current column for each matrix (or max column if done)
                 var self_col: Int = self.cols if self_ptr >= self_end else self.col_idx[self_ptr]
-                var other_col: Int = self.cols if other_ptr >= other_end else other.col_idx[other_ptr]
+                var other_col: Int = self.cols 
+                    if other_ptr >= other_end 
+                    else other.col_idx[other_ptr]
                 if current_col < self_col and current_col < other_col:
                     # Both matrices have zero at this column
                     result_col_idx.append(current_col)
@@ -1720,7 +1889,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
             while current_col < self.cols:
                 # Get current column for each matrix (or max column if done)
                 var self_col: Int = self.cols if self_ptr >= self_end else self.col_idx[self_ptr]
-                var other_col: Int = self.cols if other_ptr >= other_end else other.col_idx[other_ptr]
+                var other_col: Int = self.cols 
+                    if other_ptr >= other_end 
+                    else other.col_idx[other_ptr]
                 if current_col == self_col and current_col == other_col:
                     # Both matrices have non-zero values at this column
                     if self.v[self_ptr] != other.v[other_ptr]:
@@ -1795,7 +1966,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
             while current_col < self.cols:
                 # Get current column for each matrix (or max column if done)
                 var self_col: Int = self.cols if self_ptr >= self_end else self.col_idx[self_ptr]
-                var other_col: Int = self.cols if other_ptr >= other_end else other.col_idx[other_ptr]
+                var other_col: Int = self.cols 
+                    if other_ptr >= other_end 
+                    else other.col_idx[other_ptr]
                 if current_col == self_col and current_col == other_col:
                     # Both matrices have non-zero values at this column
                     if self.v[self_ptr] > other.v[other_ptr]:
@@ -1864,7 +2037,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
             while current_col < self.cols:
                 # Get current column for each matrix (or max column if done)
                 var self_col: Int = self.cols if self_ptr >= self_end else self.col_idx[self_ptr]
-                var other_col: Int = self.cols if other_ptr >= other_end else other.col_idx[other_ptr]
+                var other_col: Int = self.cols 
+                    if other_ptr >= other_end 
+                    else other.col_idx[other_ptr]
                 if current_col < self_col and current_col < other_col:
                     # Both matrices have zero at this column
                     result_col_idx.append(current_col)
@@ -1941,7 +2116,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
             while current_col < self.cols:
                 # Get current column for each matrix (or max column if done)
                 var self_col: Int = self.cols if self_ptr >= self_end else self.col_idx[self_ptr]
-                var other_col: Int = self.cols if other_ptr >= other_end else other.col_idx[other_ptr]
+                var other_col: Int = self.cols 
+                    if other_ptr >= other_end 
+                    else other.col_idx[other_ptr]
                 if current_col == self_col and current_col == other_col:
                     # Both matrices have non-zero values at this column
                     if self.v[self_ptr] < other.v[other_ptr]:
@@ -2015,7 +2192,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15]:
             while current_col < self.cols:
                 # Get current column for each matrix (or max column if done)
                 var self_col: Int = self.cols if self_ptr >= self_end else self.col_idx[self_ptr]
-                var other_col: Int = self.cols if other_ptr >= other_end else other.col_idx[other_ptr]
+                var other_col: Int = self.cols 
+                    if other_ptr >= other_end 
+                    else other.col_idx[other_ptr]
                 if current_col < self_col and current_col < other_col:
                     # Both matrices have zero at this column
                     result_col_idx.append(current_col)
