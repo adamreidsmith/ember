@@ -6,67 +6,103 @@ from memory import memcpy
 
 from .complexsimd import ComplexScalar
 from .cmatrix import CMatrix
+from .csrcmatrix import CSRCMatrix
+from .config import DEFAULT_TOL
 
 
-fn kron_sequential[type: DType](a: CMatrix[type], b: CMatrix[type]) -> CMatrix[type]:
-    '''Implements the Kronecker product using the naive algorithm.'''
-    var result = CMatrix[type](rows=a.rows * b.rows, cols=a.cols * b.cols, fill_zeros=False)
+fn kron_sequential[type: DType](A: CMatrix[type], B: CMatrix[type]) -> CMatrix[type]:
+    '''Implements the Kronecker product of A with B using the naive algorithm.'''
+    var result = CMatrix[type](rows=A.rows * B.rows, cols=A.cols * B.cols, fill_zeros=False)
     var block: CMatrix[type]
-    for r_a in range(a.rows):
-        for c_a in range(a.cols):
-            block = a.load_crd[1](r_a, c_a) * b
-            for r_b in range(b.rows):
-                for c_b in range(b.cols):
+    for r_a in range(A.rows):
+        for c_a in range(A.cols):
+            block = A.load_crd[1](r_a, c_a) * B
+            for r_b in range(B.rows):
+                for c_b in range(B.cols):
                     result.store_crd[1](
-                        r_a * b.rows + r_b, c_a * b.cols + c_b, block.load_crd[1](r_b, c_b)
+                        r_a * B.rows + r_b, c_a * B.cols + c_b, block.load_crd[1](r_b, c_b)
                     )
     return result
 
 
-fn kron[type: DType](a: CMatrix[type], b: CMatrix[type]) -> CMatrix[type]:
-    '''Implements the Kronecker product of a with b.'''
-    if a._is_col_dominant:
-        return _kron_par_a_cols(a, b)
+fn kron[type: DType](A: CMatrix[type], B: CMatrix[type]) -> CMatrix[type]:
+    '''Implements the Kronecker product of A with B.'''
+    if A._is_col_dominant:
+        return _kron_par_a_cols(A, B)
     else:
-        return _kron_par_a_rows(a, b)
+        return _kron_par_a_rows(A, B)
 
 
-fn _kron_par_a_rows[type: DType](a: CMatrix[type], b: CMatrix[type]) -> CMatrix[type]:
-    '''Implements the Kronecker product of a with b parallelized over the rows or a.'''
-    var result = CMatrix[type](rows=a.rows * b.rows, cols=a.cols * b.cols, fill_zeros=False)
+fn _kron_par_a_rows[type: DType](A: CMatrix[type], B: CMatrix[type]) -> CMatrix[type]:
+    '''Implements the Kronecker product of A with B parallelized over the rows or A.'''
+    var result = CMatrix[type](rows=A.rows * B.rows, cols=A.cols * B.cols, fill_zeros=False)
     @parameter
     fn par_row_a(r_a: Int):
-        for c_a in range(a.cols):
-            var a_elem: ComplexScalar[type] = a.load_crd[1](r_a, c_a)
+        for c_a in range(A.cols):
+            var a_elem: ComplexScalar[type] = A.load_crd[1](r_a, c_a)
             @parameter
             fn vec_col_b[simd_width: Int](c_b: Int):
-                for r_b in range(b.rows):
+                for r_b in range(B.rows):
                     result.store_crd[simd_width](
-                        r_a * b.rows + r_b, c_a * b.cols + c_b,
-                        a_elem * b.load_crd[simd_width](r_b, c_b),
+                        r_a * B.rows + r_b, c_a * B.cols + c_b,
+                        a_elem * B.load_crd[simd_width](r_b, c_b),
                     )
-            vectorize[vec_col_b, simdwidthof[type]()](b.cols)
-    parallelize[par_row_a](a.rows, a.rows)
+            vectorize[vec_col_b, simdwidthof[type]()](B.cols)
+    parallelize[par_row_a](A.rows, A.rows)
     return result
 
 
-fn _kron_par_a_cols[type: DType](a: CMatrix[type], b: CMatrix[type]) -> CMatrix[type]:
-    '''Implements the Kronecker product of a with b parallelized over the columns or a.'''
-    var result = CMatrix[type](rows=a.rows * b.rows, cols=a.cols * b.cols, fill_zeros=False)
+fn _kron_par_a_cols[type: DType](A: CMatrix[type], B: CMatrix[type]) -> CMatrix[type]:
+    '''Implements the Kronecker product of A with B parallelized over the columns or A.'''
+    var result = CMatrix[type](rows=A.rows * B.rows, cols=A.cols * B.cols, fill_zeros=False)
     @parameter
     fn par_col_a(c_a: Int):
-        for r_a in range(a.rows):
-            var a_elem: ComplexScalar[type] = a.load_crd[1](r_a, c_a)
+        for r_a in range(A.rows):
+            var a_elem: ComplexScalar[type] = A.load_crd[1](r_a, c_a)
             @parameter
             fn vec_col_b[simd_width: Int](c_b: Int):
-                for r_b in range(b.rows):
+                for r_b in range(B.rows):
                     result.store_crd[simd_width](
-                        r_a * b.rows + r_b, c_a * b.cols + c_b,
-                        a_elem * b.load_crd[simd_width](r_b, c_b),
+                        r_a * B.rows + r_b, c_a * B.cols + c_b,
+                        a_elem * B.load_crd[simd_width](r_b, c_b),
                     )
-            vectorize[vec_col_b, simdwidthof[type]()](b.cols)
-    parallelize[par_col_a](a.cols, a.cols)
+            vectorize[vec_col_b, simdwidthof[type]()](B.cols)
+    parallelize[par_col_a](A.cols, A.cols)
     return result
+
+
+fn sparse_kron[type: DType](A: CSRCMatrix[type], B: CSRCMatrix[type]) -> CSRCMatrix[type]:
+    '''Implements the Kronecker product of sparse matrices A with B. Note that the result
+    uses the zero threshold of A.
+    '''
+    var result_v = List[ComplexScalar[type], True]()
+    var result_col_idx = List[Int, True]()
+    var result_row_idx = List[Int, True](capacity=A.rows * B.rows + 1)
+    result_row_idx.append(0)
+    for r_a in range(A.rows):
+        var a_start: Int = A.row_idx[r_a]
+        var a_end: Int = A.row_idx[r_a + 1]
+        for r_b in range(B.rows):
+            var b_start: Int = B.row_idx[r_b]
+            var b_end: Int = B.row_idx[r_b + 1]
+            for i_a in range(a_start, a_end):
+                var c_a: Int = A.col_idx[i_a]
+                var v_a: ComplexScalar[type] = A.v[i_a]
+                for i_b in range(b_start, b_end):
+                    var prod = v_a * B.v[i_b]
+                    if prod > A.zero_threshold:
+                        var result_col: Int = c_a * B.cols + B.col_idx[i_b]
+                        result_v.append(prod)
+                        result_col_idx.append(result_col)
+            result_row_idx.append(result_v.size)
+    return CSRCMatrix[type](
+        rows=A.rows * B.rows,
+        cols=A.cols * B.cols,
+        size=A.size * B.size,
+        v=result_v^,
+        col_idx=result_col_idx^,
+        row_idx=result_row_idx^,
+    )
 
 
 fn swap_rows[type: DType](A: CMatrix[type], r1: Int, r2: Int) raises -> CMatrix[type]:
@@ -166,7 +202,7 @@ fn swap_vals_inplace[type: DType](
     A.store_crd[1](r2, c2, p1)
 
 
-fn augmented_ref[type: DType, tol: Scalar[type] = 1e-15](
+fn augmented_ref[type: DType, tol: Scalar[type] = DEFAULT_TOL](
     A: CMatrix[type], B: CMatrix[type]
 ) raises -> CMatrix[type]:
     '''Computes the row echelon form of the augmented matrix [A|B].'''
@@ -183,7 +219,7 @@ fn augmented_ref[type: DType, tol: Scalar[type] = 1e-15](
             if i_norm > i_max:
                 i_max = i_norm
                 i_argmax = i
-        if Aaug.load_crd[1](i_argmax, k).norm() < tol:
+        if Aaug.load_crd[1](i_argmax, k) < tol:
             # No pivot in this column, pass to next column
             k += 1
         else:
@@ -202,7 +238,7 @@ fn augmented_ref[type: DType, tol: Scalar[type] = 1e-15](
 
 
 # TODO: Switch to a faster algorithm
-fn solve[type: DType, tol: Scalar[type] = 1e-15](
+fn solve[type: DType, tol: Scalar[type] = DEFAULT_TOL](
     A: CMatrix[type], B: CMatrix[type]
 ) raises -> CMatrix[type]:
     '''Solves a linear system of equations Ax=B via Gaussian elimination.'''
@@ -212,7 +248,7 @@ fn solve[type: DType, tol: Scalar[type] = 1e-15](
     var aug_ref: CMatrix[type] = augmented_ref[tol=tol](A, B)
 
     for i in range(A.rows):
-        if aug_ref.load_crd[1](i, i).norm() < tol:
+        if aug_ref.load_crd[1](i, i) < tol:
             raise Error('Matrix is singular or nearly singular')
 
     # Back substitution
