@@ -4,6 +4,7 @@ from algorithm import parallelize, vectorize
 from sys import simdwidthof
 
 from .complexsimd import ComplexScalar, ComplexSIMD
+from .config import DEFAULT_TOL
 
 @value
 struct CMatrix[type: DType](
@@ -13,8 +14,6 @@ struct CMatrix[type: DType](
     Representable,
     StringableCollectionElement,
 ):
-    alias _tol_default: Scalar[Self.type] = 1e-12
-
     var re: UnsafePointer[Scalar[Self.type]]
     var im: UnsafePointer[Scalar[Self.type]]
     var rows: Int
@@ -50,19 +49,19 @@ struct CMatrix[type: DType](
 
     fn __init__(inout self, data: List[ComplexScalar[Self.type], True]):
         self.rows = 1
-        self.cols = len(data)
+        self.cols = data.size
         self.size = self.rows * self.cols
         self._is_col_dominant = self.cols >= self.rows
         self.re = UnsafePointer[Scalar[Self.type]].alloc(self.size)
         self.im = UnsafePointer[Scalar[Self.type]].alloc(self.size)
-        for idx in range(len(data)):
+        for idx in range(data.size):
             self.store_idx[1](idx, data[idx])
 
     fn __init__(inout self, data: List[List[ComplexScalar[Self.type], True]]) raises:
-        self.rows = len(data)
-        self.cols = len(data[0])
+        self.rows = data.size
+        self.cols = data[0].size
         for row in data[1:]:
-            if len(row[]) != self.cols:
+            if row[].size != self.cols:
                 raise Error('All sub-list of `data` must be the same length')
         self.size = self.rows * self.cols
         self._is_col_dominant = self.cols >= self.rows
@@ -222,14 +221,14 @@ struct CMatrix[type: DType](
         return self.rows == self.cols and self.rows > 0
 
     @always_inline
-    fn is_unitary[tol: Scalar[Self.type] = Self._tol_default](self) raises -> Bool:
+    fn is_unitary[tol: Scalar[Self.type] = DEFAULT_TOL](self) raises -> Bool:
         '''Return True if self is unitary, False otherwise.'''
         if not self.is_square():
             return False
         return (self @ self.dag() - self.eye_like()).frobenius_norm() < tol
 
     @always_inline
-    fn is_hermitian[tol: Scalar[Self.type] = Self._tol_default](self) raises -> Bool:
+    fn is_hermitian[tol: Scalar[Self.type] = DEFAULT_TOL](self) raises -> Bool:
         '''Return True if self is Hermitian, False otherwise.'''
         if not self.is_square():
             return False
@@ -1033,7 +1032,7 @@ struct CMatrix[type: DType](
                 total += col_sums.load_idx[1](c)
             return total
 
-    fn echelon[tol: Scalar[Self.type] = Self._tol_default](self) -> Self:
+    fn echelon[tol: Scalar[Self.type] = DEFAULT_TOL](self) -> Self:
         '''Return the row echelon form of self.'''
         var A = self
         var h: Int = 0
@@ -1061,7 +1060,7 @@ struct CMatrix[type: DType](
                 h += 1; k += 1
         return A
 
-    fn det[tol: Scalar[type] = Self._tol_default](self) raises -> ComplexScalar[Self.type]:
+    fn det[tol: Scalar[type] = DEFAULT_TOL](self) raises -> ComplexScalar[Self.type]:
         '''Return the determinant of self.'''
         if self.rows != self.cols:
             raise Error('Only square matrices have determinants')
@@ -1072,10 +1071,10 @@ struct CMatrix[type: DType](
         return d
 
     @always_inline
-    fn determinant[tol: Scalar[type] = Self._tol_default](self) raises -> ComplexScalar[Self.type]:
+    fn determinant[tol: Scalar[type] = DEFAULT_TOL](self) raises -> ComplexScalar[Self.type]:
         return self.det[tol]()
 
-    fn inv[tol: SIMD[Self.type, 1] = Self._tol_default](self) raises -> Self:
+    fn inv[tol: SIMD[Self.type, 1] = DEFAULT_TOL](self) raises -> Self:
         '''Return the inverse of a square matrix.'''
         alias zero = ComplexScalar[Self.type](0)
         alias one = ComplexScalar[Self.type](1)
@@ -1332,7 +1331,7 @@ struct CMatrix[type: DType](
         return True
 
     # TODO: Make it better
-    fn is_close[tol: Scalar[Self.type] = Self._tol_default](self, other: Self) -> Bool:
+    fn is_close[tol: Scalar[Self.type] = DEFAULT_TOL](self, other: Self) -> Bool:
         '''Returns True if self is the same shape as other and corresponding elements
         are within tol of each other, False otherwise.
         '''
@@ -1345,7 +1344,7 @@ struct CMatrix[type: DType](
         return True
 
     # TODO: Make it better
-    fn is_close[tol: Scalar[Self.type] = Self._tol_default](self, other: ComplexScalar[Self.type]) -> Bool:
+    fn is_close[tol: Scalar[Self.type] = DEFAULT_TOL](self, other: ComplexScalar[Self.type]) -> Bool:
         '''Returns True all elements of self are within tol of other, False otherwise.'''
         for r in range(self.rows):
             for c in range(self.cols):

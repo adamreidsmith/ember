@@ -1,24 +1,20 @@
-# TODO: (Maybe) switch lists to buffers
-
 from algorithm import parallelize, map
 from math import nan, sqrt
 from collections import Dict
 
 from .complexsimd import ComplexScalar
 from .cmatrix import CMatrix
+from .config import DEFAULT_TOL, DEFAULT_ZERO_THRESHOD
 
 
 @value
-struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
+struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRESHOD](
     Absable,
     Formattable, 
     Sized, 
     Representable,
     StringableCollectionElement,
 ):
-    alias _tol_default: Scalar[Self.type] = 1e-12
-    # Values less than or equal to Self.zero_threshold are considered zero
-
     var rows: Int
     var cols: Int
     var size: Int
@@ -36,7 +32,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
         self.size = rows * cols
         self.v = List[ComplexScalar[Self.type], True]()
         self.col_idx = List[Int, True]()
-        self.row_idx = List[Int, True](0) * (rows + 1) 
+        self.row_idx = List[Int, True](0) * (rows + 1)
 
     fn __init__(
         inout self, rows: Int, cols: Int, *data: Tuple[Int, Int, ComplexScalar[Self.type]]
@@ -130,7 +126,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
         self.size = rows * cols
         self.v = List[ComplexScalar[Self.type], True]()
         self.col_idx = List[Int, True]()
-        self.row_idx = List[Int, True]()
+        self.row_idx = List[Int, True](capacity=rows + 1)
 
         @parameter
         fn cmp_fn(i: Int, j: Int) -> Bool:
@@ -215,7 +211,8 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
         self.size = dense.size
         self.v = List[ComplexScalar[Self.type], True]()
         self.col_idx = List[Int, True]()
-        self.row_idx = List[Int, True](0)
+        self.row_idx = List[Int, True](capacity=dense.rows + 1)
+        self.row_idx.append(0)
 
         for row in range(self.rows):
             for col in range(self.cols):
@@ -228,12 +225,12 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
     # Static constructors #############
 
     @staticmethod
-    fn zero(rows: Int, cols: Int) -> Self:
+    fn zeros(rows: Int, cols: Int) -> Self:
         '''Return a sparse matrix of zeros of the specified size.'''
         return Self(rows, cols)
 
     @staticmethod
-    fn eye(rows: Int, cols: Int) -> Self:
+    fn eye(rows: Int, cols: Int) raises -> Self: ###########################################################################
         '''Return a sparse identity matrix of the specified size.'''
         var result = Self(rows, cols)
         result.fill_diag(ComplexScalar[Self.type](1))
@@ -343,7 +340,6 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
                 + ')'
             )
 
-
     # Properties ######################
 
     @always_inline
@@ -378,14 +374,14 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
         return self.rows == self.cols and self.rows > 0
     
     # @always_inline
-    # fn is_unitary[tol: Scalar[Self.type] = Self._tol_default](self) raises -> Bool:
+    # fn is_unitary[tol: Scalar[Self.type] = DEFAULT_TOL](self) raises -> Bool:
     #     '''Return True if self is unitary, False otherwise.'''
     #     if not self.is_square():
     #         return False
     #     return (self @ self.dag() - self.eye_like()).frobenius_norm() < tol
 
     # @always_inline
-    # fn is_hermitian[tol: Scalar[Self.type] = Self._tol_default](self) raises -> Bool:
+    # fn is_hermitian[tol: Scalar[Self.type] = DEFAULT_TOL](self) raises -> Bool:
     #     '''Return True if self is Hermitian, False otherwise.'''
     #     if not self.is_square():
     #         return False
@@ -1325,9 +1321,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             rows=self.rows,
             cols=other.cols,
             size=self.rows * other.cols,
-            v=result_v,
-            col_idx=result_col_idx,
-            row_idx=result_row_idx,
+            v=result_v^,
+            col_idx=result_col_idx^,
+            row_idx=result_row_idx^,
         )
     
     fn _sparse_matmul_hash(self, other: Self) raises -> Self:
@@ -1479,9 +1475,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             rows=self.cols,
             cols=self.rows,
             size=self.size,
-            v=t_v,
-            col_idx=t_col_idx,
-            row_idx=t_row_idx
+            v=t_v^,
+            col_idx=t_col_idx^,
+            row_idx=t_row_idx^,
         )
     
     @always_inline
@@ -1530,9 +1526,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             rows=self.cols,
             cols=self.rows,
             size=self.size,
-            v=t_v,
-            col_idx=t_col_idx,
-            row_idx=t_row_idx
+            v=t_v^,
+            col_idx=t_col_idx^,
+            row_idx=t_row_idx^,
         )
 
     fn reshape(self, new_rows: Int, new_cols: Int) raises -> Self:
@@ -1557,8 +1553,8 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             cols=new_cols, 
             size=self.size, 
             v=self.v, 
-            col_idx=result_col_idx, 
-            row_idx=result_row_idx
+            col_idx=result_col_idx^, 
+            row_idx=result_row_idx^,
         )
 
     # Fill operations #################
@@ -1625,9 +1621,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             rows=self.rows,
             cols=self.cols,
             size=self.size,
-            v=result_v,
-            col_idx=result_col_idx,
-            row_idx=result_row_idx,
+            v=result_v^,
+            col_idx=result_col_idx^,
+            row_idx=result_row_idx^,
         )
     
     fn _inset_column(self,
@@ -1693,9 +1689,9 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             rows=self.rows,
             cols=self.cols,
             size=self.size,
-            v=result_v,
-            col_idx=result_col_idx,
-            row_idx=result_row_idx,
+            v=result_v^,
+            col_idx=result_col_idx^,
+            row_idx=result_row_idx^,
         )
 
     fn fill_diag(inout self, val: ComplexScalar[Self.type], offset: Int = 0):
@@ -1711,7 +1707,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             start_row = 0
             start_col = offset
         else:
-            start_row = offset
+            start_row = -offset
             start_col = 0
         for i in range(n_diag_elements):
             # Setter performs a binary search each row
@@ -1743,7 +1739,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
                 return False
         return True
     
-    fn is_close[tol: Scalar[Self.type] = Self._tol_default](self, other: Self) -> Bool:
+    fn is_close[tol: Scalar[Self.type] = DEFAULT_TOL](self, other: Self) -> Bool:
         '''Returns True if self is the same shape as other and corresponding elements 
         are within tol of each other, False otherwise.
         '''
@@ -1783,7 +1779,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
                 other_ptr += 1
         return True
 
-    fn is_close[tol: Scalar[Self.type] = Self._tol_default](
+    fn is_close[tol: Scalar[Self.type] = DEFAULT_TOL](
         self, other: ComplexScalar[Self.type]
     ) -> Bool:
         '''Returns True all elements of self are within tol of other, False otherwise.'''
@@ -1837,8 +1833,8 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             cols=self.cols,
             size=self.size,
             v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
-            col_idx=result_col_idx,
-            row_idx=result_row_idx,
+            col_idx=result_col_idx^,
+            row_idx=result_row_idx^,
         )
 
     fn __eq__(self, other: ComplexScalar[Self.type]) raises -> Self:
@@ -1868,8 +1864,8 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             cols=self.cols, 
             size=self.size, 
             v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
-            col_idx=result_col_idx,
-            row_idx=result_row_idx,
+            col_idx=result_col_idx^,
+            row_idx=result_row_idx^,
         )
 
     fn __ne__(self, other: Self) raises -> Self:
@@ -1914,8 +1910,8 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             cols=self.cols, 
             size=self.size, 
             v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
-            col_idx=result_col_idx,
-            row_idx=result_row_idx,
+            col_idx=result_col_idx^,
+            row_idx=result_row_idx^,
         )
 
     fn __ne__(self, other: ComplexScalar[Self.type]) raises -> Self:
@@ -1945,8 +1941,8 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             cols=self.cols, 
             size=self.size, 
             v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
-            col_idx=result_col_idx,
-            row_idx=result_row_idx,
+            col_idx=result_col_idx^,
+            row_idx=result_row_idx^,
         )
 
     fn __gt__(self, other: Self) raises -> Self:
@@ -1990,8 +1986,8 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             cols=self.cols,
             size=self.size,
             v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
-            col_idx=result_col_idx,
-            row_idx=result_row_idx,
+            col_idx=result_col_idx^,
+            row_idx=result_row_idx^,
         )
     
     fn __gt__(self, other: ComplexScalar[Self.type]) raises -> Self:
@@ -2016,8 +2012,8 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             cols=self.cols, 
             size=self.size, 
             v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
-            col_idx=result_col_idx,
-            row_idx=result_row_idx,
+            col_idx=result_col_idx^,
+            row_idx=result_row_idx^,
         )
     
     fn __ge__(self, other: Self) raises -> Self:
@@ -2064,8 +2060,8 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             cols=self.cols,
             size=self.size,
             v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
-            col_idx=result_col_idx,
-            row_idx=result_row_idx,
+            col_idx=result_col_idx^,
+            row_idx=result_row_idx^,
         )
 
     fn __ge__(self, other: ComplexScalar[Self.type]) raises -> Self:
@@ -2095,8 +2091,8 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             cols=self.cols, 
             size=self.size, 
             v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
-            col_idx=result_col_idx,
-            row_idx=result_row_idx,
+            col_idx=result_col_idx^,
+            row_idx=result_row_idx^,
         )
     
     fn __lt__(self, other: Self) raises -> Self:
@@ -2140,8 +2136,8 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             cols=self.cols,
             size=self.size,
             v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
-            col_idx=result_col_idx,
-            row_idx=result_row_idx,
+            col_idx=result_col_idx^,
+            row_idx=result_row_idx^,
         )
 
     fn __lt__(self, other: ComplexScalar[Self.type]) raises -> Self:
@@ -2171,8 +2167,8 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             cols=self.cols, 
             size=self.size, 
             v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
-            col_idx=result_col_idx,
-            row_idx=result_row_idx,
+            col_idx=result_col_idx^,
+            row_idx=result_row_idx^,
         )
     
     fn __le__(self, other: Self) raises -> Self:
@@ -2219,8 +2215,8 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             cols=self.cols,
             size=self.size,
             v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
-            col_idx=result_col_idx,
-            row_idx=result_row_idx,
+            col_idx=result_col_idx^,
+            row_idx=result_row_idx^,
         )
 
     fn __le__(self, other: ComplexScalar[Self.type]) raises -> Self:
@@ -2248,6 +2244,6 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = 1e-15](
             cols=self.cols, 
             size=self.size, 
             v=List[ComplexScalar[Self.type], True](1) * result_col_idx.size,
-            col_idx=result_col_idx,
-            row_idx=result_row_idx,
+            col_idx=result_col_idx^,
+            row_idx=result_row_idx^,
         )
