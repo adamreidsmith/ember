@@ -18,6 +18,7 @@ def run_cmatrix_tests():
     test_shape()
     test_fill()
     test_compare()
+    test_static_constructors()
     print('All tests passed')
 
 def test_init():
@@ -453,4 +454,6 @@ def test_compare():
     ))
     _assert_matrix_equal(m1 <= m1, m1.ones_like(), 'le')
     _assert_matrix_equal(m1 <= m2, le, 'le')
-    
+
+def test_static_constructors():
+    # TODO: this

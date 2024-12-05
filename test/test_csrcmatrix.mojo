@@ -16,6 +16,8 @@ def run_csrcmatrix_tests():
     test_matmul()
     test_shape()
     test_compare()
+    test_fill()
+    test_static_constructors()
     print('All tests passed')
 
 def test_init():
@@ -744,3 +746,162 @@ def test_compare():
     _assert_matrix_equal((m1 <= 0).to_dense(), m1.to_dense() <= 0, 'le')
     _assert_matrix_equal((CSRCMatrix[type](5, 6) <= 0).to_dense(), CMatrix[type](5, 6).ones_like(), 'le')
     _assert_matrix_equal((CSRCMatrix[type](5, 6) <= 2).to_dense(), CMatrix[type](5, 6).ones_like(), 'le')
+
+def test_fill():
+    sm = CSRCMatrix[type](100, 100)
+    cm = CMatrix[type](40, 30)
+    cm.fill_range()
+    cm[20, 20] = 0
+    cm[10, 5] = 0
+    cm[10, 6] = 0
+    cm[11, 6] = 0
+    i = sm.inset(cm, 0, 0)
+    assert_equal(i.v.size, cm.rows * cm.cols - 5, 'inset_into_zero')
+    for r in range(cm.rows):
+        for c in range(cm.cols):
+            assert_equal(i[r, c].re, cm[r, c].re, 'inset_into_zero')
+            assert_equal(i[r, c].im, cm[r, c].im, 'inset_into_zero')
+    i = sm.inset(cm, 8, 7)
+    assert_equal(i.v.size, cm.rows * cm.cols - 5, 'inset_into_zero')
+    for r in range(cm.rows):
+        for c in range(cm.cols):
+            assert_equal(i[r + 8, c + 7].re, cm[r, c].re, 'inset_into_zero')
+            assert_equal(i[r + 8, c + 7].im, cm[r, c].im, 'inset_into_zero')
+    i = sm.inset(cm, 60, 70)
+    assert_equal(i.v.size, cm.rows * cm.cols - 5, 'inset_into_zero')
+    for r in range(cm.rows):
+        for c in range(cm.cols):
+            assert_equal(i[r + 60, c + 70].re, cm[r, c].re, 'inset_into_zero')
+            assert_equal(i[r + 60, c + 70].im, cm[r, c].im, 'inset_into_zero')
+    with assert_raises():
+        _ = sm.inset(cm, 61, 70)
+    with assert_raises():
+        _ = sm.inset(cm, 60, 71)
+    with assert_raises():
+        _ = sm.inset(cm, -1, 70)
+    with assert_raises():
+        _ = sm.inset(cm, 0, -1)
+    i = sm.inset(cm, 0, 0, 2, 2)
+    assert_equal(i.v.size, cm.rows * cm.cols - 5, 'inset_into_zero')
+    for r in range(cm.rows):
+        for c in range(cm.cols):
+            assert_equal(i[2 * r, 2 * c].re, cm[r, c].re, 'inset_into_zero')
+            assert_equal(i[2 * r, 2 * c].im, cm[r, c].im, 'inset_into_zero')
+    i = sm.inset(cm, 8, 7, 2, 3)
+    assert_equal(i.v.size, cm.rows * cm.cols - 5, 'inset_into_zero')
+    for r in range(cm.rows):
+        for c in range(cm.cols):
+            assert_equal(i[2 * r + 8, 3 * c + 7].re, cm[r, c].re, 'inset_into_zero')
+            assert_equal(i[2 * r + 8, 3 * c + 7].im, cm[r, c].im, 'inset_into_zero')
+    i = sm.inset(cm, 21, 12, 2, 3)
+    assert_equal(i.v.size, cm.rows * cm.cols - 5, 'inset_into_zero')
+    for r in range(cm.rows):
+        for c in range(cm.cols):
+            assert_equal(i[2 * r + 21, 3 * c + 12].re, cm[r, c].re, 'inset_into_zero')
+            assert_equal(i[2 * r + 21, 3 * c + 12].im, cm[r, c].im, 'inset_into_zero')
+    with assert_raises():
+        _ = sm.inset(cm, 22, 12, 2, 3)
+    with assert_raises():
+        _ = sm.inset(cm, 21, 13, 2, 3)
+    sm = CSRCMatrix[type](100, 100)
+    for r in range(100):
+        for c in range(100):
+            sm[hash(r * c + 5) % 100, hash(c + 7) % 100] = ComplexScalar[type](r * r + 1, c // r + c - 5)
+    cm = CMatrix[type](20, 10)
+    cm.fill_range()
+    cm -= cm.ones_like() * 3 + cm.i_like() * 8
+    cm[18, 8] = 0
+    cm[10, 5] = 0
+    cm[10, 6] = 0
+    cm[11, 6] = 0
+    i = sm.inset(cm, 0, 0)
+    for r in range(100):
+        for c in range(100):
+            if r < 20 and c < 10:
+                assert_equal(i[r, c].re, cm[r, c].re, 'inset')
+                assert_equal(i[r, c].im, cm[r, c].im, 'inset')
+            else:
+                assert_equal(i[r, c].re, sm[r, c].re, 'inset')
+                assert_equal(i[r, c].im, sm[r, c].im, 'inset')
+    i = sm.inset(cm, 17, 51)
+    for r in range(100):
+        for c in range(100):
+            if r >= 17 and r < 37 and c >= 51 and c < 61:
+                assert_equal(i[r, c].re, cm[r - 17, c - 51].re, 'inset')
+                assert_equal(i[r, c].im, cm[r - 17, c - 51].im, 'inset')
+            else:
+                assert_equal(i[r, c].re, sm[r, c].re, 'inset')
+                assert_equal(i[r, c].im, sm[r, c].im, 'inset')
+    i = sm.inset(cm, 80, 90)
+    for r in range(100):
+        for c in range(100):
+            if r >= 80 and r < 100 and c >= 90 and c < 100:
+                assert_equal(i[r, c].re, cm[r - 80, c - 90].re, 'inset')
+                assert_equal(i[r, c].im, cm[r - 80, c - 90].im, 'inset')
+            else:
+                assert_equal(i[r, c].re, sm[r, c].re, 'inset')
+                assert_equal(i[r, c].im, sm[r, c].im, 'inset')
+    with assert_raises():
+        _ = sm.inset(cm, 90, 90)
+    with assert_raises():
+        _ = sm.inset(cm, 80, 95)
+    i = sm.inset(cm, 2, 3, 4, 5)
+    for r in range(100):
+        for c in range(100):
+            if r >= 2 and c >= 3 and (r - 2) % 4 == 0 and (c - 3) % 5 == 0 and r <= (2 + (20 - 1) * 4) and c <= (3 + (10 - 1) * 5):
+                assert_equal(i[r, c].re, cm[(r - 2) // 4, (c - 3) // 5].re, 'inset')
+                assert_equal(i[r, c].im, cm[(r - 2) // 4, (c - 3) // 5].im, 'inset')
+            else:
+                assert_equal(i[r, c].re, sm[r, c].re, 'inset')
+                assert_equal(i[r, c].im, sm[r, c].im, 'inset')
+    i = sm.inset(cm, 2, 3, 2, 3).inset(cm, 55, 71, 1, 2)
+    for r in range(100):
+        for c in range(100):
+            if r >= 2 and c >= 3 and (r - 2) % 2 == 0 and (c - 3) % 3 == 0 and r <= (2 + (20 - 1) * 2) and c <= (3 + (10 - 1) * 3):
+                assert_equal(i[r, c].re, cm[(r - 2) // 2, (c - 3) // 3].re, 'inset')
+                assert_equal(i[r, c].im, cm[(r - 2) // 2, (c - 3) // 3].im, 'inset')
+            elif r >= 55 and c >= 71 and (r - 55) % 1 == 0 and (c - 71) % 2 == 0 and r <= (55 + (20 - 1) * 1) and c <= (71 + (10 - 1) * 2):
+                assert_equal(i[r, c].re, cm[(r - 55) // 1, (c - 71) // 2].re, 'inset')
+                assert_equal(i[r, c].im, cm[(r - 55) // 1, (c - 71) // 2].im, 'inset')
+            else:
+                assert_equal(i[r, c].re, sm[r, c].re, 'inset')
+                assert_equal(i[r, c].im, sm[r, c].im, 'inset')
+    cm = CMatrix[type](22, 1).range_like(-13, 2)
+    i = sm.inset(cm, 0, 0)
+    for r in range(100):
+        for c in range(100):
+            if r < 22 and c == 0:
+                assert_equal(i[r, c].re, cm[r, c].re, 'inset_column')
+                assert_equal(i[r, c].im, cm[r, c].im, 'inset_column')
+            else:
+                assert_equal(i[r, c].re, sm[r, c].re, 'inset_column')
+                assert_equal(i[r, c].im, sm[r, c].im, 'inset_column')
+    i = sm.inset(cm, 78, 99)
+    for r in range(100):
+        for c in range(100):
+            if r >= 78 and c == 99:
+                assert_equal(i[r, c].re, cm[r - 78, c - 99].re, 'inset_column')
+                assert_equal(i[r, c].im, cm[r - 78, c - 99].im, 'inset_column')
+            else:
+                assert_equal(i[r, c].re, sm[r, c].re, 'inset_column')
+                assert_equal(i[r, c].im, sm[r, c].im, 'inset_column')
+    i = sm.inset(cm, 4, 7, 3, 895)
+    for r in range(100):
+        for c in range(100):
+            if r >= 4 and r <= (4 + (22 - 1) * 3) and c == 7 and (r - 4) % 3 == 0:
+                assert_equal(i[r, c].re, cm[(r - 4) // 3, c - 7].re, 'inset_column')
+                assert_equal(i[r, c].im, cm[(r - 4) // 3, c - 7].im, 'inset_column')
+            else:
+                assert_equal(i[r, c].re, sm[r, c].re, 'inset_column')
+                assert_equal(i[r, c].im, sm[r, c].im, 'inset_column')
+    with assert_raises():
+        _ = sm.inset(cm, 80, 0)
+    with assert_raises():
+        _ = sm.inset(cm, 40, 0, 6)
+    with assert_raises():
+        _ = sm.inset(cm, 50, 100)
+
+    # TODO: Test fill_diag
+
+fn test_static_constructors():
+    # TODO: this
