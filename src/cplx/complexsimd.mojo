@@ -191,7 +191,10 @@ struct ComplexSIMD[type: DType, size: Int](
             var int_part: String = s[:dot_idx]
             var dec_part: String = s[dot_idx + 1:]
             if len(int_part) > max_digits:
-                return sign + int_part[0] + '.' + int_part[1:max_digits] + 'e+' + str(len(int_part) - 1).rjust(2, '0')
+                return (
+                    sign + int_part[0] + '.' + int_part[1:max_digits] 
+                    + 'e+' + str(len(int_part) - 1).rjust(2, '0')
+                )
             if len(int_part) == max_digits:
                 return sign + int_part
             return sign + int_part + '.' + dec_part[:max_digits - len(int_part)]
@@ -287,12 +290,16 @@ struct ComplexSIMD[type: DType, size: Int](
     @always_inline
     fn __mul__(self, other: Self) -> Self:
         '''Defines the `*` product operator. Returns self * other.'''
-        return Self(self.re * other.re - self.im * other.im, self.re * other.im + self.im * other.re)
+        return Self(
+            self.re * other.re - self.im * other.im, self.re * other.im + self.im * other.re
+        )
 
     @always_inline
     fn __mul__[__: None = None](self, other: Self.Lane) -> Self:
         '''Defines the `*` product operator. Returns self * other.'''
-        return Self(self.re * other.re - self.im * other.im, self.re * other.im + self.im * other.re)
+        return Self(
+            self.re * other.re - self.im * other.im, self.re * other.im + self.im * other.re
+        )
 
     @always_inline
     fn __mul__(self, other: Self.Coef) -> Self:
@@ -324,17 +331,23 @@ struct ComplexSIMD[type: DType, size: Int](
     
     @always_inline
     fn __floordiv__(self, other: Self) -> Self:
-        '''Defines the `//` floor divide operator. Returns round(q.real()) + round(q.imag())i for q = self / other.'''
+        '''Defines the `//` floor divide operator. Returns round(q.real()) + round(q.imag()) * i 
+        for q = self / other.
+        '''
         return round(self / other)
 
     @always_inline
     fn __floordiv__[__: None = None](self, other: Self.Lane) -> Self:
-        '''Defines the `//` floor divide operator. Returns round(q.real()) + round(q.imag())i for q = self / other.'''
+        '''Defines the `//` floor divide operator. Returns round(q.real()) + round(q.imag()) * i
+        for q = self / other.
+        '''
         return round(self / other)
     
     @always_inline
     fn __floordiv__(self, other: Self.Coef) -> Self:
-        '''Defines the `//` floor divide operator. Returns round(q.real()) + round(q.imag())i for q = self / other.'''
+        '''Defines the `//` floor divide operator. Returns round(q.real()) + round(q.imag()) * i
+        for q = self / other.
+        '''
         return round(self / other)
 
     @always_inline
@@ -369,7 +382,9 @@ struct ComplexSIMD[type: DType, size: Int](
 
     @always_inline
     fn __abs__(self) -> Self:
-        '''Returnes the absolute value of the complex number as a complex number with no imaginary part.'''
+        '''Returnes the absolute value of the complex number as a complex number
+        with no imaginary part.
+        '''
         return Self(math.sqrt(self.re * self.re + self.im * self.im))
     
     @always_inline
@@ -474,7 +489,9 @@ struct ComplexSIMD[type: DType, size: Int](
     @always_inline
     fn __rmul__[__: None = None](self, other: Self.Lane) -> Self:
         '''Defines the reverse `*` product operator. Returns other * self.'''
-        return Self(other.re * self.re - other.im * self.im, other.im * self.re + other.re * self.im)
+        return Self(
+            other.re * self.re - other.im * self.im, other.im * self.re + other.re * self.im
+        )
 
     @always_inline
     fn __rmul__(self, other: Self.Coef) -> Self:
@@ -733,7 +750,9 @@ struct ComplexSIMD[type: DType, size: Int](
     @always_inline
     fn cos(self) -> Self:
         '''Returns the cosine of a complex number.'''
-        return Self(math.cos(self.re) * math.cosh(self.im), -math.sin(self.re) * math.sinh(self.im))
+        return Self(
+            math.cos(self.re) * math.cosh(self.im), -math.sin(self.re) * math.sinh(self.im)
+        )
     
     @always_inline
     fn tan(self) -> Self:
@@ -758,12 +777,16 @@ struct ComplexSIMD[type: DType, size: Int](
     @always_inline
     fn sinh(self) -> Self:
         '''Returns the hyperbolic sine of a complex number.'''
-        return Self(math.sinh(self.re) * math.cos(self.im), math.cosh(self.re) * math.sin(self.im))
+        return Self(
+            math.sinh(self.re) * math.cos(self.im), math.cosh(self.re) * math.sin(self.im)
+        )
     
     @always_inline
     fn cosh(self) -> Self:
         '''Returns the hyperbolic cosine of a complex number.'''
-        return Self(math.cosh(self.re) * math.cos(self.im), math.sinh(self.re) * math.sin(self.im))
+        return Self(
+            math.cosh(self.re) * math.cos(self.im), math.sinh(self.re) * math.sin(self.im)
+        )
     
     @always_inline
     fn tanh(self) -> Self:
@@ -831,8 +854,8 @@ struct ComplexSIMD[type: DType, size: Int](
     
     @always_inline
     fn acosh(self) -> Self:
-        '''Returns the arccosh of a complex number,
-        enforcing the convention that the imaginary part lies in [-pi, pi] and the real part is non-negative.
+        '''Returns the arccosh of a complex number, enforcing the convention that the 
+        imaginary part lies in [-pi, pi] and the real part is non-negative.
         '''
         var result: Self = (self + (self * self - Self(1)).sqrt()).log()
         if result.re < 0:
@@ -841,20 +864,24 @@ struct ComplexSIMD[type: DType, size: Int](
 
     @always_inline
     fn atanh(self) -> Self:
-        '''Returns the arctanh of a complex number,
-        enforcing the convention that the imaginary part lies in [-pi/2, pi/2].
+        '''Returns the arctanh of a complex number, enforcing the convention that the
+        imaginary part lies in [-pi/2, pi/2].
         '''
         var one: Self = Self(1)
         return Self(0.5) * ((one + self) / (one - self)).log()
         
     @always_inline
     fn floor(self) -> Self:
-        '''Returns a complex number with the floor function applied to the real and imaginary parts.'''
+        '''Returns a complex number with the floor function applied to the real and
+        imaginary parts.
+        '''
         return Self(math.floor(self.re), math.floor(self.im))
     
     @always_inline
     fn ceil(self) -> Self:
-        '''Returns a complex number with the ceiling function applied to the real and imaginary parts.'''
+        '''Returns a complex number with the ceiling function applied to the real and
+        imaginary parts.
+        '''
         return Self(math.ceil(self.re), math.ceil(self.im))
     
     @always_inline
@@ -894,12 +921,16 @@ struct ComplexSIMD[type: DType, size: Int](
     
     @always_inline
     fn __eq__[__: None = None](self, other: Self) -> SIMD[DType.bool, Self.size]:
-        '''Defines the `==` equality operator. Returns True if the real parts match and the imaginary parts match.'''
+        '''Defines the `==` equality operator. Returns True if the real parts match and the 
+        imaginary parts match.
+        '''
         return self.re == other.re and self.im == other.im
     
     @always_inline
     fn __eq__(self, other: Self.Coef) -> SIMD[DType.bool, Self.size]:
-        '''Defines the `==` equality operator. Returns True if the real parts match and the imaginary parts match.'''
+        '''Defines the `==` equality operator. Returns True if the real parts match and the 
+        imaginary parts match.
+        '''
         return self.re == other and self.im == 0
     
     @always_inline
@@ -925,46 +956,49 @@ struct ComplexSIMD[type: DType, size: Int](
     
     @always_inline
     fn __lt__(self, other: Self.Coef) -> SIMD[DType.bool, Self.size]:
-        '''Defines the `<` less than operator. Returns True if the absolute value of self is less than other.'''
+        '''Defines the `<` less than operator. Returns True if the absolute value of self is 
+        less than other.
+        '''
         return self.norm() < other
     
     @always_inline
     fn __le__[__: None = None](self, other: Self) -> SIMD[DType.bool, Self.size]:
-        '''Defines the `<=` less than or equal operator. 
-        Returns True if the absolute value of self is less than or equal to the absolute value of other.
+        '''Defines the `<=` less than or equal operator. Returns True if the absolute value of 
+        self is less than or equal to the absolute value of other.
         '''
         return self.norm() <= other.norm()
     
     @always_inline
     fn __le__(self, other: Self.Coef) -> SIMD[DType.bool, Self.size]:
-        '''Defines the `<=` less than or equal operator. 
-        Returns True if the absolute value of self is less than or equal to other.
+        '''Defines the `<=` less than or equal operator. Returns True if the absolute value of
+        self is less than or equal to other.
         '''
         return self.norm() <= other
     
     @always_inline
     fn __gt__[__: None = None](self, other: Self) -> SIMD[DType.bool, Self.size]:
-        '''Defines the `<` greater than operator. 
-        Returns True if the absolute value of self is greater than the absolute value of other.
+        '''Defines the `<` greater than operator. Returns True if the absolute value of self is 
+        greater than the absolute value of other.
         '''
         return self.norm() > other.norm()
     
     @always_inline
     fn __gt__(self, other: Self.Coef) -> SIMD[DType.bool, Self.size]:
-        '''Defines the `>` greater than operator. Returns True if the absolute value of self is greater than other.'''
+        '''Defines the `>` greater than operator. Returns True if the absolute value of self is 
+        greater than other.'''
         return self.norm() > other
     
     @always_inline
     fn __ge__[__: None = None](self, other: Self) -> SIMD[DType.bool, Self.size]:
-        '''Defines the `>=` greater than or equal operator. 
-        Returns True if the absolute value of self is greater than or equal to the absolute value of other.
+        '''Defines the `>=` greater than or equal operator. Returns True if the absolute value of
+        self is greater than or equal to the absolute value of other.
         '''
         return self.norm() >= other.norm()
     
     @always_inline
     fn __ge__(self, other: Self.Coef) -> SIMD[DType.bool, Self.size]:
-        '''Defines the `>=` greater than or equal operator.
-        Returns True if the absolute value of self is greater than or equal to other.
+        '''Defines the `>=` greater than or equal operator. Returns True if the absolute value of 
+        self is greater than or equal to other.
         '''
         return self.norm() >= other
     
@@ -1009,17 +1043,23 @@ struct ComplexSIMD[type: DType, size: Int](
         return abs(self - Self(1)) < tol
     
     @always_inline
-    fn is_close[tol: Scalar[Self.type] = Self._tol_default](self, other: Self) -> SIMD[DType.bool, Self.size]:
+    fn is_close[tol: Scalar[Self.type] = Self._tol_default](
+        self, other: Self
+    ) -> SIMD[DType.bool, Self.size]:
         '''Returns True if abs(self - other) < tol.'''
         return abs(self - other) < tol
     
     @always_inline
-    fn is_close[tol: Scalar[Self.type] = Self._tol_default, __: None = None](self, other: Self.Lane) -> Bool:
+    fn is_close[tol: Scalar[Self.type] = Self._tol_default, __: None = None](
+        self, other: Self.Lane
+    ) -> Bool:
         '''Returns True if abs(self - other) < tol.'''
         return all(abs(self - other) < tol)
     
     @always_inline
-    fn is_close[tol: Scalar[Self.type] = Self._tol_default, __: None = None](self, other: Self.Coef) -> SIMD[DType.bool, Self.size]:
+    fn is_close[tol: Scalar[Self.type] = Self._tol_default, __: None = None](
+        self, other: Self.Coef
+    ) -> SIMD[DType.bool, Self.size]:
         '''Returns True if abs(self - other) < tol.'''
         return abs(self - other) < tol
     
@@ -1066,7 +1106,9 @@ struct ComplexSIMD[type: DType, size: Int](
         self.im[idx] = item.im
     
     @always_inline
-    fn slice[output_width: Int, /, *, offset: Int = 0](self) -> ComplexSIMD[Self.type, output_width]:
+    fn slice[output_width: Int, /, *, offset: Int = 0](
+        self
+    ) -> ComplexSIMD[Self.type, output_width]:
         var re_slice: SIMD[Self.type, output_width] = self.re.slice[output_width, offset=offset]()
         var im_slice: SIMD[Self.type, output_width] = self.im.slice[output_width, offset=offset]()
         return ComplexSIMD[Self.type, output_width](re_slice, im_slice)

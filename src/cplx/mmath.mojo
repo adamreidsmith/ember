@@ -17,7 +17,9 @@ fn kron_sequential[type: DType](a: CMatrix[type], b: CMatrix[type]) -> CMatrix[t
             block = a.load_crd[1](r_a, c_a) * b
             for r_b in range(b.rows):
                 for c_b in range(b.cols):
-                    result.store_crd[1](r_a * b.rows + r_b, c_a * b.cols + c_b, block.load_crd[1](r_b, c_b))
+                    result.store_crd[1](
+                        r_a * b.rows + r_b, c_a * b.cols + c_b, block.load_crd[1](r_b, c_b)
+                    )
     return result
 
 
@@ -82,7 +84,7 @@ fn swap_rows[type: DType](A: CMatrix[type], r1: Int, r2: Int) raises -> CMatrix[
     for c in range(A.cols):
         result.store_crd[1](r1, c, A.load_crd[1](r2, c))
         result.store_crd[1](r2, c, A.load_crd[1](r1, c))
-    return result 
+    return result
 
 
 fn swap_rows_inplace[type: DType](A: CMatrix[type], r1: Int, r2: Int) raises:
@@ -118,7 +120,7 @@ fn swap_cols[type: DType](A: CMatrix[type], c1: Int, c2: Int) raises -> CMatrix[
     for r in range(A.rows):
         result.store_crd[1](r, c1, A.load_crd[1](r, c2))
         result.store_crd[1](r, c2, A.load_crd[1](r, c1))
-    return result 
+    return result
 
 
 fn swap_cols_inplace[type: DType](A: CMatrix[type], c1: Int, c2: Int) raises:
@@ -133,7 +135,9 @@ fn swap_cols_inplace[type: DType](A: CMatrix[type], c1: Int, c2: Int) raises:
         A.store_crd[1](r, c2, p)
 
 
-fn swap_vals[type: DType](A: CMatrix[type], r1: Int, c1: Int, r2: Int, c2: Int) raises -> CMatrix[type]:
+fn swap_vals[type: DType](
+    A: CMatrix[type], r1: Int, c1: Int, r2: Int, c2: Int
+) raises -> CMatrix[type]:
     '''Swap values at (r1, c1) and (r2, c2) in A and return the result.'''
     if r1 == r2 and c1 == c2:
         return A
@@ -144,10 +148,12 @@ fn swap_vals[type: DType](A: CMatrix[type], r1: Int, c1: Int, r2: Int, c2: Int) 
     var result = A
     result.store_crd[1](r1, c1, A.load_crd[1](r2, c2))
     result.store_crd[1](r2, c2, A.load_crd[1](r1, c1))
-    return result 
+    return result
 
 
-fn swap_vals_inplace[type: DType](inout A: CMatrix[type], r1: Int, c1: Int, r2: Int, c2: Int) raises:
+fn swap_vals_inplace[type: DType](
+    inout A: CMatrix[type], r1: Int, c1: Int, r2: Int, c2: Int
+) raises:
     '''Swap values at (r1, c1) and (r2, c2) in-place.'''
     if r1 == r2 and c1 == c2:
         return
@@ -160,7 +166,9 @@ fn swap_vals_inplace[type: DType](inout A: CMatrix[type], r1: Int, c1: Int, r2: 
     A.store_crd[1](r2, c2, p1)
 
 
-fn augmented_ref[type: DType, tol: Scalar[type] = 1e-15](A: CMatrix[type], B: CMatrix[type]) raises -> CMatrix[type]:
+fn augmented_ref[type: DType, tol: Scalar[type] = 1e-15](
+    A: CMatrix[type], B: CMatrix[type]
+) raises -> CMatrix[type]:
     '''Computes the row echelon form of the augmented matrix [A|B].'''
     var Aaug: CMatrix[type] = hstack(A, B)
     var h: Int = 0  # initialize pivot row
@@ -188,13 +196,15 @@ fn augmented_ref[type: DType, tol: Scalar[type] = 1e-15](A: CMatrix[type], B: CM
                 # Do for all remaining elements in current row:
                 for j in range(k + 1, A.cols + B.cols):
                     Aaug.store_crd[1](i, j, Aaug.load_crd[1](i, j) - Aaug.load_crd[1](h, j) * f)
-            # Increase pivot row and column 
+            # Increase pivot row and column
             h += 1; k += 1
     return Aaug
 
 
 # TODO: Switch to a faster algorithm
-fn solve[type: DType, tol: Scalar[type] = 1e-15](A: CMatrix[type], B: CMatrix[type]) raises -> CMatrix[type]:
+fn solve[type: DType, tol: Scalar[type] = 1e-15](
+    A: CMatrix[type], B: CMatrix[type]
+) raises -> CMatrix[type]:
     '''Solves a linear system of equations Ax=B via Gaussian elimination.'''
     if A.rows != A.cols:
         raise Error('A must be a square matrix for `solve`')
@@ -212,7 +222,9 @@ fn solve[type: DType, tol: Scalar[type] = 1e-15](A: CMatrix[type], B: CMatrix[ty
             var dot = ComplexScalar[type](0)
             for j in range(i + 1, A.cols):
                 dot += aug_ref.load_crd[1](i, j) * X.load_crd[1](j, c)
-            X.store_crd[1](i, c, (aug_ref.load_crd[1](i, c + A.cols) - dot) / aug_ref.load_crd[1](i, i))
+            X.store_crd[1](
+                i, c, (aug_ref.load_crd[1](i, c + A.cols) - dot) / aug_ref.load_crd[1](i, i)
+            )
     return X
 
 
@@ -238,7 +250,7 @@ fn _int_matrix_power[type: DType](owned A: CMatrix[type], n: Int) raises -> CMat
     if A.rows != A.cols:
         raise Error('Cannot compute a power of a non-square matrix')
     if n == 1:
-        return A 
+        return A
     if n % 2 == 0:
         return _int_matrix_power(A @ A, n // 2)
     else:
@@ -292,7 +304,9 @@ fn hstack[type: DType](A: CMatrix[type], B: CMatrix[type]) raises -> CMatrix[typ
 fn vstack[type: DType](A: CMatrix[type], B: CMatrix[type]) raises -> CMatrix[type]:
     '''Stack two matrices vertically and return the result.'''
     if A.cols != B.cols:
-        raise Error('Invalid column dimensions for `vstack`: ' + str(A.cols) + ' and ' + str(B.cols))
+        raise Error(
+            'Invalid column dimensions for `vstack`: ' + str(A.cols) + ' and ' + str(B.cols)
+        )
     var result = CMatrix[type](rows=A.rows + B.rows, cols=A.cols, fill_zeros=False)
     for c in range(A.cols):
         # TODO: Change to memcpy
@@ -308,9 +322,11 @@ alias b_d = List[List[Int, True]](
     List[Int, True](120, 60, 12, 1),
     List[Int, True](30240, 15120, 3360, 420, 30, 1),
     List[Int, True](17297280, 8648640,1995840, 277200, 25200,1512, 56,1),
-    List[Int, True](17643225600, 8821612800, 2075673600, 302702400, 30270240, 2162160, 110880, 3960, 90, 1),
     List[Int, True](
-        64764752532480000, 32382376266240000, 7771770303897600, 1187353796428800, 129060195264000, 
+        17643225600, 8821612800, 2075673600, 302702400, 30270240, 2162160, 110880, 3960, 90, 1
+    ),
+    List[Int, True](
+        64764752532480000, 32382376266240000, 7771770303897600, 1187353796428800, 129060195264000,
         10559470521600, 670442572800, 33522128640, 1323241920, 40840800, 960960, 16380, 182, 1
     ),
 )
@@ -348,7 +364,7 @@ fn _expm_ss[type: DType](A: CMatrix[type], norm: SIMD[type, 1]) raises -> CMatri
     # alias b = b_d[4]  # This produces a segmentation fault...
     var b = b_d[4]
     alias inv_log_2: SIMD[type, 1] = log(2.0).cast[type]()
-    
+
     var Ac: CMatrix[type] = A
     var s: Int = max(0, int(ceil(log(norm / theta13) * inv_log_2)))
     if s > 0:
@@ -358,16 +374,24 @@ fn _expm_ss[type: DType](A: CMatrix[type], norm: SIMD[type, 1]) raises -> CMatri
     var A2: CMatrix[type] = Ac @ Ac
     var A4: CMatrix[type] = A2 @ A2
     var A6: CMatrix[type] = A2 @ A4
-    var U: CMatrix[type] = Ac @ (A6 @ (b[13] * A6 + b[11] * A4 + b[9] * A2) + b[7] * A6 + b[5] * A4 + b[3] * A2 + b[1] * I)
-    var V: CMatrix[type] = A6 @ (b[12] * A6 + b[10] * A4 + b[8] * A2) + b[6] * A6 + b[4] * A4 + b[2] * A2 + b[0] * I
+    var U: CMatrix[type] = (
+        Ac 
+        @ (
+            A6 
+            @ (b[13] * A6 + b[11] * A4 + b[9] * A2) + b[7] * A6 + b[5] * A4 + b[3] * A2 + b[1] * I
+        )
+    )
+    var V: CMatrix[type] = (
+        A6 
+        @ (b[12] * A6 + b[10] * A4 + b[8] * A2) + b[6] * A6 + b[4] * A4 + b[2] * A2 + b[0] * I
+    )
     var r13: CMatrix[type] = solve(V - U, V + U)
-    # var r13: CMatrix[type] = (V - U).inv() @ (V + U)
     return matrix_power(r13, 2**s)
 
 
 fn expm[type: DType](A: CMatrix[type]) raises -> CMatrix[type]:
     '''Compute the matrix exponential of a square matrix A.
-    
+
     Implements algorithm 10.20 from [1].
 
     [1] Functions of Matrices: Theory and Computation, Nicholas J. Higham, 2008.
@@ -384,4 +408,3 @@ fn expm[type: DType](A: CMatrix[type]) raises -> CMatrix[type]:
     elif norm < theta9:
         return _expm_pade[m=9](A)
     return _expm_ss(A, norm)
-    
