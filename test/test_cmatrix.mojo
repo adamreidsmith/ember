@@ -456,4 +456,17 @@ def test_compare():
     _assert_matrix_equal(m1 <= m2, le, 'le')
 
 def test_static_constructors():
-    # TODO: this
+    for r in range(1, 50):
+        for c in range(1, 50):
+            _assert_matrix_equal(CMatrix[type].eye(r, c), CMatrix[type](r, c).eye_like(), 'eye')
+            _assert_matrix_equal(CMatrix[type].zeros(r, c), CMatrix[type](r, c).zeros_like(), 'zeros')
+            _assert_matrix_equal(CMatrix[type].ones(r, c), CMatrix[type](r, c).ones_like(), 'ones')
+            _assert_matrix_equal(CMatrix[type].i(r, c), CMatrix[type](r, c).i_like(), 'i')
+            _assert_matrix_equal(CMatrix[type].arange(r, c), CMatrix[type](r, c).range_like(), 'i')
+            _assert_matrix_equal(CMatrix[type].arange(r, c), CMatrix[type](r, c).range_like(), 'i')
+            for start in range(100, -100, -23):
+                _assert_matrix_equal(CMatrix[type].arange(r, c, start), CMatrix[type](r, c).range_like(start), 'i')
+                _assert_matrix_equal(CMatrix[type].arange(r, c, start), CMatrix[type](r, c).range_like(start), 'i')
+                for step in range(-10, 10, 3):
+                    _assert_matrix_equal(CMatrix[type].arange(r, c, start, step), CMatrix[type](r, c).range_like(start, step), 'i')
+                    _assert_matrix_equal(CMatrix[type].arange(r, c, start, step), CMatrix[type](r, c).range_like(start, step), 'i')

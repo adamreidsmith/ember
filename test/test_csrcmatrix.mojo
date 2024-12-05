@@ -900,8 +900,25 @@ def test_fill():
         _ = sm.inset(cm, 40, 0, 6)
     with assert_raises():
         _ = sm.inset(cm, 50, 100)
+    c = ComplexScalar[type]((-12.5, 6.6))
+    smc = sm
+    smc.fill_diag(c)
+    cmc = sm.to_dense()
+    cmc.fill_diag(c)
+    _assert_matrix_equal(smc.to_dense(), cmc, 'fill_diag')
+    smc = sm
+    smc.fill_diag(c, 14)
+    cmc = sm.to_dense()
+    cmc.fill_diag(c, 14)
+    _assert_matrix_equal(smc.to_dense(), cmc, 'fill_diag')
+    smc = sm
+    smc.fill_diag(c, -14)
+    cmc = sm.to_dense()
+    cmc.fill_diag(c, -14)
+    _assert_matrix_equal(smc.to_dense(), cmc, 'fill_diag')
 
-    # TODO: Test fill_diag
-
-fn test_static_constructors():
-    # TODO: this
+def test_static_constructors():
+    for r in range(1, 50):
+        for c in range(1, 50):
+            _assert_matrix_equal(CSRCMatrix[type].zeros(r, c).to_dense(), CMatrix[type](r, c), 'zeros')
+            _assert_matrix_equal(CSRCMatrix[type].eye(r, c).to_dense(), CMatrix[type].eye(r, c), 'zeros')
