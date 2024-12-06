@@ -4,7 +4,7 @@ from collections import Dict
 
 from .complexsimd import ComplexScalar
 from .cmatrix import CMatrix
-from .config import DEFAULT_TOL, DEFAULT_ZERO_THRESHOD
+from ..config import DEFAULT_TOL, DEFAULT_ZERO_THRESHOD
 
 
 @value
@@ -1423,6 +1423,12 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRES
         # TODO: Benchmark to see which of these is better
         # return self._sparse_matmul_gustavson(other)
         return self._sparse_matmul_hash(other)
+    
+    # TODO: Make it better
+    @always_inline
+    fn __imatmul__(inout self, other: Self) raises:
+        '''Matrix multiplication of a sparse matrix with a dense matrix.'''
+        self = self @ other
 
     # Other math ######################
 

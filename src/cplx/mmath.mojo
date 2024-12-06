@@ -1,5 +1,4 @@
 from math import inf as INF, ceil, log
-from collections import List
 from sys import simdwidthof
 from algorithm import parallelize, vectorize
 from memory import memcpy
@@ -7,7 +6,7 @@ from memory import memcpy
 from .complexsimd import ComplexScalar
 from .cmatrix import CMatrix
 from .csrcmatrix import CSRCMatrix
-from .config import DEFAULT_TOL
+from ..config import DEFAULT_TOL
 
 
 fn kron_sequential[type: DType](A: CMatrix[type], B: CMatrix[type]) -> CMatrix[type]:
@@ -264,7 +263,7 @@ fn solve[type: DType, tol: Scalar[type] = DEFAULT_TOL](
     return X
 
 
-fn one_norm[type: DType](A: CMatrix[type]) -> SIMD[type, 1]:
+fn one_norm[type: DType](A: CMatrix[type]) -> Scalar[type]:
     '''Computes the 1-norm of a matrix, i.e. the maximum absolute column sum.'''
     var col_sums = CMatrix[type](rows=1, cols=A.cols, fill_zeros=False)
     @parameter
@@ -274,7 +273,7 @@ fn one_norm[type: DType](A: CMatrix[type]) -> SIMD[type, 1]:
             col_sum += abs(A.load_crd[1](r, c))
         col_sums.store_idx[1](c, col_sum)
     parallelize[sum_abs_cols](A.cols, A.cols)
-    var max: SIMD[type, 1] = col_sums.load_idx[1](0).re
+    var max: Scalar[type] = col_sums.load_idx[1](0).re
     for c in range(1, A.cols):
         if (cs := col_sums.load_idx[1](c).re) > max:
             max = cs
@@ -293,15 +292,39 @@ fn _int_matrix_power[type: DType](owned A: CMatrix[type], n: Int) raises -> CMat
         return _int_matrix_power(A @ A, (n - 1) // 2) @ A
 
 
+fn _int_matrix_power[type: DType](owned A: CSRCMatrix[type], n: Int) raises -> CSRCMatrix[type]:
+    '''Computes A^n for a square sparse matrix A and positive integer n.'''
+    if A.rows != A.cols:
+        raise Error('Cannot compute a power of a non-square matrix')
+    if n == 1:
+        return A
+    if n % 2 == 0:
+        return _int_matrix_power(A @ A, n // 2)
+    else:
+        return _int_matrix_power(A @ A, (n - 1) // 2) @ A
+
+
 fn matrix_power[type: DType](A: CMatrix[type], n: Int) raises -> CMatrix[type]:
     '''Computes A^n for a matrix A and integer n.'''
     if A.rows != A.cols:
         raise Error('Cannot compute a power of a non-square matrix')
     if n == 0:
         return A.eye_like()
-    var Ac = A  # copy A
+    var Ac = A
     if n < 0:
         return _int_matrix_power(Ac^, -n).inv()
+    return _int_matrix_power(Ac^, n)
+
+
+fn matrix_power[type: DType](A: CSRCMatrix[type], n: Int) raises -> CSRCMatrix[type]:
+    '''Computes A^n for a sparse matrix A and integer n.'''
+    if A.rows != A.cols:
+        raise Error('Cannot compute a power of a non-square matrix')
+    if n < 0:
+        raise Error('Negative powers of sparse matrices are not supported at this time')
+    if n == 0:
+        return A.eye_like()
+    var Ac = A
     return _int_matrix_power(Ac^, n)
 
 
@@ -394,12 +417,12 @@ fn _expm_pade[type: DType, m: Int](A: CMatrix[type]) raises -> CMatrix[type]:
     # return (V - U).inv() @ (V + U)
 
 
-fn _expm_ss[type: DType](A: CMatrix[type], norm: SIMD[type, 1]) raises -> CMatrix[type]:
+fn _expm_ss[type: DType](A: CMatrix[type], norm: Scalar[type]) raises -> CMatrix[type]:
     if A.rows != A.cols:
         raise Error('Cannot exponentiate a non-square matrix')
     # alias b = b_d[4]  # This produces a segmentation fault...
     var b = b_d[4]
-    alias inv_log_2: SIMD[type, 1] = log(2.0).cast[type]()
+    alias inv_log_2: Scalar[type] = log(2.0).cast[type]()
 
     var Ac: CMatrix[type] = A
     var s: Int = max(0, int(ceil(log(norm / theta13) * inv_log_2)))
@@ -434,7 +457,7 @@ fn expm[type: DType](A: CMatrix[type]) raises -> CMatrix[type]:
     '''
     if A.rows != A.cols:
         raise Error('Cannot exponentiate a non-square matrix')
-    var norm: SIMD[type, 1] = one_norm(A)
+    var norm: Scalar[type] = one_norm(A)
     if norm < theta3:
         return _expm_pade[m=3](A)
     elif norm < theta5:

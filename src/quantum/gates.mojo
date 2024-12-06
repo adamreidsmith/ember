@@ -4,18 +4,25 @@ from utils import Variant
 
 from ..cplx import CMatrix, ComplexScalar
 from .bit import Qubit
+from ..config import DEFAULT_TOL
 
 
 @value
-struct Gate[type: DType, tol: Scalar[type] = 1e-12](Formattable, Sized, StringableCollectionElement):
+struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Formattable, Sized, StringableCollectionElement):
     '''A quantum gate.'''
 
     var name: String
-    var n_qubits: Int  # The number of qubits the gate acts on
-    var matrix: CMatrix[Self.type]  # The unitary matrix that implements the gate
-    var applied_to: List[Qubit, True]  # The qubits the gate is applied to
-    var controlled_on: List[Qubit, True]  # The qubits the gate is controlled on
-    var params: List[Scalar[Self.type], True]  # The parameter values applied to the gate
+    '''An identifier for the gate.'''
+    var n_qubits: Int
+    '''The number of qubits the gate acts on.'''
+    var matrix: CMatrix[Self.type]
+    '''The unitary matrix that implements the gate.'''
+    var applied_to: List[Qubit, True]
+    '''The qubits the gate is applied to.'''
+    var controlled_on: List[Qubit, True]
+    '''The qubits the gate is controlled on.'''
+    var params: List[Scalar[Self.type], True]
+    '''The parameter values applied to the gate.'''
 
     @always_inline
     fn __init__(
@@ -43,6 +50,7 @@ struct Gate[type: DType, tol: Scalar[type] = 1e-12](Formattable, Sized, Stringab
         self.params = params^
         self.controlled_on = List[Qubit, True]()
 
+    # # These should be the same as what's created by @value
     # @always_inline
     # fn __copyinit__(inout self, existing: Self):
     #     self.name = existing.name
@@ -71,6 +79,38 @@ struct Gate[type: DType, tol: Scalar[type] = 1e-12](Formattable, Sized, Stringab
         str_rep = str_rep[:-2]
         return str_rep + ')'
     
+    # TODO: Debug seg fault with RX 
+    # @no_inline
+    # fn __repr__(self) -> String:
+    #     var str_rep: String = '<Gate ' + self.name + ': '
+    #     if not self.applied_to and not self.controlled_on and not self.params:
+    #         return str_rep[:-2] + '>'
+    #     var qubits_str: String = ''
+    #     if self.applied_to:
+    #         qubits_str = 'qubtis=(' + str(self.applied_to[0])
+    #         for qubit in self.applied_to[1:]:
+    #             qubits_str += ', ' + str(qubit[])
+    #         qubits_str += ')'
+    #     var controls_str: String = ''
+    #     if self.applied_to:
+    #         controls_str = 'controls=(' + str(self.controlled_on[0])
+    #         for qubit in self.controlled_on[1:]:
+    #             controls_str += ', ' + str(qubit[])
+    #         controls_str += ')'
+    #     var params_str: String = ''
+    #     if self.params:
+    #         params_str = 'params=(' + str(self.params[0])
+    #         for param in self.params[1:]:
+    #             params_str += ', ' + str(param[])
+    #         params_str += ')'
+    #     if qubits_str:
+    #         str_rep += qubits_str if str_rep[-2:] == ': ' else ', ' + qubits_str
+    #     if controls_str:
+    #         str_rep += controls_str if str_rep[-2:] == ': ' else ', ' + controls_str
+    #     if params_str:
+    #         str_rep += params_str if str_rep[-2:] == ': ' else ', ' + params_str
+    #     return str_rep + '>'
+        
     @no_inline
     fn format_to(self, inout writer: Formatter):
         writer.write(self.__str__())
@@ -178,7 +218,6 @@ fn rx[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
     )
 fn RX[type: DType](q: Qubit, theta: Scalar[type]) raises -> Gate[type]:
     return Gate[type]('RX', rx[type](theta), List[Qubit, True](q), List[Scalar[type], True](theta))
-
 
 fn ry[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
     var a = ComplexScalar[type](cos(t / 2), 0)

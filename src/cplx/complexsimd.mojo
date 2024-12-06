@@ -1,6 +1,6 @@
 import math
 
-from .config import DEFAULT_TOL
+from ..config import DEFAULT_TOL
 
 alias ComplexScalar = ComplexSIMD[size=1]
 

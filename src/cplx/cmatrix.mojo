@@ -1,10 +1,12 @@
+# TODO: Switch UnsafePointer for Buffer
+
 from math import sqrt
 from memory import memset_zero, memcpy
 from algorithm import parallelize, vectorize
 from sys import simdwidthof
 
 from .complexsimd import ComplexScalar, ComplexSIMD
-from .config import DEFAULT_TOL
+from ..config import DEFAULT_TOL
 
 @value
 struct CMatrix[type: DType](
@@ -854,23 +856,24 @@ struct CMatrix[type: DType](
     # TODO: Make it better
     fn __imatmul__(inout self, other: Self) raises:
         '''Defines the `@=` in-place matrix multiply operator. Only valid for square matrices.'''
-        self._assert_matmul_compatible(other)
-        var result = Self(rows=self.rows, cols=other.cols, fill_zeros=True)
-        @parameter
-        fn calc_row(r: Int):
-            for k in range(self.cols):
-                @parameter
-                fn dot[simd_width: Int](c: Int):
-                    result.store_crd[simd_width](
-                        r,
-                        c,
-                        result.load_crd[simd_width](r, c)
-                        + self.load_crd[1](r, k)
-                        * other.load_crd[simd_width](k, c),
-                    )
-                vectorize[dot, simdwidthof[Self.type]()](result.cols)
-        parallelize[calc_row](result.rows, result.rows)
-        self = result^
+        self = self @ other
+        # self._assert_matmul_compatible(other)
+        # var result = Self(rows=self.rows, cols=other.cols, fill_zeros=True)
+        # @parameter
+        # fn calc_row(r: Int):
+        #     for k in range(self.cols):
+        #         @parameter
+        #         fn dot[simd_width: Int](c: Int):
+        #             result.store_crd[simd_width](
+        #                 r,
+        #                 c,
+        #                 result.load_crd[simd_width](r, c)
+        #                 + self.load_crd[1](r, k)
+        #                 * other.load_crd[simd_width](k, c),
+        #             )
+        #         vectorize[dot, simdwidthof[Self.type]()](result.cols)
+        # parallelize[calc_row](result.rows, result.rows)
+        # self = result^
 
     # Right math dunders ##############
 
@@ -1045,7 +1048,7 @@ struct CMatrix[type: DType](
                 if i_norm > i_max:
                     i_max = i_norm
                     i_argmax = i
-            if A.load_crd[1](i_argmax, k).norm() < tol:
+            if A.load_crd[1](i_argmax, k) < tol:
                 k += 1
             else:
                 for c in range(self.cols):
@@ -1089,9 +1092,9 @@ struct CMatrix[type: DType](
             augmented.store_crd[1](r, self.cols + r, one)
 
         for i in range(self.rows):
-            if augmented[i, i].norm() < tol:
+            if augmented[i, i] < tol:
                 for j in range(i + 1, self.rows):
-                    if augmented[j, i].norm() >= tol:
+                    if augmented[j, i] >= tol:
                         var i_start: Int = i * augmented.cols
                         var j_start: Int = j * augmented.cols
                         var row_i = Self(rows=1, cols=augmented.cols, fill_zeros=False)
