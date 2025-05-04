@@ -1,20 +1,21 @@
 # For now, Bits and Qubits are just Ints
 
 @register_passable('trivial')
-struct Clbit(StringableCollectionElement, KeyElement, Formattable):
+struct Clbit(Stringable, CollectionElement, KeyElement, Writable):
     var idx: Int
 
     @always_inline
-    fn __init__(inout self, idx: Int):
+    @implicit
+    fn __init__(out self, idx: Int):
         self.idx = idx
     
     @no_inline
     fn __str__(self) -> String:
-        return 'c' + str(self.idx)
+        return 'c' + String(self.idx)
 
     @no_inline
-    fn format_to(self, inout writer: Formatter):
-        writer.write(self.__str__())
+    fn write_to[W: Writer](self, mut writer: W):
+        writer.write(String(self))
 
     @always_inline
     fn __hash__(self) -> UInt:
@@ -29,20 +30,21 @@ struct Clbit(StringableCollectionElement, KeyElement, Formattable):
         return self.idx != other.idx
 
 @register_passable('trivial')
-struct Qubit(StringableCollectionElement, KeyElement, Formattable):
+struct Qubit(Stringable, CollectionElement, KeyElement, Writable):
     var idx: Int
 
     @always_inline
-    fn __init__(inout self, idx: Int):
+    @implicit
+    fn __init__(out self, idx: Int):
         self.idx = idx
     
     @no_inline
     fn __str__(self) -> String:
-        return 'q' + str(self.idx)
+        return 'q' + String(self.idx)
 
     @no_inline
-    fn format_to(self, inout writer: Formatter):
-        writer.write(self.__str__())
+    fn write_to[W: Writer](self, mut writer: W):
+        writer.write(String(self))
 
     @always_inline
     fn __hash__(self) -> UInt:

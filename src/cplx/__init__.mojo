@@ -30,5 +30,7 @@ from .mmath import (
     matrix_power,
     hstack,
     vstack,
+    kron_power,
+    # extend_columns_to_orthonormal_basis,
 )
-from .csrcmatrix import CSRCMatrix
+from .csrcmatrix import CSRCMatrix, CSRBuilder

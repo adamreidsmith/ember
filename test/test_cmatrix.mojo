@@ -364,11 +364,11 @@ def test_fill():
     m1.fill(s)
     _assert_matrix_equal(m1, s, 'fill')
     m1.fill_zero()
-    _assert_matrix_equal(m1, 0, 'fill_zero')
+    _assert_matrix_equal(m1, ComplexScalar[type].zero(), 'fill_zero')
     m1.fill_one()
-    _assert_matrix_equal(m1, 1, 'fill_one')
+    _assert_matrix_equal(m1, ComplexScalar[type].one(), 'fill_one')
     m1.fill_i()
-    _assert_matrix_equal(m1, (0, 1), 'fill_i')
+    _assert_matrix_equal(m1, ComplexScalar[type].i(), 'fill_i')
     m1.fill_zero()
     m1.fill_diag(s)
     _assert_matrix_equal(m1, m1.eye_like() * s, 'fill_diag')
@@ -384,9 +384,9 @@ def test_fill():
     for idx in range(m1.size):
         assert_equal(m1[idx].re, 17 * idx - 12345, 'fill_range')
         assert_equal(m1[idx].im, 0, 'fill_range')
-    _assert_matrix_equal(m1.ones_like(), 1, 'ones_like')
-    _assert_matrix_equal(m1.zeros_like(), 0, 'zeros_like')
-    _assert_matrix_equal(m1.i_like(), (0, 1), 'i_like')
+    _assert_matrix_equal(m1.ones_like(), ComplexScalar[type].one(), 'ones_like')
+    _assert_matrix_equal(m1.zeros_like(), ComplexScalar[type].zero(), 'zeros_like')
+    _assert_matrix_equal(m1.i_like(), ComplexScalar[type].i(), 'i_like')
     for r in range(m1.rows):
         for c in range(m1.cols):
             if r == c:
@@ -419,8 +419,8 @@ def test_compare():
     mi = m1
     mi[0, 0] += 0.0000000000001
     assert_true(m1.is_close(mi), 'is_close')
-    assert_true(m1.ones_like().is_close(1), 'is_close')
-    assert_false(m1.ones_like().is_close(1.0000001), 'is_close')
+    assert_true(m1.ones_like().is_close(ComplexScalar[type].one()), 'is_close')
+    assert_false(m1.ones_like().is_close(ComplexScalar[type].one() + 0.0000001), 'is_close')
     _assert_matrix_equal(m1 == m1, m1.ones_like(), 'eq')
     _assert_matrix_equal(m1 == m2, m1.eye_like(), 'eq')
     ne = CMatrix[type](List[List[ComplexScalar[type], True]](

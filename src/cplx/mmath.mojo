@@ -10,7 +10,13 @@ from ..config import DEFAULT_TOL
 
 
 fn kron_sequential[type: DType](A: CMatrix[type], B: CMatrix[type]) -> CMatrix[type]:
-    '''Implements the Kronecker product of A with B using the naive algorithm.'''
+    '''Implements the Kronecker product of A with B using the naive algorithm. By convention, 
+    if A or B is degenerate, (that is, rows=0 or cols=0) the other matrix is returned.
+    '''
+    if A.size == 0:
+        return B
+    if B.size == 0:
+        return A
     var result = CMatrix[type](rows=A.rows * B.rows, cols=A.cols * B.cols, fill_zeros=False)
     var block: CMatrix[type]
     for r_a in range(A.rows):
@@ -25,7 +31,21 @@ fn kron_sequential[type: DType](A: CMatrix[type], B: CMatrix[type]) -> CMatrix[t
 
 
 fn kron[type: DType](A: CMatrix[type], B: CMatrix[type]) -> CMatrix[type]:
-    '''Implements the Kronecker product of A with B.'''
+    '''Implements the Kronecker product of A with B.  By convention, if A or B is degenerate,
+    (that is, rows=0 or cols=0) the other matrix is returned.
+    '''
+    if A.size == 0:
+        return B
+    if B.size == 0:
+        return A
+    if A.size == 1:
+        if A.load_idx[1](0) == 1:
+            return B
+        return A.load_idx[1](0) * B
+    if B.size == 1:
+        if B.load_idx[1](0) == 1:
+            return A
+        return B.load_idx[1](0) * A
     if A._is_col_dominant:
         return _kron_par_a_cols(A, B)
     else:
@@ -74,6 +94,23 @@ fn sparse_kron[type: DType](A: CSRCMatrix[type], B: CSRCMatrix[type]) -> CSRCMat
     '''Implements the Kronecker product of sparse matrices A with B. Note that the result
     uses the zero threshold of A.
     '''
+    if A.size == 0:
+        return B
+    if B.size == 0:
+        return A
+    if A.size == 1:
+        if A.v:
+            if A.v[0] == 1:
+                return B
+            return A.v[0] * B
+        return B.zeros_like()
+    if B.size == 1:
+        if B.v:
+            if B.v[0] == 1:
+                return A
+            return B.v[0] * A
+        return A.zeros_like()
+        
     var result_v = List[ComplexScalar[type], True]()
     var result_col_idx = List[Int, True]()
     var result_row_idx = List[Int, True](capacity=A.rows * B.rows + 1)
@@ -93,7 +130,7 @@ fn sparse_kron[type: DType](A: CSRCMatrix[type], B: CSRCMatrix[type]) -> CSRCMat
                         var result_col: Int = c_a * B.cols + B.col_idx[i_b]
                         result_v.append(prod)
                         result_col_idx.append(result_col)
-            result_row_idx.append(result_v.size)
+            result_row_idx.append(len(result_v))
     return CSRCMatrix[type](
         rows=A.rows * B.rows,
         cols=A.cols * B.cols,
@@ -187,7 +224,7 @@ fn swap_vals[type: DType](
 
 
 fn swap_vals_inplace[type: DType](
-    inout A: CMatrix[type], r1: Int, c1: Int, r2: Int, c2: Int
+    mut A: CMatrix[type], r1: Int, c1: Int, r2: Int, c2: Int
 ) raises:
     '''Swap values at (r1, c1) and (r2, c2) in-place.'''
     if r1 == r2 and c1 == c2:
@@ -349,7 +386,7 @@ fn mmin[type: DType](A: CMatrix[type]) -> ComplexScalar[type]:
 fn hstack[type: DType](A: CMatrix[type], B: CMatrix[type]) raises -> CMatrix[type]:
     '''Stack two matrices horizontally and return the result.'''
     if A.rows != B.rows:
-        raise Error('Invalid row dimensions for `hstack`: ' + str(A.rows) + ' and ' + str(B.rows))
+        raise Error('Invalid row dimensions for `hstack`: ' + String(A.rows) + ' and ' + String(B.rows))
     var result = CMatrix[type](rows=A.rows, cols=A.cols + B.cols, fill_zeros=False)
     for r in range(A.rows):
         # TODO: Change to memcpy
@@ -364,7 +401,7 @@ fn vstack[type: DType](A: CMatrix[type], B: CMatrix[type]) raises -> CMatrix[typ
     '''Stack two matrices vertically and return the result.'''
     if A.cols != B.cols:
         raise Error(
-            'Invalid column dimensions for `vstack`: ' + str(A.cols) + ' and ' + str(B.cols)
+            'Invalid column dimensions for `vstack`: ' + String(A.cols) + ' and ' + String(B.cols)
         )
     var result = CMatrix[type](rows=A.rows + B.rows, cols=A.cols, fill_zeros=False)
     for c in range(A.cols):
@@ -399,7 +436,6 @@ alias theta13 = 5.4
 fn _expm_pade[type: DType, m: Int](A: CMatrix[type]) raises -> CMatrix[type]:
     if A.rows != A.cols:
         raise Error('Cannot exponentiate a non-square matrix')
-    # alias b: List[Int, True] = b_d[(m - 3) // 2]  # This produces a segmentation fault...
     var b: List[Int, True] = b_d[(m - 3) // 2]
 
     var U: CMatrix[type] = A.eye_like() * ComplexScalar[type](b[1])
@@ -425,7 +461,7 @@ fn _expm_ss[type: DType](A: CMatrix[type], norm: Scalar[type]) raises -> CMatrix
     alias inv_log_2: Scalar[type] = log(2.0).cast[type]()
 
     var Ac: CMatrix[type] = A
-    var s: Int = max(0, int(ceil(log(norm / theta13) * inv_log_2)))
+    var s: Int = max(0, Int(ceil(log(norm / theta13) * inv_log_2)))
     if s > 0:
         Ac /= 2**s
 
@@ -467,3 +503,113 @@ fn expm[type: DType](A: CMatrix[type]) raises -> CMatrix[type]:
     elif norm < theta9:
         return _expm_pade[m=9](A)
     return _expm_ss(A, norm)
+
+
+fn kron_power[type: DType](owned A: CMatrix[type], n: Int) raises -> CMatrix[type]:
+    '''Computes the Kronecker product of A with itself n times.
+    By convention, n=0 returns a degenerate matrix of size (0, 0).
+    '''
+    if A.rows != A.cols:
+        raise Error('Cannot compute a power of a non-square matrix')
+    if n < 0:
+        raise Error('Cannot apply an Kronecker power less than 1')
+    if n == 0:
+        return CMatrix[type](0, 0)
+    return _kron_power(A^, n)
+    
+
+fn _kron_power[type: DType](owned A: CMatrix[type], n: Int) -> CMatrix[type]:
+    '''Computes the Kronecker product of A with itself n times.'''
+    if n == 1:
+        return A
+    if n % 2 == 0:
+        return _kron_power(kron(A, A), n // 2)
+    else:
+        return kron(_kron_power(kron(A, A), (n - 1) // 2), A)
+
+
+fn kron_power[type: DType](owned A: CSRCMatrix[type], n: Int) raises -> CSRCMatrix[type]:
+    '''Computes the Kronecker product of A with itself n times.
+    By convention, n=0 returns a degenerate matrix of size (0, 0).
+    '''
+    if A.rows != A.cols:
+        raise Error('Cannot compute a power of a non-square matrix')
+    if n < 0:
+        raise Error('Cannot apply negative Kronecker powers')
+    if n == 0:
+        return CSRCMatrix[type](0, 0)
+    return _kron_power(A^, n)
+    
+
+fn _kron_power[type: DType](owned A: CSRCMatrix[type], n: Int) -> CSRCMatrix[type]:
+    '''Computes the Kronecker product of A with itself n times.'''
+    if n == 1:
+        return A
+    if n % 2 == 0:
+        return _kron_power(sparse_kron(A, A), n // 2)
+    else:
+        return sparse_kron(_kron_power(sparse_kron(A, A), (n - 1) // 2), A)
+
+
+# fn extend_columns_to_orthonormal_basis[type: DType, tol: Scalar[type] = DEFAULT_TOL](owned U: CSRCMatrix[type]) raises -> CSRCMatrix[type]:
+#     '''Replace the zero columns of U with non-zero unit vectors such that the columns form an orthonormal basis,
+#     making U a unitary matrix. The supplied non-zero columns of U must already be orthonormal.
+#     '''
+
+#     var zero_cols = List[Int, True]()
+#     var nonzero_cols = List[Int, True]()
+#     for i in range(U.cols):
+#         if U.extract_column_as_sparse(i).n_nonzero() == 0:
+#             zero_cols.append(i)
+#         else:
+#             nonzero_cols.append(i)
+#     zero_cols = zero_cols[::-1]
+
+#     # Check for orthonormality of the supplied columns of U
+#     for i in nonzero_cols:
+#         for j in nonzero_cols:
+#             var overlap: ComplexScalar[type] = (U.extract_column_as_sparse(i[]).transpose().conj() @ U.extract_column_as_sparse(j[]))[0, 0]
+#             if i[] == j[]:
+#                 if (overlap - 1).norm() > tol:
+#                     raise Error('Column ' + str(i[]) + ' is not normalized')
+#             else:
+#                 if overlap.norm() > tol:
+#                     raise Error('Columns ' + str(i[]) + ' and ' + str(j[]) + ' are not orthogonal')
+#     print('Column orthonormality checks passed')
+
+#     it = 0
+#     var total_str: String = str(len(zero_cols))
+#     var dim_index: Int = 0
+#     while zero_cols:
+#         j = zero_cols[-1]
+
+#         # Generate a candidate basis vector
+#         var candidate = CSRCMatrix[type](1, U.rows, (0, dim_index, ComplexScalar[type](1)))
+
+#         # Orthogonalize against existing non-zero columns
+#         var bk: Bool = False
+#         for k in nonzero_cols:
+#             # Get k-th column
+#             var existing_col: CSRCMatrix[type] = U.extract_column_as_sparse(k[])
+
+#             # Subtract the projection or candidate onto existing_col
+#             candidate -= (candidate @ existing_col.conj())[0, 0] * existing_col.transpose()
+
+#             if not candidate.n_stored():
+#                 bk = True
+#                 break
+#         if not bk:
+#             # Normalize the vector
+#             candidate /= candidate.frobenius_norm()
+
+#             # Replace the zero column with the new orthonormal vector
+#             for i in range(candidate.col_idx.size):
+#                 U._setitem_noraise(candidate.col_idx[i], j, candidate.v[i])
+
+#             _ = zero_cols.pop()
+#             nonzero_cols.append(j)
+#             it += 1
+#             print('It:' + str(it) + '/' + total_str)
+
+#         dim_index += 1
+#     return U

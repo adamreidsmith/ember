@@ -129,7 +129,7 @@ def test_init():
     cm = CMatrix[type](153, 82)
     for r in range(cm.rows):
         for c in range(cm.cols):
-            cm[r, c] = ComplexScalar[type]((int(hash(r + c)) % 83) - 41, (int(hash(r*c + r)) % 667) - 300)
+            cm[r, c] = ComplexScalar[type]((Int(hash(r + c)) % 83) - 41, (Int(hash(r*c + r)) % 667) - 300)
     _assert_matrix_equal(CSRCMatrix[type](cm).to_dense(), cm, 'init')
     _assert_matrix_equal(CSRCMatrix[type](cm.zeros_like()).to_dense(), cm.zeros_like(), 'init')
     _assert_matrix_equal(CSRCMatrix[type](cm.eye_like()).to_dense(), cm.eye_like(), 'init')
@@ -180,7 +180,7 @@ def test_item_access():
     assert_equal(m1._getitem_linear_noraise(3, 2).im, 0, 'getitem_linear_noraise')
     assert_equal(m1._getitem_linear_noraise(0, 5).re, 0, 'getitem_linear_noraise')
     assert_equal(m1._getitem_linear_noraise(0, 5).im, 0, 'getitem_linear_noraise')
-    m1[0, 1] = (-90, 600)
+    m1[0, 1] = ComplexScalar[type](-90, 600)
     for r in range(4):
         for c in range(6):
             m1[r, c] = ComplexScalar[type](hash(r) % 10, hash(100 * c) % 10)
@@ -281,6 +281,7 @@ def test_other():
         0, 0, 0, 0, 0, 80,
     )
     _assert_matrix_equal(m1.to_dense(), m1d, 'to_dense')
+    assert_equal(m1.frobenius_norm(), m1.to_dense().frobenius_norm(), 'frobenius_norm')
 
 def test_arithmetic():
     v1 = List[ComplexScalar[type], True](10, 20, 30, 40, 50, 60, 70, 80)
@@ -531,19 +532,19 @@ def test_matmul():
     )
     vec = CMatrix[type](6, 1)
     for i in range(6):
-        vec[i] = (int(hash(i)) % 20 - 10, int(hash(i)) % 20 - 10)
+        vec[i] = (Int(hash(i)) % 20 - 10, Int(hash(i)) % 20 - 10)
     _assert_matrix_almost_equal(m1._dense_vec_matmul(vec), m1.to_dense() @ vec, 'sparse_vec_mul')
     _assert_matrix_almost_equal(m1._dense_vec_matmul(CMatrix[type](6, 1)), CMatrix[type](4, 1), 'sparse_vec_mul')
     cm = CMatrix[type](6, 8)
     for r in range(6):
         for c in range(8):
-            cm[r, c] = (int(hash(r)) % 20 - 10, int(hash(c + r)) % 20 - 10)
+            cm[r, c] = (Int(hash(r)) % 20 - 10, Int(hash(c + r)) % 20 - 10)
     _assert_matrix_almost_equal(m1._dense_mat_matmul(cm), m1.to_dense() @ cm, 'sparse_dense_mul')
     _assert_matrix_almost_equal(m1._dense_mat_matmul(cm.zeros_like()), CMatrix[type](4, 8), 'sparse_dense_mul')
     m2 = CSRCMatrix[type](6, 8)
     for r in range(6):
         for c in range(8):
-            m2[r, c] = (int(hash(r)) % 20 - 10, int(hash(c + r)) % 20 - 10)
+            m2[r, c] = (Int(hash(r)) % 20 - 10, Int(hash(c + r)) % 20 - 10)
     _assert_matrix_almost_equal(m1._sparse_matmul_gustavson(m2).to_dense(), m1.to_dense() @ m2.to_dense(), 'sparse_sparse_mul_gustavson')
     _assert_matrix_almost_equal(m1._sparse_matmul_gustavson(CSRCMatrix[type](6, 8)).to_dense(), CMatrix[type](4, 8), 'sparse_sparse_mul_gustavson')
     _assert_matrix_almost_equal(m1._sparse_matmul_hash(m2).to_dense(), m1.to_dense() @ m2.to_dense(), 'sparse_sparse_mul_hash')
@@ -756,19 +757,19 @@ def test_fill():
     cm[10, 6] = 0
     cm[11, 6] = 0
     i = sm.inset(cm, 0, 0)
-    assert_equal(i.v.size, cm.rows * cm.cols - 5, 'inset_into_zero')
+    assert_equal(len(i.v), cm.rows * cm.cols - 5, 'inset_into_zero')
     for r in range(cm.rows):
         for c in range(cm.cols):
             assert_equal(i[r, c].re, cm[r, c].re, 'inset_into_zero')
             assert_equal(i[r, c].im, cm[r, c].im, 'inset_into_zero')
     i = sm.inset(cm, 8, 7)
-    assert_equal(i.v.size, cm.rows * cm.cols - 5, 'inset_into_zero')
+    assert_equal(len(i.v), cm.rows * cm.cols - 5, 'inset_into_zero')
     for r in range(cm.rows):
         for c in range(cm.cols):
             assert_equal(i[r + 8, c + 7].re, cm[r, c].re, 'inset_into_zero')
             assert_equal(i[r + 8, c + 7].im, cm[r, c].im, 'inset_into_zero')
     i = sm.inset(cm, 60, 70)
-    assert_equal(i.v.size, cm.rows * cm.cols - 5, 'inset_into_zero')
+    assert_equal(len(i.v), cm.rows * cm.cols - 5, 'inset_into_zero')
     for r in range(cm.rows):
         for c in range(cm.cols):
             assert_equal(i[r + 60, c + 70].re, cm[r, c].re, 'inset_into_zero')
@@ -782,19 +783,19 @@ def test_fill():
     with assert_raises():
         _ = sm.inset(cm, 0, -1)
     i = sm.inset(cm, 0, 0, 2, 2)
-    assert_equal(i.v.size, cm.rows * cm.cols - 5, 'inset_into_zero')
+    assert_equal(len(i.v), cm.rows * cm.cols - 5, 'inset_into_zero')
     for r in range(cm.rows):
         for c in range(cm.cols):
             assert_equal(i[2 * r, 2 * c].re, cm[r, c].re, 'inset_into_zero')
             assert_equal(i[2 * r, 2 * c].im, cm[r, c].im, 'inset_into_zero')
     i = sm.inset(cm, 8, 7, 2, 3)
-    assert_equal(i.v.size, cm.rows * cm.cols - 5, 'inset_into_zero')
+    assert_equal(len(i.v), cm.rows * cm.cols - 5, 'inset_into_zero')
     for r in range(cm.rows):
         for c in range(cm.cols):
             assert_equal(i[2 * r + 8, 3 * c + 7].re, cm[r, c].re, 'inset_into_zero')
             assert_equal(i[2 * r + 8, 3 * c + 7].im, cm[r, c].im, 'inset_into_zero')
     i = sm.inset(cm, 21, 12, 2, 3)
-    assert_equal(i.v.size, cm.rows * cm.cols - 5, 'inset_into_zero')
+    assert_equal(len(i.v), cm.rows * cm.cols - 5, 'inset_into_zero')
     for r in range(cm.rows):
         for c in range(cm.cols):
             assert_equal(i[2 * r + 21, 3 * c + 12].re, cm[r, c].re, 'inset_into_zero')

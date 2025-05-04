@@ -1,20 +1,22 @@
 # TODO: Switch UnsafePointer for Buffer
 
 from math import sqrt
-from memory import memset_zero, memcpy
+from memory import memset_zero, memcpy, UnsafePointer
 from algorithm import parallelize, vectorize
 from sys import simdwidthof
 
 from .complexsimd import ComplexScalar, ComplexSIMD
 from ..config import DEFAULT_TOL
 
+
 @value
 struct CMatrix[type: DType](
     Absable,
-    Formattable,
     Sized,
     Representable,
-    StringableCollectionElement,
+    CollectionElement,
+    Stringable,
+    Writable,
 ):
     var re: UnsafePointer[Scalar[Self.type]]
     var im: UnsafePointer[Scalar[Self.type]]
@@ -26,7 +28,7 @@ struct CMatrix[type: DType](
     # Initialization ##################
 
     @always_inline
-    fn __init__[__: None = None](inout self, rows: Int, cols: Int, fill_zeros: Bool = True):
+    fn __init__[__: None = None](out self, rows: Int, cols: Int, fill_zeros: Bool = True):
         self.rows = rows
         self.cols = cols
         self.size = self.rows * self.cols
@@ -37,7 +39,8 @@ struct CMatrix[type: DType](
             memset_zero(self.re.address, self.size)
             memset_zero(self.im.address, self.size)
 
-    fn __init__(inout self, rows: Int, cols: Int, *data: ComplexScalar[Self.type]) raises:
+    @always_inline
+    fn __init__(out self, rows: Int, cols: Int, *data: ComplexScalar[Self.type]) raises:
         if len(data) > rows * cols:
             raise Error('More elements provided than fit in the cmatrix')
         self.rows = rows
@@ -49,21 +52,23 @@ struct CMatrix[type: DType](
         for idx in range(len(data)):
             self.store_idx[1](idx, data[idx])
 
-    fn __init__(inout self, data: List[ComplexScalar[Self.type], True]):
+    @always_inline
+    fn __init__(out self, data: List[ComplexScalar[Self.type], True]):
         self.rows = 1
-        self.cols = data.size
+        self.cols = len(data)
         self.size = self.rows * self.cols
         self._is_col_dominant = self.cols >= self.rows
         self.re = UnsafePointer[Scalar[Self.type]].alloc(self.size)
         self.im = UnsafePointer[Scalar[Self.type]].alloc(self.size)
-        for idx in range(data.size):
+        for idx in range(len(data)):
             self.store_idx[1](idx, data[idx])
 
-    fn __init__(inout self, data: List[List[ComplexScalar[Self.type], True]]) raises:
-        self.rows = data.size
-        self.cols = data[0].size
+    @always_inline
+    fn __init__(out self, data: List[List[ComplexScalar[Self.type], True]]) raises:
+        self.rows = len(data)
+        self.cols = len(data[0])
         for row in data[1:]:
-            if row[].size != self.cols:
+            if len(row[]) != self.cols:
                 raise Error('All sub-list of `data` must be the same length')
         self.size = self.rows * self.cols
         self._is_col_dominant = self.cols >= self.rows
@@ -73,18 +78,23 @@ struct CMatrix[type: DType](
             for c in range(self.cols):
                 self.store_crd[1](r, c, data[r][c])
 
-    fn __copyinit__(inout self, existing: Self):
+    @always_inline
+    fn __copyinit__(out self, existing: Self):
         self.rows = existing.rows
         self.cols = existing.cols
         self.size = existing.size
         self._is_col_dominant = existing._is_col_dominant
         self.re = UnsafePointer[Scalar[Self.type]].alloc(self.size)
         self.im = UnsafePointer[Scalar[Self.type]].alloc(self.size)
-        memcpy(self.re, existing.re, self.size)
-        memcpy(self.im, existing.im, self.size)
+        # memcpy(self.re, existing.re, self.size)
+        # memcpy(self.im, existing.im, self.size)
+        @parameter
+        fn cpy_data[simd_width: Int](idx: Int):
+            self.store_idx[simd_width](idx, existing.load_idx[simd_width](idx))
+        vectorize[cpy_data, simdwidthof[type]()](self.size)
 
     @always_inline
-    fn __moveinit__(inout self, owned existing: Self):
+    fn __moveinit__(out self, owned existing: Self):
         self.rows = existing.rows
         self.cols = existing.cols
         self.size = existing.size
@@ -107,7 +117,7 @@ struct CMatrix[type: DType](
     fn eye(rows: Int, cols: Int) -> Self:
         '''Return an identity matrix with the specified dimensions.'''
         var result = Self(rows, cols, fill_zeros=True)
-        result.fill_diag(ComplexScalar[Self.type](1))
+        result.fill_diag(1)
         return result
     
     @always_inline
@@ -165,13 +175,13 @@ struct CMatrix[type: DType](
         if self.rows != other.rows or self.cols != other.cols:
             raise Error(
                 'Incompatible matrix dimensions: ('
-                + str(self.rows)
+                + String(self.rows)
                 + ', '
-                + str(self.cols)
+                + String(self.cols)
                 + ') and ('
-                + str(other.rows)
+                + String(other.rows)
                 + ', '
-                + str(other.cols)
+                + String(other.cols)
                 + ')'
             )
 
@@ -180,13 +190,13 @@ struct CMatrix[type: DType](
         if self.cols != other.rows:
             raise Error(
                 'Cannot multiply matrices with shapes ('
-                + str(self.rows)
+                + String(self.rows)
                 + ', '
-                + str(self.cols)
+                + String(self.cols)
                 + ') and ('
-                + str(other.rows)
+                + String(other.rows)
                 + ', '
-                + str(other.cols)
+                + String(other.cols)
                 + ')'
             )
 
@@ -195,13 +205,13 @@ struct CMatrix[type: DType](
         if new_rows * new_cols != self.size:
             raise Error(
                 'Impatible reshape dimensions: ('
-                + str(self.rows)
+                + String(self.rows)
                 + ', '
-                + str(self.cols)
+                + String(self.cols)
                 + ') and ('
-                + str(new_rows)
+                + String(new_rows)
                 + ', '
-                + str(new_cols)
+                + String(new_cols)
                 + ')'
             )
 
@@ -259,7 +269,7 @@ struct CMatrix[type: DType](
                 if c == max_lines // 2 and hide_cols:
                     mat[-1].append(dots)
                 var c_idx: Int = c if c < max_lines // 2 or not hide_cols else self.cols + c - max_lines
-                mat[-1].append(str(self.load_crd[1](r_idx, c_idx)))
+                mat[-1].append(String(self.load_crd[1](r_idx, c_idx)))
 
         var max_col_widths = List[Int, True]()
         for c in range(len(mat[0])):
@@ -285,16 +295,16 @@ struct CMatrix[type: DType](
             out += line
         out = out[:-1]
         out += ']\n'
-        out += ' DType: ' + str(Self.type) + ' | Size: (' + str(self.rows) + ', ' + str(self.cols) + ')'
+        out += ' DType: ' + String(Self.type) + ' | Size: (' + String(self.rows) + ', ' + String(self.cols) + ')'
         return out
 
     @always_inline
     fn __repr__(self) -> String:
         return self._get_str_rep(max_lines=0)
 
-    @always_inline
-    fn format_to(self, inout writer: Formatter):
-        writer.write(str(self))
+    @no_inline
+    fn write_to[W: Writer](self, mut writer: W):
+        writer.write(String(self))
 
     # Item access #####################
 
@@ -302,9 +312,9 @@ struct CMatrix[type: DType](
     fn __getitem__(self, row: Int, col: Int) raises -> ComplexScalar[Self.type]:
         '''Get the value at the specified row and col.'''
         if row < 0 or row >= self.rows:
-            raise Error('Invalid row index: ' + str(row))
+            raise Error('Invalid row index: ' + String(row))
         if col < 0 or col >= self.cols:
-            raise Error('Invalid column index: ' + str(col))
+            raise Error('Invalid column index: ' + String(col))
         return self.load_idx[1](row * self.cols + col)
 
     @always_inline
@@ -314,16 +324,16 @@ struct CMatrix[type: DType](
         at position (rows - 1, cols - 1) in row-major order.
         '''
         if idx < 0 or idx >= self.size:
-            raise Error('Invalid index: '+ str(idx))
+            raise Error('Invalid index: '+ String(idx))
         return self.load_idx[1](idx)
 
     @always_inline
     fn __setitem__(self, row: Int, col: Int, val: ComplexScalar[Self.type]) raises:
         '''Set the value at the specified row and col.'''
         if row < 0 or row >= self.rows:
-            raise Error('Invalid row index: ' + str(row))
+            raise Error('Invalid row index: ' + String(row))
         if col < 0 or col >= self.cols:
-            raise Error('Invalid column index: ' + str(col))
+            raise Error('Invalid column index: ' + String(col))
         self.store_crd[1](row, col, val)
 
     @always_inline
@@ -333,7 +343,7 @@ struct CMatrix[type: DType](
         at position (rows - 1, cols - 1) in row-major order.
         '''
         if idx < 0 or idx >= self.size:
-            raise Error('Invalid index: '+ str(idx))
+            raise Error('Invalid index: '+ String(idx))
         self.store_idx[1](idx, val)
 
     @always_inline
@@ -347,8 +357,8 @@ struct CMatrix[type: DType](
     @always_inline
     fn store_idx[width: Int](self, idx: Int, val: ComplexSIMD[Self.type, width]):
         '''Store val in the ComplexSIMD at index idx.'''
-        self.re.store[width=width](idx, val.re)
-        self.im.store[width=width](idx, val.im)
+        self.re.store(idx, val.re)
+        self.im.store(idx, val.im)
 
     @always_inline
     fn load_crd[width: Int](self, row: Int, col: Int) -> ComplexSIMD[Self.type, width]:
@@ -854,7 +864,7 @@ struct CMatrix[type: DType](
             self._parallelize_vectorize_op_inplace[mod_c]()
 
     # TODO: Make it better
-    fn __imatmul__(inout self, other: Self) raises:
+    fn __imatmul__(mut self, other: Self) raises:
         '''Defines the `@=` in-place matrix multiply operator. Only valid for square matrices.'''
         self = self @ other
         # self._assert_matmul_compatible(other)
@@ -970,7 +980,7 @@ struct CMatrix[type: DType](
         var result: Self = self
         @parameter
         fn conj_simd[simd_width: Int](idx: Int):
-            result.im.store[width=simd_width](idx, -self.im.load[width=simd_width](idx))
+            result.im.store(idx, -self.im.load[width=simd_width](idx))
         vectorize[conj_simd, simdwidthof[Self.type]()](self.size)
         return result
 
@@ -979,7 +989,7 @@ struct CMatrix[type: DType](
         '''Conjugate the matrix in-place.'''
         @parameter
         fn conj_simd[simd_width: Int](idx: Int):
-            self.im.store[width=simd_width](idx, -self.im.load[width=simd_width](idx))
+            self.im.store(idx, -self.im.load[width=simd_width](idx))
         vectorize[conj_simd, simdwidthof[Self.type]()](self.size)
 
     fn dag(self) -> Self:
@@ -1057,7 +1067,7 @@ struct CMatrix[type: DType](
                     A.store_crd[1](i_argmax, c, p)
                 for i in range(h + 1, self.rows):
                     var f: ComplexScalar[type] = A.load_crd[1](i, k) / A.load_crd[1](h, k)
-                    A.store_crd[1](i, k, ComplexScalar[type](0))
+                    A.store_crd[1](i, k, 0)
                     for j in range(k + 1, self.cols):
                         A.store_crd[1](i, j, A.load_crd[1](i, j) - A.load_crd[1](h, j) * f)
                 h += 1; k += 1
@@ -1151,7 +1161,7 @@ struct CMatrix[type: DType](
         return result
 
     @always_inline
-    fn ireshape(inout self, new_rows: Int, new_cols: Int) raises:
+    fn ireshape(mut self, new_rows: Int, new_cols: Int) raises:
         '''Reshape self, in-place.'''
         self._assert_reshape_compatible(new_rows, new_cols)
         self.rows = new_rows
@@ -1167,7 +1177,7 @@ struct CMatrix[type: DType](
         return result
 
     @always_inline
-    fn iflatten_to_row(inout self):
+    fn iflatten_to_row(mut self):
         '''Flatten self to a row, in-place.'''
         self.rows = 1
         self.cols = self.size
@@ -1182,7 +1192,7 @@ struct CMatrix[type: DType](
         return result
 
     @always_inline
-    fn iflatten_to_column(inout self):
+    fn iflatten_to_column(mut self):
         '''Flatten self to a row, in-place.'''
         self.rows = self.size
         self.cols = 1
@@ -1223,12 +1233,12 @@ struct CMatrix[type: DType](
     @always_inline
     fn fill_one(self):
         '''Fill a matrix with ones in-place.'''
-        self.fill(ComplexScalar[Self.type](1, 0))
+        self.fill(1)
 
     @always_inline
     fn fill_i(self):
         '''Fill a matrix with ones in-place.'''
-        self.fill(ComplexScalar[Self.type](0, 1))
+        self.fill(ComplexScalar[Self.type]().i())
 
     fn fill_diag(self, val: ComplexScalar[Self.type], offset: Int = 0):
         '''Fill the diagonal at index offset of a matrix with val in-place.'''
@@ -1251,14 +1261,14 @@ struct CMatrix[type: DType](
         '''Fill the matrix with values from range(self.size) in row-major order.'''
         memset_zero(self.im.address, self.size)
         for idx in range(self.size):
-            self.re.store[width=1](idx, SIMD[type, 1](idx))
+            self.re.store(idx, SIMD[type, 1](idx))
 
     @always_inline
     fn fill_range(self, start: Int):
         '''Fill the matrix with values from range(start, start + self.size) in row-major order.'''
         memset_zero(self.im.address, self.size)
         for idx in range(self.size):
-            self.re.store[width=1](idx, SIMD[type, 1](idx + start))
+            self.re.store(idx, SIMD[type, 1](idx + start))
 
     @always_inline
     fn fill_range(self, start: Int, step: Int):
@@ -1267,7 +1277,7 @@ struct CMatrix[type: DType](
         '''
         memset_zero(self.im.address, self.size)
         for idx in range(self.size):
-            self.re.store[width=1](idx, SIMD[type, 1](step * idx + start))
+            self.re.store(idx, SIMD[type, 1](step * idx + start))
 
     @always_inline
     fn range_like(self) -> Self:
@@ -1315,7 +1325,7 @@ struct CMatrix[type: DType](
     fn eye_like(self) -> Self:
         '''Return an identity matrix with the same shape as self.'''
         var result: Self = Self(rows=self.rows, cols=self.cols, fill_zeros=True)
-        result.fill_diag(ComplexScalar[Self.type](1, 0))
+        result.fill_diag(1)
         return result
 
     # Comparison operators ############
@@ -1367,14 +1377,14 @@ struct CMatrix[type: DType](
             fn row_eq(r: Int):
                 for c in range(self.cols):
                     if self.load_crd[1](r, c) == other.load_crd[1](r, c):
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
                     if self.load_crd[1](r, c) == other.load_crd[1](r, c):
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
 
@@ -1389,14 +1399,14 @@ struct CMatrix[type: DType](
             fn row_eq(r: Int):
                 for c in range(self.cols):
                     if self.load_crd[1](r, c) == other:
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
                     if self.load_crd[1](r, c) == other:
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
 
@@ -1412,14 +1422,14 @@ struct CMatrix[type: DType](
             fn row_eq(r: Int):
                 for c in range(self.cols):
                     if self.load_crd[1](r, c) != other.load_crd[1](r, c):
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
                     if self.load_crd[1](r, c) != other.load_crd[1](r, c):
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
 
@@ -1434,14 +1444,14 @@ struct CMatrix[type: DType](
             fn row_eq(r: Int):
                 for c in range(self.cols):
                     if self.load_crd[1](r, c) != other:
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
                     if self.load_crd[1](r, c) != other:
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
 
@@ -1457,14 +1467,14 @@ struct CMatrix[type: DType](
             fn row_eq(r: Int):
                 for c in range(self.cols):
                     if self.load_crd[1](r, c) > other.load_crd[1](r, c):
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
                     if self.load_crd[1](r, c) > other.load_crd[1](r, c):
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
 
@@ -1479,14 +1489,14 @@ struct CMatrix[type: DType](
             fn row_eq(r: Int):
                 for c in range(self.cols):
                     if self.load_crd[1](r, c) > other:
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
                     if self.load_crd[1](r, c) > other:
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
 
@@ -1502,14 +1512,14 @@ struct CMatrix[type: DType](
             fn row_eq(r: Int):
                 for c in range(self.cols):
                     if self.load_crd[1](r, c) >= other.load_crd[1](r, c):
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
                     if self.load_crd[1](r, c) >= other.load_crd[1](r, c):
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
 
@@ -1524,14 +1534,14 @@ struct CMatrix[type: DType](
             fn row_eq(r: Int):
                 for c in range(self.cols):
                     if self.load_crd[1](r, c) >= other:
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
                     if self.load_crd[1](r, c) >= other:
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
 
@@ -1547,14 +1557,14 @@ struct CMatrix[type: DType](
             fn row_eq(r: Int):
                 for c in range(self.cols):
                     if self.load_crd[1](r, c) < other.load_crd[1](r, c):
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
                     if self.load_crd[1](r, c) < other.load_crd[1](r, c):
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
 
@@ -1569,14 +1579,14 @@ struct CMatrix[type: DType](
             fn row_eq(r: Int):
                 for c in range(self.cols):
                     if self.load_crd[1](r, c) < other:
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
                     if self.load_crd[1](r, c) < other:
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
 
@@ -1592,14 +1602,14 @@ struct CMatrix[type: DType](
             fn row_eq(r: Int):
                 for c in range(self.cols):
                     if self.load_crd[1](r, c) <= other.load_crd[1](r, c):
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
                     if self.load_crd[1](r, c) <= other.load_crd[1](r, c):
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
 
@@ -1614,13 +1624,13 @@ struct CMatrix[type: DType](
             fn row_eq(r: Int):
                 for c in range(self.cols):
                     if self.load_crd[1](r, c) <= other:
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[row_eq](self.rows, self.rows)
         else:
             @parameter
             fn col_eq(c: Int):
                 for r in range(self.rows):
                     if self.load_crd[1](r, c) <= other:
-                        result.re.store[width=1](r * self.cols + c, one)
+                        result.re.store(r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result

@@ -19,16 +19,16 @@ alias _halfpi =  math.pi / 2
 
 @register_passable('trivial')
 struct ComplexSIMD[type: DType, size: Int](
-        Formattable, 
         Defaultable, 
         Powable, 
         Roundable, 
         Absable,
         Intable,
+        Stringable,
         RepresentableCollectionElement,
-        StringableCollectionElement,
         Hashable,
         Sized,
+        Writable,
     ):
     alias Coef = SIMD[Self.type, Self.size]
     alias Lane = ComplexSIMD[Self.type, 1]
@@ -39,100 +39,104 @@ struct ComplexSIMD[type: DType, size: Int](
     # Initialize ######################
 
     @always_inline
-    fn __init__(inout self) -> None:
+    fn __init__(out self):
         '''Initialize a complex number to 0 + 0i.'''
         self.re = 0
         self.im = 0        
     
     @always_inline
-    fn __init__(inout self, re: Self.Coef) -> None:
+    @implicit
+    fn __init__(out self, re: Self.Coef):
         '''Initialize a complex number with SIMD coefficients.'''
         self.re = re
         self.im = 0
-
+    
     @always_inline
-    fn __init__(inout self, re: Self.Coef, im: Self.Coef) -> None:
+    fn __init__(out self, re: Self.Coef, im: Self.Coef):
         '''Initialize a complex number with SIMD coefficients.'''
         self.re = re
         self.im = im
 
     @always_inline
-    fn __init__[__: None = None](inout self, re: Scalar[Self.type], im: Scalar[Self.type]) -> None:
+    fn __init__[__: None = None](out self, re: Scalar[Self.type], im: Scalar[Self.type]):
         '''Initialize a complex number with SIMD coefficients.'''
         self.re = re
         self.im = im
     
-    @always_inline
-    fn __init__(inout self, t: (FloatLiteral, FloatLiteral)) -> None:
-        '''Initialize a complex number with float literals.'''
-        self.re = t.get[0, FloatLiteral]()
-        self.im = t.get[1, FloatLiteral]()
+    # @always_inline
+    # fn __init__(out self, t: (FloatLiteral, FloatLiteral)):
+    #     '''Initialize a complex number with float literals.'''
+    #     self.re = t[0]
+    #     self.im = t[1]
     
     @always_inline
-    fn __init__(inout self, t: (Float16, Float16)) -> None:
+    fn __init__(out self, t: (Float16, Float16)):
         '''Initialize a complex number with float literals.'''
-        self.re = t.get[0, Float16]().cast[Self.type]()
-        self.im = t.get[1, Float16]().cast[Self.type]()
+        self.re = t[0].cast[Self.type]()
+        self.im = t[1].cast[Self.type]()
             
     @always_inline
-    fn __init__(inout self, t: (Float32, Float32)) -> None:
+    fn __init__(out self, t: (Float32, Float32)):
         '''Initialize a complex number with float literals.'''
-        self.re = t.get[0, Float32]().cast[Self.type]()
-        self.im = t.get[1, Float32]().cast[Self.type]()
+        self.re = t[0].cast[Self.type]()
+        self.im = t[1].cast[Self.type]()
             
     @always_inline
-    fn __init__(inout self, t: (Float64, Float64)) -> None:
+    @implicit
+    fn __init__(out self, t: (Float64, Float64)):
         '''Initialize a complex number with float literals.'''
-        self.re = t.get[0, Float64]().cast[Self.type]()
-        self.im = t.get[1, Float64]().cast[Self.type]()
+        self.re = t[0].cast[Self.type]()
+        self.im = t[1].cast[Self.type]()
 
     @always_inline
-    fn __init__(inout self, t: (Int, Int)) -> None:
+    @implicit
+    fn __init__(out self, t: (Int, Int)):
         '''Initialize a complex number with integer values.'''
-        self.re = t.get[0, Int]()
-        self.im = t.get[1, Int]()
+        self.re = t[0]
+        self.im = t[1]
+    
+    # @always_inline
+    # fn __init__(out self, t: (IntLiteral, IntLiteral)):
+    #     '''Initialize a complex number with integer literals.'''
+    #     self.re = t[0]
+    #     self.im = t[1]
     
     @always_inline
-    fn __init__(inout self, t: (IntLiteral, IntLiteral)) -> None:
-        '''Initialize a complex number with integer literals.'''
-        self.re = t.get[0, Int]()
-        self.im = t.get[1, Int]()
-    
-    @always_inline
-    fn __init__[__: None = None](inout self, re: FloatLiteral) -> None:
+    fn __init__[__: None = None](out self, re: FloatLiteral):
         '''Initialize a complex number with a real float literal.'''
         self.re = re
         self.im = 0
     
     @always_inline
-    fn __init__[__: None = None](inout self, re: Float16) -> None:
+    fn __init__[__: None = None](out self, re: Float16):
         '''Initialize a complex number with a real float literal.'''
         self.re = re.cast[Self.type]()
         self.im = 0
 
     @always_inline
-    fn __init__[__: None = None](inout self, re: Float32) -> None:
+    fn __init__[__: None = None](out self, re: Float32):
         '''Initialize a complex number with a real float literal.'''
         self.re = re.cast[Self.type]()
         self.im = 0
 
     @always_inline
-    fn __init__[__: None = None](inout self, re: Float64) -> None:
+    fn __init__[__: None = None](out self, re: Float64):
         '''Initialize a complex number with a real float literal.'''
         self.re = re.cast[Self.type]()
         self.im = 0
 
     @always_inline
-    fn __init__[__: None = None](inout self, re: Int) -> None:
+    @implicit
+    fn __init__[__: None = None](out self, re: Int):
         '''Initialize a complex number with a real integer value.'''
         self.re = re
         self.im = 0
     
-    @always_inline
-    fn __init__[__: None = None](inout self, re: IntLiteral) -> None:
-        '''Initialize a complex number with a real integer literal.'''
-        self.re = re
-        self.im = 0
+    # @always_inline
+    # fn __init__[__: None = None](out self, re: IntLiteral):
+    #     '''Initialize a complex number with a real integer literal.'''
+    #     self.re = re
+    #     self.im = 0
 
     # Static construction #############
 
@@ -194,25 +198,25 @@ struct ComplexSIMD[type: DType, size: Int](
             if len(int_part) > max_digits:
                 return (
                     sign + int_part[0] + '.' + int_part[1:max_digits] 
-                    + 'e+' + str(len(int_part) - 1).rjust(2, '0')
+                    + 'e+' + String(len(int_part) - 1).rjust(2, '0')
                 )
             if len(int_part) == max_digits:
                 return sign + int_part
             return sign + int_part + '.' + dec_part[:max_digits - len(int_part)]
         if len(s) > max_digits:
-            return sign + s[0] + '.' + s[1:max_digits] + 'e+' + str(len(s) - 1).rjust(2, '0')
+            return sign + s[0] + '.' + s[1:max_digits] + 'e+' + String(len(s) - 1).rjust(2, '0')
         return sign + s
 
     @no_inline
     fn _str1(self, z: ComplexScalar[Self.type], max_digits: Int) -> String:
         if max_digits > 0:
-            var re_str: String = self._fmt_float(str(z.re), max_digits)
-            var im_str: String = self._fmt_float(str(z.im), max_digits) + 'i'
+            var re_str: String = self._fmt_float(String(z.re), max_digits)
+            var im_str: String = self._fmt_float(String(z.im), max_digits) + 'i'
             if not im_str.startswith('-'):
                 re_str += '+'
             return re_str + im_str
-        var re_str: String = str(z.re)
-        var im_str: String = str(z.im) + 'i'
+        var re_str: String = String(z.re)
+        var im_str: String = String(z.im) + 'i'
         if not im_str.startswith('-'):
             re_str += '+'
         return re_str + im_str 
@@ -241,10 +245,10 @@ struct ComplexSIMD[type: DType, size: Int](
         '''Formats the Complex as a String.'''
         return self.__str__(max_digits=0)
     
-    @always_inline
-    fn format_to(self, inout writer: Formatter) -> None:
+    @no_inline
+    fn write_to[W: Writer](self, mut writer: W):
         '''Formats the Complex as a String.'''
-        writer.write(self.__str__())
+        writer.write(String(self))
 
     # Arithmetic ######################
 
@@ -284,7 +288,7 @@ struct ComplexSIMD[type: DType, size: Int](
         return Self(self.re - other.re, self.im - other.im)
 
     @always_inline
-    fn __sub__(self, other: Self.Coef) -> Self:
+    fn __sub__[__: None = None](self, other: Self.Coef) -> Self:
         '''Defines the `-` minus operator. Returns self - other.'''
         return Self(self.re - other, self.im)
     
@@ -440,6 +444,7 @@ struct ComplexSIMD[type: DType, size: Int](
     
     @always_inline
     fn __pow__(self, b: Int) -> Self:
+        '''Defines the `**` power operator. Returns self ** b.'''
         if b == 0:
             return Self(1, 0)
         if b < 0:
@@ -448,7 +453,8 @@ struct ComplexSIMD[type: DType, size: Int](
     
     @always_inline
     fn __pow__(self, b: IntLiteral) -> Self:
-        return self ** int(b)
+        '''Defines the `**` power operator. Returns self ** b.'''
+        return self ** Int(b)
     
     # Reverse arithmetic ##############
 
@@ -582,48 +588,48 @@ struct ComplexSIMD[type: DType, size: Int](
     # In-place arithmetic #############
     
     @always_inline
-    fn __iadd__(inout self, other: Self) -> None:
+    fn __iadd__(mut self: Self, other: Self):
         '''Defines the `+=` in-place add operator. Computes self + other in-place.'''
         self.re += other.re
         self.im += other.im
 
     @always_inline
-    fn __iadd__[__: None = None](inout self, other: Self.Coef) -> None:
+    fn __iadd__[__: None = None](mut self, other: Self.Coef):
         '''Defines the `+=` in-place add operator. Computes self + other in-place.'''
         self.re += other
 
     @always_inline
-    fn __isub__(inout self, other: Self) -> None:
+    fn __isub__(mut self, other: Self):
         '''Defines the `-=` in-place minus operator. Computes self - other in-place.'''
         self.re -= other.re
         self.im -= other.im
 
     @always_inline
-    fn __isub__(inout self, other: Self.Coef) -> None:
+    fn __isub__(mut self, other: Self.Coef):
         '''Defines the `-=` in-place minus operator. Computes self - other in-place.'''
         self.re -= other
     
     @always_inline
-    fn __imul__(inout self, other: Self) -> None:
+    fn __imul__(mut self, other: Self):
         '''Defines the `*=` in-place product operator. Computes self * other in-place.'''
         var new_re: Self.Coef = self.re * other.re - self.im * other.im
         self.im = self.re * other.im + self.im * other.re
         self.re = new_re
 
     @always_inline
-    fn __imul__(inout self, other: Self.Coef) -> None:
+    fn __imul__(mut self, other: Self.Coef):
         '''Defines the `*=` in-place product operator. Computes self * other in-place.'''
         self.re *= other
         self.im *= other
     
     @always_inline
-    fn __imul__(inout self, other: Int) -> None:
+    fn __imul__(mut self, other: Int):
         '''Defines the `*=` in-place product operator. Computes self * other in-place.'''
         self.re *= other
         self.im *= other
 
     @always_inline
-    fn __itruediv__(inout self, other: Self) -> None:
+    fn __itruediv__(mut self, other: Self):
         '''Defines the `/=` in-place divide operator. Computes self / other in-place.'''
         var denom: Self.Coef = 1 / other.squared_norm()
         var new_re: Self.Coef = (self.re * other.re + self.im * other.im) * denom
@@ -631,33 +637,33 @@ struct ComplexSIMD[type: DType, size: Int](
         self.re = new_re
 
     @always_inline
-    fn __itruediv__(inout self, other: Self.Coef) -> None:
+    fn __itruediv__(mut self, other: Self.Coef):
         '''Defines the `/=` in-place divide operator. Computes self / other in-place.'''
         self.re /= other
         self.im /= other
     
     @always_inline
-    fn __ifloordiv__(inout self, other: Self) -> None:
+    fn __ifloordiv__(mut self, other: Self):
         '''Defines the `//=` in-place floor divide operator. Computes self // other in-place.'''
         var quotient: Self = self / other
         self.re = round(quotient.re)
         self.im = round(quotient.im)
     
     @always_inline
-    fn __ifloordiv__(inout self, other: Self.Coef) -> None:
+    fn __ifloordiv__(mut self, other: Self.Coef):
         '''Defines the `//=` in-place floor divide operator. Computes self // other in-place.'''
         self.re = round(self.re / other)
         self.im = round(self.im / other)
 
     @always_inline
-    fn __imod__(inout self, other: Self) -> None:
+    fn __imod__(mut self, other: Self):
         '''Defines the `%=` in-place modulo operator. Computes self % other in-place.'''
         var mod: Self =  self - (self // other) * other
         self.re = mod.re
         self.im = mod.im
     
     @always_inline
-    fn __imod__(inout self, other: Self.Coef) -> None:
+    fn __imod__(mut self, other: Self.Coef):
         '''Defines the `%=` in-place modulo operator. Computes self % other in-place.'''
         var mod: Self =  self - (self // other) * other
         self.re = mod.re
@@ -911,8 +917,8 @@ struct ComplexSIMD[type: DType, size: Int](
         var real_prime: Int = 6355529899  # Random 10-digit prime
         var imag_prime: Int = 8422600973  # Random 10-digit prime
         
-        var real_int: Int = int(self.re * 1e8)
-        var imag_int: Int = int(self.im * 1e8)
+        var real_int: Int = Int(self.re * 1e8)
+        var imag_int: Int = Int(self.im * 1e8)
 
         var real_hash: Int = real_int * real_prime
         var imag_hash: Int = imag_int * imag_prime
@@ -1078,7 +1084,7 @@ struct ComplexSIMD[type: DType, size: Int](
     @always_inline
     fn __int__(self) -> Int:
         '''Casts the real part to an int.'''
-        return int(self.re)
+        return Int(self.re)
 
     @always_inline
     fn __float__(self) -> Self.Coef:
@@ -1102,7 +1108,7 @@ struct ComplexSIMD[type: DType, size: Int](
         return Self.Lane(self.re[idx], self.im[idx])
 
     @always_inline
-    fn __setitem__(inout self, idx: Int, item: Self.Lane) -> None:
+    fn __setitem__(mut self, idx: Int, item: Self.Lane):
         self.re[idx] = item.re
         self.im[idx] = item.im
     
