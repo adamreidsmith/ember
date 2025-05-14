@@ -25,7 +25,8 @@ struct ComplexSIMD[type: DType, size: Int](
         Absable,
         Intable,
         Stringable,
-        RepresentableCollectionElement,
+        Representable,
+        CollectionElement,
         Hashable,
         Sized,
         Writable,
@@ -221,7 +222,6 @@ struct ComplexSIMD[type: DType, size: Int](
             re_str += '+'
         return re_str + im_str 
 
-    @always_inline
     fn __str__(self) -> String:
         '''Formats the Complex as a String.'''
         return self.__str__(max_digits=8)
@@ -240,7 +240,7 @@ struct ComplexSIMD[type: DType, size: Int](
         out += ']'
         return out
     
-    @always_inline
+    @no_inline
     fn __repr__(self) -> String:
         '''Formats the Complex as a String.'''
         return self.__str__(max_digits=0)
@@ -417,12 +417,10 @@ struct ComplexSIMD[type: DType, size: Int](
             return Self(0, 0)
         return (other * self.log()).exp()
     
-    @always_inline
     fn __pow__[__: None = None](self, other: Self.Lane) -> Self:
         '''Defines the `**` power operator. Returns self ** other.'''
         return self ** Self(other.re, other.im)
     
-    @always_inline
     fn __pow__(self, other: Self.Coef) -> Self:
         '''Defines the `**` power operator. Returns self ** other.'''
         return self ** Self(other)
@@ -442,7 +440,6 @@ struct ComplexSIMD[type: DType, size: Int](
             a *= a
         return result
     
-    @always_inline
     fn __pow__(self, b: Int) -> Self:
         '''Defines the `**` power operator. Returns self ** b.'''
         if b == 0:
@@ -451,7 +448,6 @@ struct ComplexSIMD[type: DType, size: Int](
             return Self._fast_int_pow(self.copy(), -b).reciprocal()
         return Self._fast_int_pow(self.copy(), b)
     
-    @always_inline
     fn __pow__(self, b: IntLiteral) -> Self:
         '''Defines the `**` power operator. Returns self ** b.'''
         return self ** Int(b)
@@ -628,7 +624,6 @@ struct ComplexSIMD[type: DType, size: Int](
         self.re *= other
         self.im *= other
 
-    @always_inline
     fn __itruediv__(mut self, other: Self):
         '''Defines the `/=` in-place divide operator. Computes self / other in-place.'''
         var denom: Self.Coef = 1 / other.squared_norm()
@@ -706,7 +701,6 @@ struct ComplexSIMD[type: DType, size: Int](
         '''Alias of norm. Returns the absolute value of a complex number.'''
         return self.norm()
     
-    @always_inline
     fn arg(self) -> Self.Coef:
         '''Returns the argument atan2(b, a) of a complex number a + bi.'''
         return math.atan2(self.im, self.re)
@@ -726,96 +720,79 @@ struct ComplexSIMD[type: DType, size: Int](
         '''Alias of conj. Returns the conjugate a - bi of a complex number a + bi.'''
         return self.conj()
     
-    @always_inline
     fn exp(self) -> Self:
         '''Returns the exponential e^(a + bi) of a complex number a + bi.'''
         var r: Self.Coef = math.exp(self.re)
         return Self(r * math.cos(self.im), r * math.sin(self.im))
     
-    @always_inline
     fn sqrt(self) -> Self:
         '''Returns the square root of a complex number using the principal branch.'''
         var r: Self.Coef = math.sqrt(self.norm())
         var theta: Self.Coef = self.arg() / 2
         return Self(r * math.cos(theta), r * math.sin(theta))
 
-    @always_inline
     fn log(self) -> Self:
         '''Returns the natural logarithm of a complex number using the principal branch.'''
         return Self(math.log(self.norm()), self.arg())
     
-    @always_inline
     fn log(self, base: Self.Coef) -> Self:
         '''Returns the logarithm in base `base` of a complex number using the principal branch.'''
         return self.log() / math.log(base)
     
-    @always_inline
     fn sin(self) -> Self:
         '''Returns the sine of a complex number.'''
         return Self(math.sin(self.re) * math.cosh(self.im), math.cos(self.re) * math.sinh(self.im))
 
-    @always_inline
     fn cos(self) -> Self:
         '''Returns the cosine of a complex number.'''
         return Self(
             math.cos(self.re) * math.cosh(self.im), -math.sin(self.re) * math.sinh(self.im)
         )
     
-    @always_inline
     fn tan(self) -> Self:
         '''Returns the tangent of a complex number.'''
         return self.sin() / self.cos()
     
-    @always_inline
     fn csc(self) -> Self:
         '''Returns the cosecant of a complex number.'''
         return self.sin().reciprocal()
     
-    @always_inline
     fn sec(self) -> Self:
         '''Returns the secant of a complex number.'''
         return self.cos().reciprocal()
     
-    @always_inline
     fn cot(self) -> Self:
         '''Returns the tangent of a complex number.'''
         return self.cos() / self.sin()
     
-    @always_inline
     fn sinh(self) -> Self:
         '''Returns the hyperbolic sine of a complex number.'''
         return Self(
             math.sinh(self.re) * math.cos(self.im), math.cosh(self.re) * math.sin(self.im)
         )
     
-    @always_inline
     fn cosh(self) -> Self:
         '''Returns the hyperbolic cosine of a complex number.'''
         return Self(
             math.cosh(self.re) * math.cos(self.im), math.sinh(self.re) * math.sin(self.im)
         )
     
-    @always_inline
     fn tanh(self) -> Self:
         '''Returns the hyperbolic tangent of a complex number.'''
         return self.sinh() / self.cosh()
     
-    @always_inline
     fn csch(self) -> Self:
         '''Returns the hyperbolic cosecant of a complex number.'''
         return self.sinh().reciprocal()
     
-    @always_inline
     fn sech(self) -> Self:
         '''Returns the hyperbolic secant of a complex number.'''
         return self.cosh().reciprocal()
     
-    @always_inline
     fn coth(self) -> Self:
         '''Returns the hyperbolic tangent of a complex number.'''
         return self.cosh() / self.sinh()
     
-    @always_inline
     fn asin(self) -> Self:
         '''Returns the arcsin of a complex number, 
         enforcing the convention that the real part lies in [-pi/2, pi/2].
@@ -828,7 +805,6 @@ struct ComplexSIMD[type: DType, size: Int](
             return Self(math.pi - result.re, -result.im)
         return result
 
-    @always_inline
     fn acos(self) -> Self:
         '''Returns the arccos of a complex number, 
         enforcing the convention that the real part lies in [0, pi].
@@ -839,7 +815,6 @@ struct ComplexSIMD[type: DType, size: Int](
             result *= -1
         return result
     
-    @always_inline
     fn atan(self) -> Self:
         '''Returns the arctan of a complex number, 
         enforcing the convention that the real part lies in [-pi/2, pi/2].
@@ -847,7 +822,6 @@ struct ComplexSIMD[type: DType, size: Int](
         var i: Self = Self(0, 1)
         return Self(0, -0.5) * ((i - self) / (i + self)).log()
 
-    @always_inline
     fn asinh(self) -> Self:
         '''Returns the arcsinh of a complex number, 
         enforcing the convention that the imaginary part lies in [-pi/2, pi/2].
@@ -859,7 +833,6 @@ struct ComplexSIMD[type: DType, size: Int](
             return Self(-result.re, -result.im + math.pi)
         return result
     
-    @always_inline
     fn acosh(self) -> Self:
         '''Returns the arccosh of a complex number, enforcing the convention that the 
         imaginary part lies in [-pi, pi] and the real part is non-negative.
@@ -869,7 +842,6 @@ struct ComplexSIMD[type: DType, size: Int](
             return Self(-result.re, -result.im)
         return result
 
-    @always_inline
     fn atanh(self) -> Self:
         '''Returns the arctanh of a complex number, enforcing the convention that the
         imaginary part lies in [-pi/2, pi/2].
@@ -877,21 +849,18 @@ struct ComplexSIMD[type: DType, size: Int](
         var one: Self = Self(1)
         return Self(0.5) * ((one + self) / (one - self)).log()
         
-    @always_inline
     fn floor(self) -> Self:
         '''Returns a complex number with the floor function applied to the real and
         imaginary parts.
         '''
         return Self(math.floor(self.re), math.floor(self.im))
     
-    @always_inline
     fn ceil(self) -> Self:
         '''Returns a complex number with the ceiling function applied to the real and
         imaginary parts.
         '''
         return Self(math.ceil(self.re), math.ceil(self.im))
     
-    @always_inline
     fn to_polar(self) -> Tuple[Self.Coef, Self.Coef]:
         '''Returns a tuple of the polar coordinates (r, θ) of a complex number r*e^(iθ).'''
         return (self.norm(), self.arg())
@@ -911,7 +880,6 @@ struct ComplexSIMD[type: DType, size: Int](
         '''Return a copy of the complex number.'''
         return Self(self.re, self.im)
     
-    @always_inline
     fn __hash__(self) -> UInt:
         '''Return a hash of the complex number. No idea if this hash function is any good...'''
         var real_prime: Int = 6355529899  # Random 10-digit prime
@@ -1029,41 +997,34 @@ struct ComplexSIMD[type: DType, size: Int](
         '''Returns True if the real part and imaginaary part are zero.'''
         return self.re == 0 and self.im == 0
     
-    @always_inline
     fn is_finite(self) -> SIMD[DType.bool, Self.size]:
         '''Returns True if the real and imaginary components are zero.'''
         return math.isfinite(self.re) and math.isfinite(self.im)
     
-    @always_inline
     fn is_infinite(self) -> SIMD[DType.bool, Self.size]:
         '''Returns True if the real or imaginary part is infinite.'''
         return math.isinf(self.re) or math.isinf(self.im)
     
-    @always_inline
     fn is_nan(self) -> SIMD[DType.bool, Self.size]:
         '''Returns True if the real or imaginary part is nan.'''
         return math.isnan(self.re) or math.isnan(self.im)
     
-    @always_inline
     fn is_unit[tol: Scalar[Self.type] = DEFAULT_TOL](self) -> SIMD[DType.bool, Self.size]:
         '''Returns True if abs(self - 1) < tol.'''
         return abs(self - Self(1)) < tol
     
-    @always_inline
     fn is_close[tol: Scalar[Self.type] = DEFAULT_TOL](
         self, other: Self
     ) -> SIMD[DType.bool, Self.size]:
         '''Returns True if abs(self - other) < tol.'''
         return abs(self - other) < tol
     
-    @always_inline
     fn is_close[tol: Scalar[Self.type] = DEFAULT_TOL, __: None = None](
         self, other: Self.Lane
     ) -> Bool:
         '''Returns True if abs(self - other) < tol.'''
         return all(abs(self - other) < tol)
     
-    @always_inline
     fn is_close[tol: Scalar[Self.type] = DEFAULT_TOL, __: None = None](
         self, other: Self.Coef
     ) -> SIMD[DType.bool, Self.size]:
@@ -1103,16 +1064,13 @@ struct ComplexSIMD[type: DType, size: Int](
 
     # Item access #####################
 
-    @always_inline
     fn __getitem__(self, idx: Int) -> Self.Lane:
         return Self.Lane(self.re[idx], self.im[idx])
 
-    @always_inline
     fn __setitem__(mut self, idx: Int, item: Self.Lane):
         self.re[idx] = item.re
         self.im[idx] = item.im
     
-    @always_inline
     fn slice[output_width: Int, /, *, offset: Int = 0](
         self
     ) -> ComplexSIMD[Self.type, output_width]:

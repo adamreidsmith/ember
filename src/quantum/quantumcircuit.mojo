@@ -4,20 +4,19 @@ from collections import Set
 from ..cplx import CMatrix
 from .gates import *
 from .bit import Clbit, Qubit
-
+from ..config import DEFAULT_TOL
 
 @value
-struct QuantumCircuit[type: DType](Stringable, Writable):
+struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, Writable, Movable):
     var n_qubits: Int
     '''The number of qubits in the quantum circuit.'''
     var qubits: List[Qubit, True]
     '''The Qubits in the quantum circuit.'''
     var clbits: List[Clbit, True]
     '''The classical bits in the quantum circuit.'''
-    var _data: List[Gate[Self.type]]
+    var _data: List[Gate[Self.type, Self.tol]]
     '''The gates applied to the qubits in the quantum circuit.'''
     
-    @always_inline
     fn __init__(out self, n_qubits: Int, n_clbits: Int = 0) raises:
         '''Initialize a QuantumCircuit with `n_qubits` qubits and `n_clbits` classical bits.'''
         if n_qubits < 1:
@@ -25,24 +24,23 @@ struct QuantumCircuit[type: DType](Stringable, Writable):
         self.n_qubits = n_qubits
         self.qubits = List[Qubit, True](Qubit(0))
         self.clbits = List[Clbit, True]()
-        self._data = List[Gate[Self.type]]()
+        self._data = List[Gate[Self.type, Self.tol]]()
         for q in range(1, n_qubits):
             self.qubits.append(Qubit(q))
         for c in range(n_clbits):
             self.clbits.append(Clbit(c))
     
-    @always_inline
-    fn __init__(out self, owned qubits: List[Qubit, True], owned clbits: List[Clbit, True] = List[Clbit, True]()) raises:
-        '''Initialize a QuantumCircuit from lists of qubits and classical bits.'''
-        if len(qubits) < 1:
-            raise Error('Quantum circuit must have at least one qubit')
-        self.n_qubits = len(qubits)
-        self.qubits = qubits^
-        self.clbits = clbits^
-        self._data = List[Gate[Self.type]]()
+    # For now, quantum circuits cannot have pre-specified (qu)bits
+    # fn __init__(out self, owned qubits: List[Qubit, True], owned clbits: List[Clbit, True] = List[Clbit, True]()) raises:
+    #     '''Initialize a QuantumCircuit from lists of qubits and classical bits.'''
+    #     if len(qubits) < 1:
+    #         raise Error('Quantum circuit must have at least one qubit')
+    #     self.n_qubits = len(qubits)
+    #     self.qubits = qubits^
+    #     self.clbits = clbits^
+    #     self._data = List[Gate[Self.type]]()
 
-    @always_inline
-    fn apply(mut self, gate: Gate[Self.type]) raises:
+    fn apply(mut self, gate: Gate[Self.type, Self.tol]) raises:
         '''Apply `gate` to the quantum circuit.'''
         for q in gate.applied_to:
             if q[] not in self.qubits:
@@ -61,7 +59,7 @@ struct QuantumCircuit[type: DType](Stringable, Writable):
     @no_inline
     fn __str__(self) -> String:
         alias max_width: Int = 120
-        
+
         var lines = List[List[String]](List[String]('|0⟩ -')) * self.n_qubits
         for gate in self._data:
             var gate_str = String(gate[])

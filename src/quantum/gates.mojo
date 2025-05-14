@@ -24,7 +24,6 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
     var params: List[Scalar[Self.type], True]
     '''The parameter values applied to the gate.'''
 
-    @always_inline
     fn __init__(
         out self,
         owned name: String,
@@ -101,7 +100,6 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
     fn __len__(self) -> Int:
         return self.n_qubits
 
-    @always_inline
     fn control(mut self, *qubits: Qubit) raises -> Self:
         '''Control the gate on a qubit or set of qubits.'''
         for q in qubits:
@@ -115,7 +113,6 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
                 self.n_qubits += 1
         return self
     
-    @always_inline
     fn __eq__(self, other: Self) -> Bool:
         '''Gates are considered equal if they have the same name, they are applied to and controlled
         on the same qubits, and their matrices are (close to) equal.'''
@@ -137,27 +134,27 @@ fn x[type: DType]() raises -> CMatrix[type]:
         0, 1, 
         1, 0,
     )
-fn X[type: DType](q: Qubit) raises -> Gate[type]:
+fn X[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Qubit) raises -> Gate[type, tol]:
     '''Create an X gate applied to qubit `q`.'''
-    return Gate[type]('X', x[type](), List[Qubit, True](q))
+    return Gate[type, tol]('X', x[type](), List[Qubit, True](q))
 
 fn y[type: DType]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         0, ComplexScalar[type](0, -1), 
         ComplexScalar[type](0, 1), 0,
     )
-fn Y[type: DType](q: Qubit) raises -> Gate[type]:
+fn Y[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Qubit) raises -> Gate[type, tol]:
     '''Create a Y gate applied to qubit `q`.'''
-    return Gate[type]('Y', y[type](), List[Qubit, True](q))
+    return Gate[type, tol]('Y', y[type](), List[Qubit, True](q))
 
 fn z[type: DType]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         1, 0, 
         0, -1,
     )
-fn Z[type: DType](q: Qubit) raises -> Gate[type]:
+fn Z[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Qubit) raises -> Gate[type, tol]:
     '''Create a Z gate applied to qubit `q`.'''
-    return Gate[type]('Z', z[type](), List[Qubit, True](q))
+    return Gate[type, tol]('Z', z[type](), List[Qubit, True](q))
 
 fn h[type: DType]() raises -> CMatrix[type]:
     var inv_sqrt2: Scalar[type] = 1 / sqrt(2.0).cast[type]()
@@ -165,39 +162,39 @@ fn h[type: DType]() raises -> CMatrix[type]:
         inv_sqrt2, inv_sqrt2, 
         inv_sqrt2, -inv_sqrt2,
     )
-fn H[type: DType](q: Qubit) raises -> Gate[type]:
+fn H[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Qubit) raises -> Gate[type, tol]:
     '''Create a Hadamard gate applied to qubit `q`.'''
-    return Gate[type]('H', h[type](), List[Qubit, True](q))     
+    return Gate[type, tol]('H', h[type](), List[Qubit, True](q))     
 
 fn s[type: DType]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         1, 0, 
         0, ComplexScalar[type](0, 1),
     )
-fn S[type: DType](q: Qubit) raises -> Gate[type]:
+fn S[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Qubit) raises -> Gate[type, tol]:
     '''Create an S gate applied to qubit `q`.'''
-    return Gate[type]('S', s[type](), List[Qubit, True](q))
+    return Gate[type, tol]('S', s[type](), List[Qubit, True](q))
 
 fn t[type: DType]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         1, 0, 
         0, ComplexScalar[type](0, pi / 4).exp(),
     )
-fn T[type: DType](q: Qubit) raises -> Gate[type]:
+fn T[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Qubit) raises -> Gate[type, tol]:
     '''Create a T gate applied to qubit `q`.'''
-    return Gate[type]('T', t[type](), List[Qubit, True](q))
+    return Gate[type, tol]('T', t[type](), List[Qubit, True](q))
 
 # Unparameterized multi-qubit gates #############
 
-fn CX[type: DType](control: Qubit, target: Qubit) raises -> Gate[type]:
+fn CX[type: DType, tol: Scalar[type] = DEFAULT_TOL](control: Qubit, target: Qubit) raises -> Gate[type, tol]:
     '''Create a controlled-X gate applied to qubit `target` and controlled on qubit `control`.'''
-    var cx = Gate[type]('CX', x[type](), List[Qubit, True](target))
+    var cx = Gate[type, tol]('CX', x[type](), List[Qubit, True](target))
     return cx.control(control)
 
-fn CCX[type: DType](control1: Qubit, control2: Qubit, target: Qubit) raises -> Gate[type]:
+fn CCX[type: DType, tol: Scalar[type] = DEFAULT_TOL](control1: Qubit, control2: Qubit, target: Qubit) raises -> Gate[type, tol]:
     '''Create a controlled-controlled-X gate applied to qubit `target` and controlled on qubits
      `control1` and `control2`.'''
-    var ccx = Gate[type]('CCX', x[type](), List[Qubit, True](target))
+    var ccx = Gate[type, tol]('CCX', x[type](), List[Qubit, True](target))
     return ccx.control(control1, control2)
 
 # Parameterized single-qubit gates ##############
@@ -209,9 +206,9 @@ fn rx[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
         a, b,
         b, a,
     )
-fn RX[type: DType](q: Qubit, theta: Scalar[type]) raises -> Gate[type]:
+fn RX[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Qubit, theta: Scalar[type]) raises -> Gate[type, tol]:
     '''Create an RX rotation gate with angle `theta` applied to qubit `q`.'''
-    return Gate[type]('RX', rx[type](theta), List[Qubit, True](q), List[Scalar[type], True](theta))
+    return Gate[type, tol]('RX', rx[type](theta), List[Qubit, True](q), List[Scalar[type], True](theta))
 
 fn ry[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
     var a = ComplexScalar[type](cos(t / 2), 0)
@@ -220,9 +217,9 @@ fn ry[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
         a, -b,
         b, a,
     )
-fn RY[type: DType](q: Qubit, theta: Scalar[type]) raises -> Gate[type]:
+fn RY[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Qubit, theta: Scalar[type]) raises -> Gate[type, tol]:
     '''Create an RY rotation gate with angle `theta` applied to qubit `q`.'''
-    return Gate[type]('RY', ry[type](theta), List[Qubit, True](q), List[Scalar[type], True](theta))
+    return Gate[type, tol]('RY', ry[type](theta), List[Qubit, True](q), List[Scalar[type], True](theta))
 
 fn rz[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
     var c: Scalar[type] = cos(t / 2)
@@ -231,9 +228,9 @@ fn rz[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
         ComplexScalar[type](c, -s), 0, 
         0, ComplexScalar[type](c, s),
     )
-fn RZ[type: DType](q: Qubit, theta: Scalar[type]) raises -> Gate[type]:
+fn RZ[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Qubit, theta: Scalar[type]) raises -> Gate[type, tol]:
     '''Create an RZ rotation gate with angle `theta` applied to qubit `q`.'''
-    return Gate[type]('RZ', rz[type](theta), List[Qubit, True](q), List[Scalar[type], True](theta))
+    return Gate[type, tol]('RZ', rz[type](theta), List[Qubit, True](q), List[Scalar[type], True](theta))
 
 fn u[type: DType](t: Scalar[type], p: Scalar[type], l: Scalar[type]) raises -> CMatrix[type]:
     var ct: Scalar[type] = cos(t / 2)
@@ -244,9 +241,9 @@ fn u[type: DType](t: Scalar[type], p: Scalar[type], l: Scalar[type]) raises -> C
         ComplexScalar[type](cos(p) * st, sin(p) * st), 
         ComplexScalar[type](cos(p + l) * ct, sin(p + l) * ct),
     )
-fn U[type: DType](q: Qubit, theta: Scalar[type], phi: Scalar[type], lbda: Scalar[type]) raises -> Gate[type]:
+fn U[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Qubit, theta: Scalar[type], phi: Scalar[type], lbda: Scalar[type]) raises -> Gate[type, tol]:
     '''Create a U gate applied to qubit `q`.'''
-    return Gate[type]('U', u[type](theta, phi, lbda), List[Qubit, True](q), List[Scalar[type], True](theta, phi, lbda))
+    return Gate[type, tol]('U', u[type](theta, phi, lbda), List[Qubit, True](q), List[Scalar[type], True](theta, phi, lbda))
 
 # Parameterized multi-qubit gates ###############
 

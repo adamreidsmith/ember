@@ -27,7 +27,6 @@ struct CMatrix[type: DType](
 
     # Initialization ##################
 
-    @always_inline
     fn __init__[__: None = None](out self, rows: Int, cols: Int, fill_zeros: Bool = True):
         self.rows = rows
         self.cols = cols
@@ -39,7 +38,6 @@ struct CMatrix[type: DType](
             memset_zero(self.re.address, self.size)
             memset_zero(self.im.address, self.size)
 
-    @always_inline
     fn __init__(out self, rows: Int, cols: Int, *data: ComplexScalar[Self.type]) raises:
         if len(data) > rows * cols:
             raise Error('More elements provided than fit in the cmatrix')
@@ -52,7 +50,6 @@ struct CMatrix[type: DType](
         for idx in range(len(data)):
             self.store_idx[1](idx, data[idx])
 
-    @always_inline
     fn __init__(out self, data: List[ComplexScalar[Self.type], True]):
         self.rows = 1
         self.cols = len(data)
@@ -63,7 +60,6 @@ struct CMatrix[type: DType](
         for idx in range(len(data)):
             self.store_idx[1](idx, data[idx])
 
-    @always_inline
     fn __init__(out self, data: List[List[ComplexScalar[Self.type], True]]) raises:
         self.rows = len(data)
         self.cols = len(data[0])
@@ -78,7 +74,6 @@ struct CMatrix[type: DType](
             for c in range(self.cols):
                 self.store_crd[1](r, c, data[r][c])
 
-    @always_inline
     fn __copyinit__(out self, existing: Self):
         self.rows = existing.rows
         self.cols = existing.cols
@@ -93,7 +88,6 @@ struct CMatrix[type: DType](
             self.store_idx[simd_width](idx, existing.load_idx[simd_width](idx))
         vectorize[cpy_data, simdwidthof[type]()](self.size)
 
-    @always_inline
     fn __moveinit__(out self, owned existing: Self):
         self.rows = existing.rows
         self.cols = existing.cols
@@ -102,7 +96,6 @@ struct CMatrix[type: DType](
         self.re = existing.re
         self.im = existing.im
 
-    @always_inline
     fn __del__(owned self):
         for idx in range(self.size):
             (self.re + idx).destroy_pointee()
@@ -112,37 +105,32 @@ struct CMatrix[type: DType](
     
     # Static constructors #############
 
-    @always_inline
     @staticmethod
     fn eye(rows: Int, cols: Int) -> Self:
         '''Return an identity matrix with the specified dimensions.'''
         var result = Self(rows, cols, fill_zeros=True)
         result.fill_diag(1)
         return result
-    
-    @always_inline
+
     @staticmethod
     fn zeros(rows: Int, cols: Int) -> Self:
         '''Return an matrix of zeros with the specified dimensions.'''
         return Self(rows, cols, fill_zeros=True)
-    
-    @always_inline
+
     @staticmethod
     fn ones(rows: Int, cols: Int) -> Self:
         '''Return an matrix of ones with the specified dimensions.'''
         var result = Self(rows, cols, fill_zeros=False)
         result.fill_one()
         return result
-    
-    @always_inline
+
     @staticmethod
     fn i(rows: Int, cols: Int) -> Self:
         '''Return an matrix of i's with the specified dimensions.'''
         var result = Self(rows, cols, fill_zeros=False)
         result.fill_i()
         return result
-    
-    @always_inline
+
     @staticmethod
     fn arange(rows: Int, cols: Int) -> Self:
         '''Return a matrix with values from range(self.size) in row-major order.'''
@@ -150,15 +138,13 @@ struct CMatrix[type: DType](
         result.fill_range()
         return result
 
-    @always_inline
     @staticmethod
     fn arange(rows: Int, cols: Int, start: Int) -> Self:
         '''Return a matrix with values from range(start, start + self.size) in row-major order.'''
         var result = Self(rows, cols, fill_zeros=False)
         result.fill_range(start)
         return result
-    
-    @always_inline
+
     @staticmethod
     fn arange(rows: Int, cols: Int, start: Int, step: Int) -> Self:
         '''Return a matrix with values from range(start, start + self.size * step, step)
@@ -170,7 +156,6 @@ struct CMatrix[type: DType](
 
     # Assertions ######################
 
-    @always_inline
     fn _assert_same_shape(self, other: Self) raises:
         if self.rows != other.rows or self.cols != other.cols:
             raise Error(
@@ -185,7 +170,6 @@ struct CMatrix[type: DType](
                 + ')'
             )
 
-    @always_inline
     fn _assert_matmul_compatible(self, other: Self) raises:
         if self.cols != other.rows:
             raise Error(
@@ -200,7 +184,6 @@ struct CMatrix[type: DType](
                 + ')'
             )
 
-    @always_inline
     fn _assert_reshape_compatible(self, new_rows: Int, new_cols: Int) raises:
         if new_rows * new_cols != self.size:
             raise Error(
@@ -232,14 +215,12 @@ struct CMatrix[type: DType](
         '''Return True if self is square and non-degenerate (rows, cols > 0), and False otherwise.'''
         return self.rows == self.cols and self.rows > 0
 
-    @always_inline
     fn is_unitary[tol: Scalar[Self.type] = DEFAULT_TOL](self) raises -> Bool:
         '''Return True if self is unitary, False otherwise.'''
         if not self.is_square():
             return False
         return (self @ self.dag() - self.eye_like()).frobenius_norm() < tol
 
-    @always_inline
     fn is_hermitian[tol: Scalar[Self.type] = DEFAULT_TOL](self) raises -> Bool:
         '''Return True if self is Hermitian, False otherwise.'''
         if not self.is_square():
@@ -248,7 +229,7 @@ struct CMatrix[type: DType](
 
     # String conversion ###############
 
-    @always_inline
+    @no_inline
     fn __str__(self) -> String:
         return self._get_str_rep(max_lines=6)
 
@@ -298,7 +279,7 @@ struct CMatrix[type: DType](
         out += ' DType: ' + String(Self.type) + ' | Size: (' + String(self.rows) + ', ' + String(self.cols) + ')'
         return out
 
-    @always_inline
+    @no_inline
     fn __repr__(self) -> String:
         return self._get_str_rep(max_lines=0)
 
@@ -308,7 +289,6 @@ struct CMatrix[type: DType](
 
     # Item access #####################
 
-    @always_inline
     fn __getitem__(self, row: Int, col: Int) raises -> ComplexScalar[Self.type]:
         '''Get the value at the specified row and col.'''
         if row < 0 or row >= self.rows:
@@ -317,7 +297,6 @@ struct CMatrix[type: DType](
             raise Error('Invalid column index: ' + String(col))
         return self.load_idx[1](row * self.cols + col)
 
-    @always_inline
     fn __getitem__(self, idx: Int) raises -> ComplexScalar[Self.type]:
         '''Get the value at the specified index.
         Matrices are indexed from index 0 at postion (0, 0) to index size - 1
@@ -327,7 +306,6 @@ struct CMatrix[type: DType](
             raise Error('Invalid index: '+ String(idx))
         return self.load_idx[1](idx)
 
-    @always_inline
     fn __setitem__(self, row: Int, col: Int, val: ComplexScalar[Self.type]) raises:
         '''Set the value at the specified row and col.'''
         if row < 0 or row >= self.rows:
@@ -336,7 +314,6 @@ struct CMatrix[type: DType](
             raise Error('Invalid column index: ' + String(col))
         self.store_crd[1](row, col, val)
 
-    @always_inline
     fn __setitem__(self, idx: Int, val: ComplexScalar[Self.type]) raises:
         '''Set the value at the specified index.
         Matrices are indexed from index 0 at postion (0, 0) to index size - 1
@@ -346,7 +323,6 @@ struct CMatrix[type: DType](
             raise Error('Invalid index: '+ String(idx))
         self.store_idx[1](idx, val)
 
-    @always_inline
     fn load_idx[width: Int](self, idx: Int) -> ComplexSIMD[Self.type, width]:
         '''Load width lanes of the ComplexSIMD at index idx.'''
         return ComplexSIMD(
@@ -360,7 +336,6 @@ struct CMatrix[type: DType](
         self.re.store(idx, val.re)
         self.im.store(idx, val.im)
 
-    @always_inline
     fn load_crd[width: Int](self, row: Int, col: Int) -> ComplexSIMD[Self.type, width]:
         '''Load width lanes of the ComplexSIMD at position (row, col).'''
         return self.load_idx[width](row * self.cols + col)
@@ -370,7 +345,6 @@ struct CMatrix[type: DType](
         '''Store val in the ComplexSIMD at position (row, col).'''
         self.store_idx[width](row * self.cols + col, val)
 
-    @always_inline
     fn strided_load_idx[width: Int](self, idx: Int, stride: Int) -> ComplexSIMD[Self.type, width]:
         '''Load width lanes starting at index idx spaced by stride.'''
         return ComplexSIMD(
@@ -433,7 +407,6 @@ struct CMatrix[type: DType](
 
     # Math dunders ####################
 
-    @always_inline
     fn __neg__(self) -> Self:
         '''Defines the `-` unary negation operator. Returns -self.'''
         if self._is_col_dominant:
@@ -452,7 +425,6 @@ struct CMatrix[type: DType](
         '''Defines the `+` unary positive operator. Returns self.'''
         return self
 
-    @always_inline
     fn __add__(self, other: Self) raises -> Self:
         '''Defines the `+` add operator. Returns self + other.'''
         self._assert_same_shape(other)
@@ -471,7 +443,6 @@ struct CMatrix[type: DType](
                 )
             return self._parallelize_vectorize_op[add_c]()
 
-    @always_inline
     fn __add__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Defines the `+` add operator. Returns self + other.'''
         if self._is_col_dominant:
@@ -485,7 +456,6 @@ struct CMatrix[type: DType](
                 return self.strided_load_idx[simd_width](r * self.cols + c, self.cols) + other
             return self._parallelize_vectorize_op[add_c]()
 
-    @always_inline
     fn __sub__(self, other: Self) raises -> Self:
         '''Defines the `-` subtraction operator. Returns self - other.'''
         self._assert_same_shape(other)
@@ -504,7 +474,6 @@ struct CMatrix[type: DType](
                 )
             return self._parallelize_vectorize_op[sub_c]()
 
-    @always_inline
     fn __sub__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Defines the `-` subtraction operator. Returns self - other.'''
         if self._is_col_dominant:
@@ -518,7 +487,6 @@ struct CMatrix[type: DType](
                 return self.strided_load_idx[simd_width](r * self.cols + c, self.cols) - other
             return self._parallelize_vectorize_op[sub_c]()
 
-    @always_inline
     fn __mul__(self, other: Self) raises -> Self:
         '''Defines the `*` product operator. Returns self * other.'''
         self._assert_same_shape(other)
@@ -537,7 +505,6 @@ struct CMatrix[type: DType](
                 )
             return self._parallelize_vectorize_op[mul_c]()
 
-    @always_inline
     fn __mul__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Defines the `*` product operator. Returns self * other.'''
         if self._is_col_dominant:
@@ -552,7 +519,6 @@ struct CMatrix[type: DType](
                 return self.strided_load_idx[simd_width](r * self.cols + c, self.cols) * other
             return self._parallelize_vectorize_op[mul_c]()
 
-    @always_inline
     fn __truediv__(self, other: Self) raises -> Self:
         '''Defines the `/` divide operator. Returns self / other.'''
         self._assert_same_shape(other)
@@ -571,12 +537,10 @@ struct CMatrix[type: DType](
                 )
             return self._parallelize_vectorize_op[div_c]()
 
-    @always_inline
     fn __truediv__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Defines the `/` divide operator. Returns self / other.'''
         return self.__mul__(other.reciprocal())
 
-    @always_inline
     fn __floordiv__(self, other: Self) raises -> Self:
         '''Defines the `//` floor divide operator. Returns self // other.'''
         self._assert_same_shape(other)
@@ -595,7 +559,6 @@ struct CMatrix[type: DType](
                 )
             return self._parallelize_vectorize_op[fdiv_c]()
 
-    @always_inline
     fn __floordiv__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Defines the `//` floor divide operator. Returns self // other.'''
         if self._is_col_dominant:
@@ -609,7 +572,6 @@ struct CMatrix[type: DType](
                 return self.strided_load_idx[simd_width](r * self.cols + c, self.cols) // other
             return self._parallelize_vectorize_op[fdiv_c]()
 
-    @always_inline
     fn __mod__(self, other: Self) raises -> Self:
         '''Defines the `%` mod operator. Returns self % other.'''
         self._assert_same_shape(other)
@@ -628,7 +590,6 @@ struct CMatrix[type: DType](
                 )
             return self._parallelize_vectorize_op[mod_c]()
 
-    @always_inline
     fn __mod__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Defines the `%` mod operator. Returns self % other.'''
         if self._is_col_dominant:
@@ -642,12 +603,10 @@ struct CMatrix[type: DType](
                 return self.strided_load_idx[simd_width](r * self.cols + c, self.cols) % other
             return self._parallelize_vectorize_op[mod_c]()
 
-    @always_inline
     fn __divmod__(self, other: Self) raises -> Tuple[Self, Self]:
         '''Defines the divmod operator. Returns (self // other, self % other).'''
         return (self // other, self % other)
 
-    @always_inline
     fn __divmod__(self, other: ComplexScalar[Self.type]) -> Tuple[Self, Self]:
         '''Defines the divmod operator. Returns (self // other, self % other).'''
         return (self // other, self % other)
@@ -674,7 +633,6 @@ struct CMatrix[type: DType](
 
     # In-place math dunders ###########
 
-    @always_inline
     fn __iadd__(self, other: Self) raises:
         '''Defines the `+=` in-place add operator.'''
         self._assert_same_shape(other)
@@ -693,7 +651,6 @@ struct CMatrix[type: DType](
                 )
             self._parallelize_vectorize_op_inplace[add_c]()
 
-    @always_inline
     fn __iadd__(self, other: ComplexScalar[Self.type]):
         '''Defines the `+=` in-place add operator.'''
         if self._is_col_dominant:
@@ -707,7 +664,6 @@ struct CMatrix[type: DType](
                 return self.strided_load_idx[simd_width](r * self.cols + c, self.cols) + other
             self._parallelize_vectorize_op_inplace[add_c]()
 
-    @always_inline
     fn __isub__(self, other: Self) raises:
         '''Defines the `-=` in-place subtraction operator.'''
         self._assert_same_shape(other)
@@ -726,7 +682,6 @@ struct CMatrix[type: DType](
                 )
             self._parallelize_vectorize_op_inplace[sub_c]()
 
-    @always_inline
     fn __isub__(self, other: ComplexScalar[Self.type]):
         '''Defines the `-=` in-place subtraction operator.'''
         if self._is_col_dominant:
@@ -740,7 +695,6 @@ struct CMatrix[type: DType](
                 return self.strided_load_idx[simd_width](r * self.cols + c, self.cols) - other
             self._parallelize_vectorize_op_inplace[sub_c]()
 
-    @always_inline
     fn __imul__(self, other: Self) raises:
         '''Defines the `*=` in-place product operator.'''
         self._assert_same_shape(other)
@@ -759,7 +713,6 @@ struct CMatrix[type: DType](
                 )
             self._parallelize_vectorize_op_inplace[mul_c]()
 
-    @always_inline
     fn __imul__(self, other: ComplexScalar[Self.type]):
         '''Defines the `*=` in-place product operator.'''
         if self._is_col_dominant:
@@ -773,7 +726,6 @@ struct CMatrix[type: DType](
                 return self.strided_load_idx[simd_width](r * self.cols + c, self.cols) * other
             self._parallelize_vectorize_op_inplace[mul_c]()
 
-    @always_inline
     fn __itruediv__(self, other: Self) raises:
         '''Defines the `/=` in-place divide operator.'''
         self._assert_same_shape(other)
@@ -792,12 +744,10 @@ struct CMatrix[type: DType](
                 )
             self._parallelize_vectorize_op_inplace[div_c]()
 
-    @always_inline
     fn __itruediv__(self, other: ComplexScalar[Self.type]):
         '''Defines the `/=` in-place divide operator.'''
         self.__imul__(other.reciprocal())
 
-    @always_inline
     fn __ifloordiv__(self, other: Self) raises:
         '''Defines the `//=` in-place floor divide operator.'''
         self._assert_same_shape(other)
@@ -816,7 +766,6 @@ struct CMatrix[type: DType](
                 )
             self._parallelize_vectorize_op_inplace[fdiv_c]()
 
-    @always_inline
     fn __ifloordiv__(self, other: ComplexScalar[Self.type]):
         '''Defines the `//=` in-place floor divide operator.'''
         if self._is_col_dominant:
@@ -830,7 +779,6 @@ struct CMatrix[type: DType](
                 return self.strided_load_idx[simd_width](r * self.cols + c, self.cols) // other
             self._parallelize_vectorize_op_inplace[fdiv_c]()
 
-    @always_inline
     fn __imod__(self, other: Self) raises:
         '''Defines the `%=` in-place mod operator.'''
         self._assert_same_shape(other)
@@ -849,7 +797,6 @@ struct CMatrix[type: DType](
                 )
             self._parallelize_vectorize_op_inplace[mod_c]()
 
-    @always_inline
     fn __imod__(self, other: ComplexScalar[Self.type]):
         '''Defines the `%=` in-place mod operator.'''
         if self._is_col_dominant:
@@ -887,12 +834,10 @@ struct CMatrix[type: DType](
 
     # Right math dunders ##############
 
-    @always_inline
     fn __radd__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Defines the `+` right add operator. Returns self + other.'''
         return self + other
 
-    @always_inline
     fn __rsub__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Defines the `-` right subtraction operator. Returns other - self.'''
         if self._is_col_dominant:
@@ -906,12 +851,10 @@ struct CMatrix[type: DType](
                 return other - self.strided_load_idx[simd_width](r * self.cols + c, self.cols)
             return self._parallelize_vectorize_op[sub_c]()
 
-    @always_inline
     fn __rmul__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Defines the `*` right product operator. Returns self * other.'''
         return self * other
 
-    @always_inline
     fn __rtruediv__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Defines the `/` right divide operator. Returns other / self.'''
         if self._is_col_dominant:
@@ -925,7 +868,6 @@ struct CMatrix[type: DType](
                 return other / self.strided_load_idx[simd_width](r * self.cols + c, self.cols)
             return self._parallelize_vectorize_op[div_c]()
 
-    @always_inline
     fn __rfloordiv__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Defines the `//` right floor divide operator. Returns other // self.'''
         if self._is_col_dominant:
@@ -939,7 +881,6 @@ struct CMatrix[type: DType](
                 return other // self.strided_load_idx[simd_width](r * self.cols + c, self.cols)
             return self._parallelize_vectorize_op[fdiv_c]()
 
-    @always_inline
     fn __rmod__(self, other: ComplexScalar[Self.type]) -> Self:
         '''Defines the `%` right mod operator. Returns other % self.'''
         if self._is_col_dominant:
@@ -953,14 +894,12 @@ struct CMatrix[type: DType](
                 return other % self.strided_load_idx[simd_width](r * self.cols + c, self.cols)
             return self._parallelize_vectorize_op[mod_c]()
 
-    @always_inline
     fn __rdivmod__(self, other: ComplexScalar[Self.type]) -> Tuple[Self, Self]:
         '''Defines the right divmod operator. Returns (other // self, other % self).'''
         return (other // self, other % self)
 
     # Other math ######################
 
-    @always_inline
     fn __abs__(self) -> Self:
         '''Returns a matrix with the absolute value applied to each element.'''
         if self._is_col_dominant:
@@ -974,7 +913,6 @@ struct CMatrix[type: DType](
                 return self.strided_load_idx[simd_width](r * self.cols + c, self.cols).__abs__()
             return self._parallelize_vectorize_op[abs_c]()
 
-    @always_inline
     fn conj(self) -> Self:
         '''Return the conjugate of the matrix.'''
         var result: Self = self
@@ -984,7 +922,6 @@ struct CMatrix[type: DType](
         vectorize[conj_simd, simdwidthof[Self.type]()](self.size)
         return result
 
-    @always_inline
     fn iconj(self):
         '''Conjugate the matrix in-place.'''
         @parameter
@@ -1009,7 +946,6 @@ struct CMatrix[type: DType](
         return result
 
     # alias dagger = Self.dag
-    @always_inline
     fn dagger(self) -> Self:
         '''Return the conjugate-transpose of the matrix. Alias of dag.'''
         return self.dag()
@@ -1083,7 +1019,6 @@ struct CMatrix[type: DType](
             d *= echelon.load_crd[1](i, i)
         return d
 
-    @always_inline
     fn determinant[tol: Scalar[type] = DEFAULT_TOL](self) raises -> ComplexScalar[Self.type]:
         return self.det[tol]()
 
@@ -1138,12 +1073,10 @@ struct CMatrix[type: DType](
             memcpy(result.im + i * self.cols, augmented.im + i * augmented.cols + self.cols, self.cols)
         return result
 
-    @always_inline
     fn inverse(self) raises -> Self:
         '''Return the inverse of a square matrix. Alias of inv.'''
         return self.inv()
 
-    @always_inline
     fn frobenius_norm(self) raises -> Scalar[Self.type]:
         '''Return the Frobenius norm of self.'''
         var norm = self.__abs__()
@@ -1151,7 +1084,6 @@ struct CMatrix[type: DType](
 
     # Shape operations ################
 
-    @always_inline
     fn reshape(self, new_rows: Int, new_cols: Int) raises -> Self:
         '''Return a reshaped matrix.'''
         self._assert_reshape_compatible(new_rows, new_cols)
@@ -1160,7 +1092,6 @@ struct CMatrix[type: DType](
         memcpy(result.im, self.im, self.size)
         return result
 
-    @always_inline
     fn ireshape(mut self, new_rows: Int, new_cols: Int) raises:
         '''Reshape self, in-place.'''
         self._assert_reshape_compatible(new_rows, new_cols)
@@ -1168,7 +1099,6 @@ struct CMatrix[type: DType](
         self.cols = new_cols
         self._is_col_dominant = self.cols >= self.rows
 
-    @always_inline
     fn flatten_to_row(self) -> Self:
         '''Return a flattened row matrix.'''
         var result = Self(rows=1, cols=self.size, fill_zeros=False)
@@ -1176,14 +1106,12 @@ struct CMatrix[type: DType](
         memcpy(result.im, self.im, self.size)
         return result
 
-    @always_inline
     fn iflatten_to_row(mut self):
         '''Flatten self to a row, in-place.'''
         self.rows = 1
         self.cols = self.size
         self._is_col_dominant = True
 
-    @always_inline
     fn flatten_to_column(self) -> Self:
         '''Return a flattened column matrix.'''
         var result = Self(rows=self.size, cols=1, fill_zeros=False)
@@ -1191,14 +1119,12 @@ struct CMatrix[type: DType](
         memcpy(result.im, self.im, self.size)
         return result
 
-    @always_inline
     fn iflatten_to_column(mut self):
         '''Flatten self to a row, in-place.'''
         self.rows = self.size
         self.cols = 1
         self._is_col_dominant = False
 
-    @always_inline
     fn transpose(self) -> Self:
         '''Return the transpose of the matrix.'''
         var result = Self(rows=self.cols, cols=self.rows, fill_zeros=False)
@@ -1213,13 +1139,11 @@ struct CMatrix[type: DType](
 
     # Fill operations #################
 
-    @always_inline
     fn fill_zero(self):
         '''Fill a matrix with zeros in-place.'''
         memset_zero(self.re.address, self.size)
         memset_zero(self.im.address, self.size)
 
-    @always_inline
     fn fill(self, val: ComplexScalar[Self.type]):
         '''Fill a matrix with val in-place.'''
         @parameter
@@ -1230,12 +1154,10 @@ struct CMatrix[type: DType](
             vectorize[fill_col, simdwidthof[Self.type]()](self.cols)
         parallelize[fill_row](self.rows, self.rows)
 
-    @always_inline
     fn fill_one(self):
         '''Fill a matrix with ones in-place.'''
         self.fill(1)
 
-    @always_inline
     fn fill_i(self):
         '''Fill a matrix with ones in-place.'''
         self.fill(ComplexScalar[Self.type]().i())
@@ -1256,21 +1178,18 @@ struct CMatrix[type: DType](
             )
         vectorize[fill_diag_simd_rp, simdwidthof[Self.type]()](n_diag_elements)
 
-    @always_inline
     fn fill_range(self):
         '''Fill the matrix with values from range(self.size) in row-major order.'''
         memset_zero(self.im.address, self.size)
         for idx in range(self.size):
             self.re.store(idx, SIMD[type, 1](idx))
 
-    @always_inline
     fn fill_range(self, start: Int):
         '''Fill the matrix with values from range(start, start + self.size) in row-major order.'''
         memset_zero(self.im.address, self.size)
         for idx in range(self.size):
             self.re.store(idx, SIMD[type, 1](idx + start))
 
-    @always_inline
     fn fill_range(self, start: Int, step: Int):
         '''Fill the matrix with values from range(start, start + self.size * step, step)
         in row-major order.
@@ -1279,21 +1198,18 @@ struct CMatrix[type: DType](
         for idx in range(self.size):
             self.re.store(idx, SIMD[type, 1](step * idx + start))
 
-    @always_inline
     fn range_like(self) -> Self:
         '''Return a matrix with values from range(self.size) in row-major order.'''
         var result = Self(self.rows, self.cols, fill_zeros=False)
         result.fill_range()
         return result
-    
-    @always_inline
+
     fn range_like(self, start: Int) -> Self:
         '''Return a matrix with values from range(start, start + self.size) in row-major order.'''
         var result = Self(self.rows, self.cols, fill_zeros=False)
         result.fill_range(start)
         return result
     
-    @always_inline
     fn range_like(self, start: Int, step: Int) -> Self:
         '''Return a matrix with values from range(start, start + self.size * step, step)
         in row-major order.
@@ -1302,26 +1218,22 @@ struct CMatrix[type: DType](
         result.fill_range(start, step)
         return result
 
-    @always_inline
     fn zeros_like(self) -> Self:
         '''Return a matrix of zeros with the same shape as self.'''
         return Self(rows=self.rows, cols=self.cols, fill_zeros=True)
 
-    @always_inline
     fn ones_like(self) -> Self:
         '''Return a matrix of ones with the same shape as self.'''
         var result: Self = Self(rows=self.rows, cols=self.cols, fill_zeros=False)
         result.fill_one()
         return result
 
-    @always_inline
     fn i_like(self) -> Self:
         '''Return a matrix of i's with the same shape as self.'''
         var result: Self = Self(rows=self.rows, cols=self.cols, fill_zeros=False)
         result.fill_i()
         return result
 
-    @always_inline
     fn eye_like(self) -> Self:
         '''Return an identity matrix with the same shape as self.'''
         var result: Self = Self(rows=self.rows, cols=self.cols, fill_zeros=True)

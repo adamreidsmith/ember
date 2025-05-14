@@ -11,7 +11,7 @@ from ..config import DEFAULT_TOL
 
 fn kron_sequential[type: DType](A: CMatrix[type], B: CMatrix[type]) -> CMatrix[type]:
     '''Implements the Kronecker product of A with B using the naive algorithm. By convention, 
-    if A or B is degenerate, (that is, rows=0 or cols=0) the other matrix is returned.
+    if A or B is degenerate, (i.e., rows=0 or cols=0) the other matrix is returned.
     '''
     if A.size == 0:
         return B
@@ -29,6 +29,14 @@ fn kron_sequential[type: DType](A: CMatrix[type], B: CMatrix[type]) -> CMatrix[t
                     )
     return result
 
+fn kron[type: DType](*M: CMatrix[type]) -> CMatrix[type]:
+    '''Implements the Kronecker product of all supplied matrices.'''
+    if len(M) == 1:
+        return M[0]
+    var result = CMatrix[type](rows=0, cols=0, fill_zeros=False)
+    for mat in M:
+        result = kron(result, mat[])
+    return result^
 
 fn kron[type: DType](A: CMatrix[type], B: CMatrix[type]) -> CMatrix[type]:
     '''Implements the Kronecker product of A with B.  By convention, if A or B is degenerate,
@@ -89,6 +97,14 @@ fn _kron_par_a_cols[type: DType](A: CMatrix[type], B: CMatrix[type]) -> CMatrix[
     parallelize[par_col_a](A.cols, A.cols)
     return result
 
+fn sparse_kron[type: DType](*M: CSRCMatrix[type]) -> CSRCMatrix[type]:
+    '''Implements the Kronecker product of all supplied sparse matrices.'''
+    if len(M) == 1:
+        return M[0]
+    var result = CSRCMatrix[type](rows=0, cols=0)
+    for mat in M:
+        result = sparse_kron(result, mat[])
+    return result^
 
 fn sparse_kron[type: DType](A: CSRCMatrix[type], B: CSRCMatrix[type]) -> CSRCMatrix[type]:
     '''Implements the Kronecker product of sparse matrices A with B. Note that the result
