@@ -188,6 +188,18 @@ def test_kron():
     _assert_matrix_equal(kron_sequential(a, b), k, 'kron_sequential')
     _assert_matrix_equal(kron(a, b), k, 'kron')
     _assert_matrix_equal(sparse_kron(s, p).to_dense(), k)
+    c = CMatrix[type].arange(2, 5, -12, 3)
+    _assert_matrix_equal(kron(a, b, c), kron(kron(a, b), c), 'kron')
+    _assert_matrix_equal(kron(a, b, c), kron_sequential(kron_sequential(a, b), c), 'kron')
+    _assert_matrix_equal(kron(c, b, c), kron(kron(c, b), c), 'kron')
+    _assert_matrix_equal(kron(a, a, -a), kron_sequential(kron_sequential(a, a), -a), 'kron')
+    asp = CSRCMatrix[type](a)
+    bsp = CSRCMatrix[type](b)
+    csp = CSRCMatrix[type](c)
+    _assert_matrix_equal(sparse_kron(asp, bsp, csp).to_dense(), sparse_kron(sparse_kron(asp, bsp), csp).to_dense(), 'sparse_kron')
+    _assert_matrix_equal(sparse_kron(asp, bsp, csp).to_dense(), kron_sequential(kron_sequential(asp.to_dense(), bsp.to_dense()), csp.to_dense()), 'sparse_kron')
+    _assert_matrix_equal(sparse_kron(csp, bsp, csp).to_dense(), sparse_kron(sparse_kron(csp, bsp), csp).to_dense(), 'sparse_kron')
+    _assert_matrix_equal(sparse_kron(asp, asp, -asp).to_dense(), kron_sequential(kron_sequential(asp.to_dense(), asp.to_dense()), -asp.to_dense()), 'sparse_kron')
 
 def test_one_norm():
     a = CMatrix[type].arange(3, 3)
