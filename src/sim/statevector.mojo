@@ -59,14 +59,14 @@ fn set_bits(owned n: UInt, t: List[UInt, True], v: UInt) -> UInt:
 @value
 struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
     var sv: List[ComplexScalar[Self.type], True]
-    var _cb: List[Bool, True]  # Classical bit values
+    var _cb: List[Int, True]  # Classical bit values
     var _qc: QuantumCircuit[Self.type, Self.tol]
 
     fn __init__(out self):
         # Placeholders that are overwritten when `run` is called
         random.seed()  # Seed with the current time
         self.sv = List[ComplexScalar[Self.type], True]()
-        self._cb = List[Bool, True]()
+        self._cb = List[Int, True]()
         # Initialize directly to avoid raising __init__ method
         self._qc = QuantumCircuit[Self.type, Self.tol](
             n_qubits=0,
@@ -78,7 +78,7 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
         # Placeholders that are overwritten when `run` is called
         random.seed(seed)
         self.sv = List[ComplexScalar[Self.type], True]()
-        self._cb = List[Bool, True]()
+        self._cb = List[Int, True]()
         # Initialize directly to avoid raising __init__ method
         self._qc = QuantumCircuit[Self.type, Self.tol](
             n_qubits=0,
@@ -86,10 +86,10 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
             _data=List[Gate[Self.type, Self.tol]]()
         )
 
-    fn run(mut self, qc: QuantumCircuit[Self.type, Self.tol], *, parallel: Bool = True) raises:
+    fn run(mut self, qc: QuantumCircuit[Self.type, Self.tol], *, parallel: Bool = True) -> Self:
         '''Run the statevector simulator on the quantum circuit.'''
         self._qc = qc
-        self._cb = List[Bool, True](length=self._qc.n_clbits, fill=0)
+        self._cb = List[Int, True](length=self._qc.n_clbits, fill=0)
 
         # Initialize the statevector to the |0> state
         self.sv = List[ComplexScalar[Self.type], True](length=2 ** self._qc.n_qubits, fill=0)
@@ -111,6 +111,8 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
             else:
                 # Multi-qubit controlled gate
                 self._apply_multi_control_multi_qubit_gate(gate, parallel)
+        
+        return self
 
     fn _apply_one_qubit_gate(mut self, gate: Gate[Self.type, Self.tol], parallel: Bool):
         '''Apply a single qubit gate to the statevector.
@@ -299,17 +301,13 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
                     for l in range(rc_start, N):
                         self.sv[i] += gate.matrix.load_crd[1](j - rc_start, l - rc_start) * v[l]
     
-    fn _measure(mut self, gate: Gate[Self.type, Self.tol]) -> String:
+    fn _measure(mut self, gate: Gate[Self.type, Self.tol]):
         '''Measure a subset of qubits and update the statevector.'''
         var n: Int = self._qc.n_qubits
         var N: Int = 2 ** n
         var m: Int = len(gate.applied_to)
         var M: Int = 2 ** m
-        var probabilities = List[Scalar[Self.type], True](length=N, fill=0)
-
-        var measured_qubits_idx = List[Int, True]()
-        for q in gate.applied_to:
-            measured_qubits_idx.append(q[])
+        var probabilities = List[Scalar[Self.type], True](length=M, fill=0)
 
         # Compute probabilities for each possible outcome
         var outcome: Int
@@ -318,7 +316,7 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
             # Extract the bits at the measured positions
             outcome = 0
             for j in range(m):
-                bit = (i >> measured_qubits_idx[j]) & 1
+                bit = (i >> gate.applied_to[j]) & 1
                 outcome |= (bit << j)
             probabilities[outcome] += self.sv[i].squared_norm()
         
@@ -327,7 +325,7 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
         for p in probabilities:
             total_prob += p[]
         if abs(total_prob - 1) >= Self.tol:
-            for i in range(N):
+            for i in range(M):
                 probabilities[i] /= total_prob
         
         # Select outcome based on probabilities
@@ -349,7 +347,7 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
         for i in range(N):
             consistent = True
             for j in range(m):
-                bit = (i >> measured_qubits_idx[j]) & 1
+                bit = (i >> gate.applied_to[j]) & 1
                 expected_bit = (selected_outcome >> j) & 1
                 if bit != expected_bit:
                     consistent = False
@@ -359,11 +357,14 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
             if consistent:
                 new_statevector[i] = self.sv[i] / norm_factor
 
-        # TODO: Check if this measure function gives correct results
-        
+        # The position i bit (where position 0 is the rightmost [LSB] bit) in 
+        # `selected_outcome` corresponds to the ith qubit in gate.applied_to
+        for i in range(m):
+            bit = (selected_outcome >> i) & 1
+            # self._cb is a list of classical bits in the circuit
+            self._cb[gate._measure_targs[i]] = bit
+
         self.sv = new_statevector^
-        print(bin(selected_outcome))
-        return bin(selected_outcome)
 
 
     # fn _expand_controls(self, gate: Gate[Self.type, Self.tol]) -> Gate[Self.type, Self.tol]:

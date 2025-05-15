@@ -33,35 +33,60 @@ struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, 
                     + '. Quantum circuit has ' + String(self.n_qubits) + ' qubits indexed 0 to ' 
                     + String(self.n_qubits - 1) + '.'
                 )
-        for q in gate.controlled_on:
-            if q[] < 0 or q[] >= (self.n_clbits if gate._is_measure else self.n_qubits):
-                raise Error(
-                    'Gate ' + gate.name + ' contains invalid ' 
-                    + ('classical bit' if gate._is_measure else 'control qubit') + ' specifier: '
-                    + String(q[]) + '. Quantum circuit has ' 
-                    + String(self.n_clbits if gate._is_measure else self.n_qubits) 
-                    + (' classical bits' if gate._is_measure else ' qubits') + ' indexed 0 to ' 
-                    + String(self.n_clbits - 1 if gate._is_measure else self.n_qubits - 1) + '.'
-                )
+        if gate._is_measure:
+            for q in gate._measure_targs:
+                if q[] < 0 or q[] >= self.n_clbits:
+                    raise Error(
+                        'Gate ' + gate.name + ' contains invalid classical bit specifier: '
+                        + String(q[]) + '. Quantum circuit has ' + String(self.n_clbits)
+                        + ' classical bits labeled 0 to ' + String(self.n_clbits - 1) + '.'
+                    )
+        else:
+            for q in gate.controlled_on:
+                if q[] < 0 or q[] >= self.n_qubits:
+                    raise Error(
+                        'Gate ' + gate.name + ' contains invalid control qubit specifier: '
+                        + String(q[]) + '. Quantum circuit has ' + String(self.n_qubits)
+                        + ' qubits labeled 0 to ' + String(self.n_qubits - 1) + '.'
+                    )
         self._data.append(gate)
 
     @no_inline
     fn __str__(self) -> String:
         alias max_width: Int = 120
 
+        fn max(l: List[Int, True]) -> Int:
+            var mx: Int = l[0]
+            for e in l[1:]:
+                if e[] > mx:
+                    mx = e[]
+            return mx
+
         var lines = List[List[String]](List[String]('|0⟩ -')) * self.n_qubits
         for gate in self._data:
             var gate_str = String(gate[])
             for i in range(self.n_qubits):
+                var mod_gate_str: String
+                if gate[]._is_measure:
+                    var measure_specifier_len: Int = len(String(max(gate[]._measure_targs))) + 2
+                    var measure_to: Int
+                    try:
+                        measure_to = gate[]._measure_targs[gate[].applied_to.index(i)]
+                    except:
+                        measure_to = 0
+                    var n_dashes: Int = measure_specifier_len - len(String(measure_to)) - 1
+                    mod_gate_str = gate_str + '-' * n_dashes + '>' + String(measure_to)
+                else:
+                    mod_gate_str = gate_str
                 if i in gate[].applied_to:
-                    lines[i].append(gate_str)
-                elif i in gate[].controlled_on:
-                    var n_dashes: Int = len(gate_str) - 1
+                    lines[i].append(mod_gate_str)
+                elif i in gate[].controlled_on and not gate[]._is_measure:
+                    var n_dashes: Int = len(mod_gate_str) - 1
                     var left_dashes: Int = n_dashes // 2
                     var right_dashes: Int = n_dashes - left_dashes
                     lines[i].append('-' * left_dashes + '*' + '-' * right_dashes)
                 else:
-                    lines[i].append('-' * len(gate_str))
+                    lines[i].append('-' * len(mod_gate_str))
             for line in lines:
                 line[][-1] += '-'
 

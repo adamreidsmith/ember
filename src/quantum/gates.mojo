@@ -23,8 +23,9 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
     var params: List[Scalar[Self.type], True]
     '''The parameter values applied to the gate.'''
 
-    # Special field marking the measurement gate
+    # Special fields for the measurement gate
     var _is_measure: Bool
+    var _measure_targs: List[Int, True]
 
     fn __init__(
         out self,
@@ -50,12 +51,12 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
         self.matrix = matrix^
         self.applied_to = qubits^
         self.params = params^
-        # For the Measure gate, self.controlled_on stores the classical measurement target bits
         self.controlled_on = List[Int, True]()
 
         # Placeholders. Only applicable to the measurement gate
         self._is_measure = False
-    
+        self._measure_targs = List[Int, True]()
+
     @staticmethod
     fn _measure(owned qubits: List[Int, True], clbits: List[Int, True]) -> Self:
         '''Creates a measurement gate. `qubits` and `clbits` must be lists of the same length.'''
@@ -64,9 +65,10 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
             n_qubits=len(qubits),
             matrix=CMatrix[Self.type](rows=0, cols=0, fill_zeros=False),
             applied_to=qubits^,
-            controlled_on=clbits,
+            controlled_on=List[Int, True](),
             params=List[Scalar[Self.type], True](),
             _is_measure=True,
+            _measure_targs=clbits,
         )
     
     @no_inline
