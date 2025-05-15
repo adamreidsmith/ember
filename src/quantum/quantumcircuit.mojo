@@ -3,17 +3,16 @@ from collections import Set
 
 from ..cplx import CMatrix
 from .gates import *
-from .bit import Clbit, Qubit
 from ..config import DEFAULT_TOL
+
+# TODO: Add classical bit control
 
 @value
 struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, Writable, Movable):
     var n_qubits: Int
     '''The number of qubits in the quantum circuit.'''
-    var qubits: List[Qubit, True]
-    '''The Qubits in the quantum circuit.'''
-    var clbits: List[Clbit, True]
-    '''The classical bits in the quantum circuit.'''
+    var n_clbits: Int
+    '''The number of classical bits in the quantum circuit.'''
     var _data: List[Gate[Self.type, Self.tol]]
     '''The gates applied to the qubits in the quantum circuit.'''
     
@@ -22,37 +21,27 @@ struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, 
         if n_qubits < 1:
             raise Error('Quantum circuit must have at least one qubit')
         self.n_qubits = n_qubits
-        self.qubits = List[Qubit, True](Qubit(0))
-        self.clbits = List[Clbit, True]()
+        self.n_clbits = n_clbits
         self._data = List[Gate[Self.type, Self.tol]]()
-        for q in range(1, n_qubits):
-            self.qubits.append(Qubit(q))
-        for c in range(n_clbits):
-            self.clbits.append(Clbit(c))
-    
-    # For now, quantum circuits cannot have pre-specified (qu)bits
-    # fn __init__(out self, owned qubits: List[Qubit, True], owned clbits: List[Clbit, True] = List[Clbit, True]()) raises:
-    #     '''Initialize a QuantumCircuit from lists of qubits and classical bits.'''
-    #     if len(qubits) < 1:
-    #         raise Error('Quantum circuit must have at least one qubit')
-    #     self.n_qubits = len(qubits)
-    #     self.qubits = qubits^
-    #     self.clbits = clbits^
-    #     self._data = List[Gate[Self.type]]()
 
     fn apply(mut self, gate: Gate[Self.type, Self.tol]) raises:
         '''Apply `gate` to the quantum circuit.'''
         for q in gate.applied_to:
-            if q[] not in self.qubits:
+            if q[] < 0 or q[] >= self.n_qubits:
                 raise Error(
-                    'Gate ' + gate.name + ' is applied to qubit ' + String(q[]) 
-                    + ', but qubit ' + String(q[]) + ' is not in the circuit'
+                    'Gate ' + gate.name + ' contains invalid qubit specifier: ' + String(q[])
+                    + '. Quantum circuit has ' + String(self.n_qubits) + ' qubits indexed 0 to ' 
+                    + String(self.n_qubits - 1) + '.'
                 )
         for q in gate.controlled_on:
-            if q[] not in self.qubits:
+            if q[] < 0 or q[] >= (self.n_clbits if gate._is_measure else self.n_qubits):
                 raise Error(
-                    'Gate ' + gate.name + ' is controlled on qubit ' + String(q[]) 
-                    + ', but qubit ' + String(q[]) + ' is not in the circuit'
+                    'Gate ' + gate.name + ' contains invalid ' 
+                    + ('classical bit' if gate._is_measure else 'control qubit') + ' specifier: '
+                    + String(q[]) + '. Quantum circuit has ' 
+                    + String(self.n_clbits if gate._is_measure else self.n_qubits) 
+                    + (' classical bits' if gate._is_measure else ' qubits') + ' indexed 0 to ' 
+                    + String(self.n_clbits - 1 if gate._is_measure else self.n_qubits - 1) + '.'
                 )
         self._data.append(gate)
 

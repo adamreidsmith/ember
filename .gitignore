@@ -5,6 +5,7 @@
 # magic environments
 .magic
 
+.venv
 .gitattributes
 mojoproject.toml
 magic.lock

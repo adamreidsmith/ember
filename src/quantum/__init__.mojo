@@ -1,5 +1,6 @@
 from .gates import (
     Gate,
+    Measure,
     X,
     Y,
     Z,
@@ -13,5 +14,4 @@ from .gates import (
     RZ,
     U,
 )
-from .bit import Qubit, Clbit
 from .quantumcircuit import QuantumCircuit
