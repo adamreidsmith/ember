@@ -49,6 +49,22 @@ struct CMatrix[type: DType](
         self.im = UnsafePointer[Scalar[Self.type]].alloc(self.size)
         for idx in range(len(data)):
             self.store_idx[1](idx, data[idx])
+        for idx in range(len(data), self.size):
+            self.store_idx[1](idx, 0)
+    
+    fn __init__(out self, rows: Int, cols: Int, data: List[ComplexScalar[Self.type], True]) raises:
+        if len(data) > rows * cols:
+            raise Error('More elements provided than fit in the cmatrix')
+        self.rows = rows
+        self.cols = cols
+        self.size = self.rows * self.cols
+        self._is_col_dominant = self.cols >= self.rows
+        self.re = UnsafePointer[Scalar[Self.type]].alloc(self.size)
+        self.im = UnsafePointer[Scalar[Self.type]].alloc(self.size)
+        for idx in range(len(data)):
+            self.store_idx[1](idx, data[idx])
+        for idx in range(len(data), self.size):
+            self.store_idx[1](idx, 0)
 
     fn __init__(out self, data: List[ComplexScalar[Self.type], True]):
         self.rows = 1

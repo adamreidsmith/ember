@@ -58,14 +58,14 @@ fn set_bits(owned n: UInt, t: List[UInt, True], v: UInt) -> UInt:
 
 @value
 struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
-    var sv: List[ComplexScalar[Self.type], True]
+    var _sv: List[ComplexScalar[Self.type], True]
     var _cb: List[Int, True]  # Classical bit values
     var _qc: QuantumCircuit[Self.type, Self.tol]
 
     fn __init__(out self):
         # Placeholders that are overwritten when `run` is called
         random.seed()  # Seed with the current time
-        self.sv = List[ComplexScalar[Self.type], True]()
+        self._sv = List[ComplexScalar[Self.type], True]()
         self._cb = List[Int, True]()
         # Initialize directly to avoid raising __init__ method
         self._qc = QuantumCircuit[Self.type, Self.tol](
@@ -77,7 +77,7 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
     fn __init__(out self, seed: Int):
         # Placeholders that are overwritten when `run` is called
         random.seed(seed)
-        self.sv = List[ComplexScalar[Self.type], True]()
+        self._sv = List[ComplexScalar[Self.type], True]()
         self._cb = List[Int, True]()
         # Initialize directly to avoid raising __init__ method
         self._qc = QuantumCircuit[Self.type, Self.tol](
@@ -92,8 +92,8 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
         self._cb = List[Int, True](length=self._qc.n_clbits, fill=0)
 
         # Initialize the statevector to the |0> state
-        self.sv = List[ComplexScalar[Self.type], True](length=2 ** self._qc.n_qubits, fill=0)
-        self.sv[0] = 1
+        self._sv = List[ComplexScalar[Self.type], True](length=2 ** self._qc.n_qubits, fill=0)
+        self._sv[0] = 1
 
         for gate_ref in qc._data:
             var gate: Gate[Self.type, Self.tol] = gate_ref[]
@@ -125,10 +125,10 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
             fn op_sv_elem(n: Int):
                 var ib: UInt = insert_bit(UInt(n), t, 0)
                 var ig: UInt = flip_bit(ib, t)
-                var b: ComplexScalar[Self.type] = self.sv[ib]
-                var g: ComplexScalar[Self.type] = self.sv[ig]
-                self.sv[ib] = gate.matrix.load_idx[1](0) * b + gate.matrix.load_idx[1](1) * g
-                self.sv[ig] = gate.matrix.load_idx[1](2) * b + gate.matrix.load_idx[1](3) * g
+                var b: ComplexScalar[Self.type] = self._sv[ib]
+                var g: ComplexScalar[Self.type] = self._sv[ig]
+                self._sv[ib] = gate.matrix.load_idx[1](0) * b + gate.matrix.load_idx[1](1) * g
+                self._sv[ig] = gate.matrix.load_idx[1](2) * b + gate.matrix.load_idx[1](3) * g
             parallelize[op_sv_elem](2 ** (self._qc.n_qubits - 1))
         else:
             var ib: UInt
@@ -138,10 +138,10 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
             for n in range(2 ** (self._qc.n_qubits - 1)):
                 ib = insert_bit(UInt(n), t, 0)
                 ig = flip_bit(ib, t)
-                b = self.sv[ib]
-                g = self.sv[ig]
-                self.sv[ib] = gate.matrix.load_idx[1](0) * b + gate.matrix.load_idx[1](1) * g
-                self.sv[ig] = gate.matrix.load_idx[1](2) * b + gate.matrix.load_idx[1](3) * g
+                b = self._sv[ib]
+                g = self._sv[ig]
+                self._sv[ib] = gate.matrix.load_idx[1](0) * b + gate.matrix.load_idx[1](1) * g
+                self._sv[ig] = gate.matrix.load_idx[1](2) * b + gate.matrix.load_idx[1](3) * g
     
     fn _apply_multi_control_one_qubit_gate(
         mut self, 
@@ -170,10 +170,10 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
             fn op_sv_elem(j: Int):
                 var ig: UInt = insert_bits(UInt(j), q, 1)
                 var ib: UInt = flip_bit(ig, t)
-                var b: ComplexScalar[Self.type] = self.sv[ib]
-                var g: ComplexScalar[Self.type] = self.sv[ig]
-                self.sv[ib] = gate.matrix.load_idx[1](0) * b + gate.matrix.load_idx[1](1) * g
-                self.sv[ig] = gate.matrix.load_idx[1](2) * b + gate.matrix.load_idx[1](3) * g
+                var b: ComplexScalar[Self.type] = self._sv[ib]
+                var g: ComplexScalar[Self.type] = self._sv[ig]
+                self._sv[ib] = gate.matrix.load_idx[1](0) * b + gate.matrix.load_idx[1](1) * g
+                self._sv[ig] = gate.matrix.load_idx[1](2) * b + gate.matrix.load_idx[1](3) * g
             parallelize[op_sv_elem](2 ** (self._qc.n_qubits - s))
         else:
             var ib: UInt
@@ -183,10 +183,10 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
             for j in range(2 ** (self._qc.n_qubits - s)):
                 ig = insert_bits(j, q, 1)
                 ib = flip_bit(ig, t)
-                b = self.sv[ib]
-                g = self.sv[ig]
-                self.sv[ib] = gate.matrix.load_idx[1](0) * b + gate.matrix.load_idx[1](1) * g
-                self.sv[ig] = gate.matrix.load_idx[1](2) * b + gate.matrix.load_idx[1](3) * g
+                b = self._sv[ib]
+                g = self._sv[ig]
+                self._sv[ib] = gate.matrix.load_idx[1](0) * b + gate.matrix.load_idx[1](1) * g
+                self._sv[ig] = gate.matrix.load_idx[1](2) * b + gate.matrix.load_idx[1](3) * g
 
     fn _apply_multi_qubit_gate(mut self, gate: Gate[Self.type, Self.tol], parallel: Bool):
         '''Apply a multi-qubit gate with no controls to the statevector.
@@ -210,14 +210,14 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
 
                 for j in range(2 ** n):
                     i = set_bits(z, t, UInt(j))
-                    v[j] = self.sv[i]
+                    v[j] = self._sv[i]
                 
                 for j in range(2 ** n):
                     i = set_bits(z, t, UInt(j))
-                    self.sv[i] = 0
+                    self._sv[i] = 0
 
                     for l in range(2 ** n):
-                        self.sv[i] += gate.matrix.load_crd[1](j, l) * v[l]
+                        self._sv[i] += gate.matrix.load_crd[1](j, l) * v[l]
             parallelize[op_sv_elem](2 ** (self._qc.n_qubits - n))
         else:
             var v = List[ComplexScalar[Self.type], True](length=2 ** n, fill=0)
@@ -228,14 +228,14 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
 
                 for j in range(2 ** n):
                     i = set_bits(z, t, UInt(j))
-                    v[j] = self.sv[i]
+                    v[j] = self._sv[i]
                 
                 for j in range(2 ** n):
                     i = set_bits(z, t, UInt(j))
-                    self.sv[i] = 0
+                    self._sv[i] = 0
 
                     for l in range(2 ** n):
-                        self.sv[i] += gate.matrix.load_crd[1](j, l) * v[l]
+                        self._sv[i] += gate.matrix.load_crd[1](j, l) * v[l]
     
     fn _apply_multi_control_multi_qubit_gate(
         mut self, 
@@ -276,13 +276,13 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
 
                 for j in range(N):
                     i = set_bits(z, t, UInt(j))
-                    v[j] = self.sv[i]
+                    v[j] = self._sv[i]
                 
                 for j in range(rc_start, N):
                     i = set_bits(z, t, UInt(j))
-                    self.sv[i] = 0
+                    self._sv[i] = 0
                     for l in range(rc_start, N):
-                        self.sv[i] += gate.matrix.load_crd[1](j - rc_start, l - rc_start) * v[l]
+                        self._sv[i] += gate.matrix.load_crd[1](j - rc_start, l - rc_start) * v[l]
             parallelize[op_sv_elem](2 ** (self._qc.n_qubits - n))
         else:
             var v = List[ComplexScalar[Self.type], True](length=N, fill=0)
@@ -293,13 +293,13 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
 
                 for j in range(N):
                     i = set_bits(z, t, UInt(j))
-                    v[j] = self.sv[i]
+                    v[j] = self._sv[i]
                 
                 for j in range(rc_start, N):
                     i = set_bits(z, t, UInt(j))
-                    self.sv[i] = 0
+                    self._sv[i] = 0
                     for l in range(rc_start, N):
-                        self.sv[i] += gate.matrix.load_crd[1](j - rc_start, l - rc_start) * v[l]
+                        self._sv[i] += gate.matrix.load_crd[1](j - rc_start, l - rc_start) * v[l]
     
     fn _measure(mut self, gate: Gate[Self.type, Self.tol]):
         '''Measure a subset of qubits and update the statevector.'''
@@ -318,7 +318,7 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
             for j in range(m):
                 bit = (i >> gate.applied_to[j]) & 1
                 outcome |= (bit << j)
-            probabilities[outcome] += self.sv[i].squared_norm()
+            probabilities[outcome] += self._sv[i].squared_norm()
         
         # Normalize probabilities to ensure they sum to one
         var total_prob: Scalar[Self.type] = 0
@@ -355,7 +355,7 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
             
             # Update statevector
             if consistent:
-                new_statevector[i] = self.sv[i] / norm_factor
+                new_statevector[i] = self._sv[i] / norm_factor
 
         # The position i bit (where position 0 is the rightmost [LSB] bit) in 
         # `selected_outcome` corresponds to the ith qubit in gate.applied_to
@@ -364,7 +364,14 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
             # self._cb is a list of classical bits in the circuit
             self._cb[gate._measure_targs[i]] = bit
 
-        self.sv = new_statevector^
+        self._sv = new_statevector^
+
+    fn get_statevector(self) -> CMatrix[Self.type]:
+        '''Get the statevector as a CMatrix.'''
+        var statevector = CMatrix[Self.type](rows=len(self._sv), cols=1, fill_zeros=False)
+        for i in range(len(self._sv)):
+            statevector.store_idx[1](i, self._sv[i])
+        return statevector^
 
 
     # fn _expand_controls(self, gate: Gate[Self.type, Self.tol]) -> Gate[Self.type, Self.tol]:
