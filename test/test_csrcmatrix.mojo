@@ -10,6 +10,7 @@ alias type = DType.float64
 def run_csrcmatrix_tests():
     print('Running CSRCMatrix tests')
     test_init()
+    test_properties()
     test_item_access()
     test_other()
     test_arithmetic()
@@ -134,6 +135,30 @@ def test_init():
     _assert_matrix_equal(CSRCMatrix[type](cm.zeros_like()).to_dense(), cm.zeros_like(), 'init')
     _assert_matrix_equal(CSRCMatrix[type](cm.eye_like()).to_dense(), cm.eye_like(), 'init')
     _assert_matrix_equal(CSRCMatrix[type](CMatrix[type](0, 0)).to_dense(), CMatrix[type](0, 0), 'init')
+
+def test_properties():
+    m1 = CSRCMatrix[type](CMatrix[type](List[List[ComplexScalar[type], True]](
+        List[ComplexScalar[type], True](ComplexScalar[type](0, 0), ComplexScalar[type](1, 1)),
+        List[ComplexScalar[type], True](ComplexScalar[type](2, 2), ComplexScalar[type](3, 3)),
+        List[ComplexScalar[type], True](ComplexScalar[type](4, 4), ComplexScalar[type](5, 5)),
+    )))
+    m2 = CSRCMatrix[type](CMatrix[type](List[List[ComplexScalar[type], True]](
+        List[ComplexScalar[type], True](ComplexScalar[type](math.cos(Scalar[type](3))), ComplexScalar[type](-math.sin(Scalar[type](3)))),
+        List[ComplexScalar[type], True](ComplexScalar[type](math.sin(Scalar[type](3))), ComplexScalar[type](math.cos(Scalar[type](3)))),
+    )))
+    m3 = CSRCMatrix[type](CMatrix[type](List[List[ComplexScalar[type], True]](
+        List[ComplexScalar[type], True](ComplexScalar[type](1, 0), ComplexScalar[type](2, -2)),
+        List[ComplexScalar[type], True](ComplexScalar[type](2, 2), ComplexScalar[type](-1, 0)),
+    )))
+    assert_equal(len(m1), 6, 'len')
+    assert_equal(m1.shape()[0], 3, 'shape')
+    assert_equal(m1.shape()[1], 2, 'shape')
+    assert_false(m1.is_square(), 'is_square')
+    assert_true(m2.is_square(), 'is_square')
+    assert_true(m2.is_unitary(), 'is_unitary')
+    assert_false(m3.is_unitary(), 'is_unitary')
+    assert_true(m3.is_hermitian(), 'is_hermitian')
+    assert_false(m2.is_hermitian(), 'is_hermitian')
 
 def test_item_access():
     m1 = CSRCMatrix[type](4, 6,
