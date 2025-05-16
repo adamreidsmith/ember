@@ -37,7 +37,9 @@ struct ComplexSIMD[type: DType, size: Int](
     alias Lane = ComplexSIMD[Self.type, 1]
 
     var re: Self.Coef
+    '''A SIMD vector storing the real part of the complex SIMD.'''
     var im: Self.Coef
+    '''A SIMD vector storing the imaginary part of the complex SIMD.'''
 
     # Initialize ######################
 

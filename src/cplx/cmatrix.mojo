@@ -1,5 +1,3 @@
-# TODO: Switch UnsafePointer for Buffer
-
 from math import sqrt
 from memory import memset_zero, memcpy, UnsafePointer
 from algorithm import parallelize, vectorize
@@ -21,11 +19,17 @@ struct CMatrix[type: DType](
     '''Complex matrices with fast, efficient operations.'''
 
     var re: UnsafePointer[Scalar[Self.type]]
+    '''The real components of the matrix elements.'''
     var im: UnsafePointer[Scalar[Self.type]]
+    '''The imaginary components of the matrix elements.'''
     var rows: Int
+    '''The number of rows in the matrix.'''
     var cols: Int
+    '''The number of columns in the matrix.'''
     var size: Int
+    '''The total number of elements in the matrix.'''
     var _is_col_dominant: Bool
+    '''Flag to mark whether the matrix has more columns than rows or not.'''
 
     # Initialization ##################
 
@@ -160,6 +164,8 @@ struct CMatrix[type: DType](
 
     fn __del__(owned self):
         '''Delete the matrix and free memory.'''
+
+        # This loop may not be necessary since scalar types are trivial
         for idx in range(self.size):
             (self.re + idx).destroy_pointee()
             (self.im + idx).destroy_pointee()
@@ -368,7 +374,7 @@ struct CMatrix[type: DType](
     @always_inline
     fn is_unitary[tol: Scalar[Self.type] = DEFAULT_TOL](self) raises -> Bool:
         '''Check if the matrix is unitary within the specified tolerance. Specifically, check if
-        the Frobenius norm of `self * self.dagger() - I` is less than tol.
+        the matrix is square and the Frobenius norm of `self * self.dagger() - I` is less than tol.
 
         Parameters:
             tol: The tolerance for the unitarity check.
@@ -383,7 +389,7 @@ struct CMatrix[type: DType](
     @always_inline
     fn is_hermitian[tol: Scalar[Self.type] = DEFAULT_TOL](self) raises -> Bool:
         '''Check if the matrix is Hermitian within the specified tolerance. Specifically, check if
-        the Frobenius norm of `self - self.dagger()` is less than tol.
+        the matrix is square and the Frobenius norm of `self - self.dagger()` is less than tol.
 
         Parameters:
             tol: The tolerance for the Hermitian check.
@@ -1723,7 +1729,80 @@ struct CMatrix[type: DType](
         parallelize[transpose_row](self.rows, self.rows)
         return result
 
-    # TODO: Efficient in-place transpose
+    fn itranspose(mut self):
+        '''Compute the transpose of the matrix in-place.'''
+        if self.size == 0:
+            # For empty or zero-size matrices, swap dimensions and return.
+            self.rows, self.cols = self.cols, self.rows
+            self._is_col_dominant = self.cols >= self.rows
+            return
+
+        if self.rows == self.cols:
+            for r in range(self.rows):
+                # The diagonal elements (r == c) remain unchanged.
+                for c in range(r + 1, self.cols):
+                    var idx1: Int = r * self.cols + c  # Index of self[r, c]
+                    var idx2: Int = c * self.cols + r  # Index of self[c, r]
+
+                    var temp_re_val: Scalar[Self.type] = self.re.load[width=1](idx1)
+                    self.re.store(idx1, self.re.load[width=1](idx2))
+                    self.re.store(idx2, temp_re_val)
+                    var temp_im_val: Scalar[Self.type] = self.im.load[width=1](idx1)
+                    self.im.store(idx1, self.im.load[width=1](idx2))
+                    self.im.store(idx2, temp_im_val)
+        else:
+            # Non-square matrix transpose requires temporary storage for re-arrangement
+            var original_rows: Int = self.rows
+            var original_cols: Int = self.cols
+            var new_rows: Int = original_cols  # Transposed rows
+            var new_cols: Int = original_rows  # Transposed columns
+
+            # Allocate temporary buffers for the transposed data
+            var temp_re_ptr = UnsafePointer[Scalar[Self.type]].alloc(self.size)
+            var temp_im_ptr = UnsafePointer[Scalar[Self.type]].alloc(self.size)
+
+            @parameter
+            fn process_original_row(r_orig: Int):
+                # r_orig is the row index in the original matrix
+                @parameter
+                fn process_original_col_block[simd_width: Int](c_orig_block_start: Int):
+                    # c_orig_block_start is the starting column index for a SIMD block in the
+                    # original matrix.
+
+                    # Load a row segment from self
+                    # self[r_orig, c_orig_block_start ... c_orig_block_start + simd_width - 1]
+                    var val_simd: ComplexSIMD[Self.type, simd_width] = self.load_crd[simd_width](
+                        r_orig, c_orig_block_start
+                    )
+                    
+                    # Store this SIMD vector as a column segment in the temporary buffers
+                    var target_idx_start: Int = c_orig_block_start * new_cols + r_orig
+                    
+                    # The stride to move to the next element in the same column of the transposed
+                    # view is new_cols
+                    (temp_re_ptr + target_idx_start).strided_store[width=simd_width](
+                        val_simd.re, new_cols
+                    )
+                    (temp_im_ptr + target_idx_start).strided_store[width=simd_width](
+                        val_simd.im, new_cols
+                    )
+                vectorize[process_original_col_block, simdwidthof[Self.type]()](original_cols)
+            parallelize[process_original_row](original_rows, original_rows)
+            
+            # Free old memory
+            # This loop may not be necessary as scalar types are trivial
+            for idx in range(self.size):
+                (self.re + idx).destroy_pointee()
+                (self.im + idx).destroy_pointee()
+            self.re.free()
+            self.im.free()
+
+            self.re = temp_re_ptr
+            self.im = temp_im_ptr
+
+            self.rows = new_rows
+            self.cols = new_cols
+            self._is_col_dominant = self.cols >= self.rows
 
     # Fill operations #################
 
