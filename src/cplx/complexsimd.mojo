@@ -343,7 +343,11 @@ struct ComplexSIMD[type: DType, size: Int](
     
     @no_inline
     fn write_to[W: Writer](self, mut writer: W):
-        '''Formats the Complex as a string.'''
+        '''Write the complex number to a writer.
+        
+        Args:
+            writer: The writer to write to.
+        '''
         writer.write(String(self))
 
     # Arithmetic ######################
