@@ -17,37 +17,92 @@ from ..config import DEFAULT_TOL
 
 @always_inline
 fn get_bit(n: UInt, t: UInt) -> UInt:
-    '''Retrieves the value of the bit at a specific position t within an unsigned integer n.'''
+    '''Retrieves the value of the bit at a specific position t within an unsigned integer n.
+    
+    Args:
+        n: The integer to get a bit from.
+        t: The bit position to get.
+    
+    Returns:
+        The specified bit.
+    '''
     return (n >> t) & 1
 
 @always_inline
 fn flip_bit(n: UInt, t: UInt) -> UInt:
-    '''Inverts the bit at position t in the unsigned integer n.'''
+    '''Inverts the bit at position t in the unsigned integer n.
+    
+    Args:
+        n: The integer to flip a bit in.
+        t: The bit position to flip.
+    
+    Returns:
+        The integer with the specified bit flipped.
+    '''
     return n ^ (1 << t)
 
+@always_inline
 fn flip_bits(owned n: UInt, t: List[UInt, True]) -> UInt:
-    '''Flips all the bits in the unsigned integer n at the positions specified in t.'''
+    '''Flips all the bits in the unsigned integer n at the positions specified in t.
+    
+    Args:
+        n: The integer to flip bits in.
+        t: The bit positions to flip.
+    
+    Returns:
+        The integer with the specified bits flipped.
+    '''
     for q in t:
         n = flip_bit(n, q[])
     return n
 
+@always_inline
 fn insert_bit(n: UInt, t: UInt, b: UInt) -> UInt:
-    '''Sets the bit at position t of integer n to the value b.'''
+    '''Sets the bit at position t of integer n to the value b.
+    
+    Args:
+        n: The integer to set a bit in.
+        t: The bit position to set.
+        b: The value to set the bit to.
+    
+    Returns:
+        The integer with the specified bit set to the specified value.
+    '''
     # This function actually *sets* the bit at position t of n to b rather than inserting it
     var l: UInt = (n >> t) << (t + 1)
     var m: UInt = b << t
     var r: UInt = n & ((1 << t) - 1)
     return l | m | r
 
+@always_inline
 fn insert_bits(owned n: UInt, t: List[UInt, True], b: UInt) -> UInt:
-    '''Sets the bits of n at all positions specified in t to the value b.'''
+    '''Sets the bits of n at all positions specified in t to the value b.
+    
+    Args:
+        n: The integer to set bits in.
+        t: The bit positions to set.
+        b: The value to set the bits to.
+    
+    Returns:
+        The integer with the specified bits set to the specified value.
+    '''
     # This function actually *sets* the bits at positions t of n to b rather than inserting them
     for q in t:
         n = insert_bit(n, q[], b)
     return n
 
+@always_inline
 fn set_bits(owned n: UInt, t: List[UInt, True], v: UInt) -> UInt:
-    '''Sets specific bits within the integer n based on the values from another integer v.'''
+    '''Sets specific bits within the integer n based on the values from another integer v.
+    
+    Args:
+        n: The integer to set bits in.
+        t: The bit positions to set.
+        v: The integer to get bit values from.
+    
+    Returns:
+        The integer with the specified bits set to the bit values in v.
+    '''
     var b: UInt
     for q in range(len(t)):
         b = get_bit(v, q) << t[q]
@@ -58,9 +113,19 @@ fn set_bits(owned n: UInt, t: List[UInt, True], v: UInt) -> UInt:
 
 @value
 struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
+    '''A quantum circuit statevector simulator.
+    
+    Parameters:
+        type: A type for the circuit and statevector data.
+        tol: A tolerance for unitarity and closeness checks.
+    '''
+
     var _sv: List[ComplexScalar[Self.type], True]
-    var _cb: List[Int, True]  # Classical bit values
+    '''A list to store the statevector elements.'''
+    var _cb: List[Int, True]
+    '''The values of the classical bits in the circuit.'''
     var _qc: QuantumCircuit[Self.type, Self.tol]
+    '''The quantum circuit that is being simulated.'''
 
     fn __init__(out self):
         # Placeholders that are overwritten when `run` is called
@@ -372,37 +437,4 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
         for i in range(len(self._sv)):
             statevector.store_idx[1](i, self._sv[i])
         return statevector^
-
-
-    # fn _expand_controls(self, gate: Gate[Self.type, Self.tol]) -> Gate[Self.type, Self.tol]:
-    #     '''Expand the gate's unitary to include control qubits, and return the corresponding Gate.
-    #     '''
-
-    #     var n: Int = 2 ** len(gate.applied_to)  # Dimension of uncontrolled unitary
-    #     var N: Int = 2 ** (len(gate.controlled_on) + len(gate.applied_to))  # Dimension of controlled unitary 
-
-    #     var full_unitary = CMatrix[Self.type](rows=N, cols=N, fill_zeros=True)
-
-    #     # Copy the uncontrolled unitary into the bottom right corner of the controlled unitary
-    #     var idx_base: Int = N * (N + 1 - n) - n
-    #     for r in range(gate.matrix.rows):
-    #         var idx: Int = idx_base + N * r
-    #         memcpy(full_unitary.re + idx, gate.matrix.re + r * n, n)
-    #         memcpy(full_unitary.im + idx, gate.matrix.im + r * n, n)
-        
-    #     # Fill the diagonal above the inset unitary with ones
-    #     var stride: Int = N + 1
-    #     @parameter
-    #     fn fill_diag[simd_width: Int](p: Int):
-    #         (full_unitary.re + p * stride).strided_store[width=simd_width](1, stride)
-    #     vectorize[fill_diag, simdwidthof[Self.type]()](N - n)
-
-    #     return Gate[Self.type, Self.tol](
-    #         n_qubits=len(gate.controlled_on) + len(gate.applied_to),
-    #         name=gate.name + '_expanded',
-    #         matrix=full_unitary^, 
-    #         applied_to=gate.applied_to + gate.controlled_on,
-    #         params=gate.params,
-    #         controlled_on = List[Qubit, True]()
-    #     )
     

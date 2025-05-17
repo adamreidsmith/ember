@@ -31,7 +31,12 @@ struct ComplexSIMD[type: DType, size: Int](
         Sized,
         Writable,
     ):
-    '''A SIMD vector implementation for complex numbers.'''
+    '''A SIMD vector implementation for complex numbers.
+    
+    Parameters:
+        type: A type for the real and imaginary data.
+        size: The size of the SIMD vector.
+    '''
 
     alias Coef = SIMD[Self.type, Self.size]
     alias Lane = ComplexSIMD[Self.type, 1]

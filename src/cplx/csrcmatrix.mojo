@@ -9,7 +9,12 @@ from ..config import DEFAULT_TOL, DEFAULT_ZERO_THRESHOD
 
 @value
 struct CSRBuilder[type: DType, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRESHOD]:
-    '''A helper struct for constructing sparse matrices.'''
+    '''A helper struct for constructing sparse matrices.
+    
+    Parameters:
+        type: A type for the sparse matrix data.
+        zero_threshold: Numbers with magnitude less than this value are considered zero.
+    '''
 
     var rows: Int
     '''The number of rows in the sparse matrix.'''
@@ -86,7 +91,12 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRES
     CollectionElement,
     Writable,
 ):
-    '''A sparse complex matrix implementation in compressed sparse row (CSR) format.'''
+    '''A sparse complex matrix implementation in compressed sparse row (CSR) format.
+    
+    Parameters:
+        type: A type for the sparse matrix data.
+        zero_threshold: Numbers with magnitude less than this value are considered zero.
+    '''
 
     var rows: Int
     '''The number of rows in the sparse matrix.'''

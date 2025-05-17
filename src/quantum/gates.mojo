@@ -8,7 +8,12 @@ from ..config import DEFAULT_TOL
 
 @value
 struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Stringable, CollectionElement):
-    '''A quantum gate.'''
+    '''A quantum gate.
+    
+    Parameters:
+        type: A type for the gate matrix and parameter data.
+        tol: A tolerance for unitarity and closeness checks.
+    '''
 
     var name: String
     '''An identifier for the gate.'''
@@ -24,8 +29,13 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
     '''The parameter values applied to the gate.'''
 
     # Special fields for the measurement gate
+    # TODO: We need measurement to be a Gate so it can be added to the circuit and treated
+    # like the other operators. One Mojo supports adding fields to traits, we can define
+    # a GateLike trait and have measurement be handled separately.
     var _is_measure: Bool
+    '''Whether or not the gate is the measurement gate.'''
     var _measure_targs: List[Int, True]
+    '''The target qubits for the measurement gate.'''
 
     fn __init__(
         out self,
@@ -34,7 +44,14 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
         owned qubits: List[Int, True] = List[Int, True](),
         owned params: List[Scalar[Self.type], True] = List[Scalar[Self.type], True](),
     ) raises:
-        '''Initialize a Gate with a name, unitary matrix, set of qubits, and parameters.'''
+        '''Initialize a gate with a name, unitary matrix, set of qubits, and parameters.
+        
+        Args:
+            name: A name for the gate.
+            matrix: The unitary matrix implementing the gate.
+            qubits: The qubits the gate acts on.
+            params: Any parameters applied to the gate.
+        '''
         if len(Set(qubits)) != len(qubits):
             raise Error('Duplicate qubit specified for gate ' + name)
         # Ensure the matrix is square and its dimension is a power of 2
@@ -58,8 +75,17 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
         self._measure_targs = List[Int, True]()
 
     @staticmethod
+    @always_inline
     fn _measure(owned qubits: List[Int, True], clbits: List[Int, True]) -> Self:
-        '''Creates a measurement gate. `qubits` and `clbits` must be lists of the same length.'''
+        '''Creates a measurement gate. `qubits` and `clbits` must be lists of the same length.
+        
+        Args:
+            qubits: The qubits to be measured.
+            clbits: The classical bits storing the corresponding measurement results.
+
+        Returns:
+            A measurement gate.
+        '''
         return Self(
             name='Measure',
             n_qubits=len(qubits),
@@ -73,6 +99,11 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
     
     @no_inline
     fn __str__(self) -> String:
+        '''Convert the gate to a string.
+        
+        Returns:
+            A string representation of the gate.
+        '''
         if len(self.params) == 0:
             return self.name
         var str_rep: String = self.name + '('
@@ -81,48 +112,77 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
         str_rep = str_rep[:-2]
         return str_rep + ')'
     
-    # TODO: Debug seg fault with RX 
-    # @no_inline
-    # fn __repr__(self) -> String:
-    #     var str_rep: String = '<Gate ' + self.name + ': '
-    #     if not self.applied_to and not self.controlled_on and not self.params:
-    #         return str_rep[:-2] + '>'
-    #     var qubits_str: String = ''
-    #     if self.applied_to:
-    #         qubits_str = 'qubtis=(' + str(self.applied_to[0])
-    #         for qubit in self.applied_to[1:]:
-    #             qubits_str += ', ' + str(qubit[])
-    #         qubits_str += ')'
-    #     var controls_str: String = ''
-    #     if self.applied_to:
-    #         controls_str = 'controls=(' + str(self.controlled_on[0])
-    #         for qubit in self.controlled_on[1:]:
-    #             controls_str += ', ' + str(qubit[])
-    #         controls_str += ')'
-    #     var params_str: String = ''
-    #     if self.params:
-    #         params_str = 'params=(' + str(self.params[0])
-    #         for param in self.params[1:]:
-    #             params_str += ', ' + str(param[])
-    #         params_str += ')'
-    #     if qubits_str:
-    #         str_rep += qubits_str if str_rep[-2:] == ': ' else ', ' + qubits_str
-    #     if controls_str:
-    #         str_rep += controls_str if str_rep[-2:] == ': ' else ', ' + controls_str
-    #     if params_str:
-    #         str_rep += params_str if str_rep[-2:] == ': ' else ', ' + params_str
-    #     return str_rep + '>'
+    @no_inline
+    fn __repr__(self) -> String:
+        '''Convert the gate to a string.
+        
+        Returns:
+            A string representation of the gate.
+        '''
+        var str_rep: String = '<Gate ' + self.name + ': '
+        if not self.applied_to and not self.controlled_on and not self.params:
+            return str_rep[:-2] + '>'
+        if self._is_measure:
+            var meas_str: String = 'qubtis=(q' + String(self.applied_to[0])
+            for qubit in self.applied_to[1:]:
+                meas_str += ', q' + String(qubit[])
+            meas_str += '), clbits=(c' + String(self._measure_targs[0])
+            for clbit in self._measure_targs[1:]:
+                meas_str += ', c' + String(clbit[])
+            return str_rep + meas_str + ')>'
+        var qubits_str: String = ''
+        if self.applied_to:
+            qubits_str = 'qubtis=(q' + String(self.applied_to[0])
+            for qubit in self.applied_to[1:]:
+                qubits_str += ', q' + String(qubit[])
+            qubits_str += ')'
+        var controls_str: String = ''
+        if self.controlled_on:
+            controls_str = 'controls=(q' + String(self.controlled_on[0])
+            for qubit in self.controlled_on[1:]:
+                controls_str += ', q' + String(qubit[])
+            controls_str += ')'
+        var params_str: String = ''
+        if self.params:
+            params_str = 'params=(' + String(self.params[0])
+            for param in self.params[1:]:
+                params_str += ', ' + String(param[])
+            params_str += ')'
+        if qubits_str:
+            str_rep += qubits_str if str_rep[-2:] == ': ' else ', ' + qubits_str
+        if controls_str:
+            str_rep += controls_str if str_rep[-2:] == ': ' else ', ' + controls_str
+        if params_str:
+            str_rep += params_str if str_rep[-2:] == ': ' else ', ' + params_str
+        return str_rep + '>'
         
     @no_inline
     fn write_to[W: Writer](self, mut writer: W):
+        '''Write the gate to a writer.
+
+        Args:
+            writer: The writer to write to.
+        '''
         writer.write(String(self))
     
     @always_inline
     fn __len__(self) -> Int:
+        '''The size of the circuit.
+
+        Returns:
+            The number of qubits in the circuit.
+        '''
         return self.n_qubits
 
     fn control(mut self, *qubits: Int) raises -> Self:
-        '''Control the gate on a qubit or set of qubits.'''
+        '''Control the gate on a qubit or set of qubits.
+        
+        Args:
+            qubits: The qubits to set as controls.
+        
+        Returns:
+            Self.
+        '''
         if self._is_measure:
             raise Error('Cannot control a measurement gate.')
         for q in qubits:
@@ -136,9 +196,18 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
                 self.n_qubits += 1
         return self
     
+    @always_inline
     fn __eq__(self, other: Self) -> Bool:
-        '''Gates are considered equal if they have the same name, they are applied to and controlled
-        on the same qubits, and their matrices are (close to) equal.'''
+        '''Check two gates for equality. Gates are considered equal if they have the same name, 
+        they are applied to and controlled on the same qubits, and their matrices are (close to) 
+        equal.
+        
+        Args:
+            other: The gate to check for equality.
+        
+        Returns:
+            True if the gates are equal, False otherwise.
+        '''
         if (
             self.name != other.name 
             or self.n_qubits != other.n_qubits
@@ -150,12 +219,26 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
             return False
         return True
 
+
 # Measurement
+
 
 fn Measure[type: DType, tol: Scalar[type] = DEFAULT_TOL](
     qubits: List[Int, True], clbits: List[Int, True]
 ) raises -> Gate[type, tol]:
-    '''Create a measurement on a set of qubits.'''
+    '''Create a measurement on a set of qubits.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubits: The qubits to measure.
+        clbits: The classical bits to store the measurements.
+    
+    Returns:
+        A gate representing a measurement.
+    '''
     if len(qubits) == 0:
         raise Error('Measure received no qubit specifiers')
     if len(qubits) != len(Set(qubits)):
@@ -166,84 +249,245 @@ fn Measure[type: DType, tol: Scalar[type] = DEFAULT_TOL](
         raise Error('qubits and clbits must be lists of the same length')
     return Gate[type, tol]._measure(qubits, clbits)
 
+
 fn Measure[type: DType, tol: Scalar[type] = DEFAULT_TOL](
     qubit: Int, clbit: Int
 ) raises -> Gate[type, tol]:
-    '''Create a measurement on a qubit.'''
+    '''Create a measurement on a qubit.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit: The qubit to measure.
+        clbit: The classical bit to store the measurements.
+    
+    Returns:
+        A gate representing a measurement.
+    '''
     return Gate[type, tol]._measure(List[Int, True](qubit), List[Int, True](clbit))
+
 
 # Unparameterized single-qubit gates ############
 
+
+@always_inline
 fn x[type: DType]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         0, 1, 
         1, 0,
     )
-fn X[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Int) raises -> Gate[type, tol]:
-    '''Create an X gate applied to qubit `q`.'''
-    return Gate[type, tol]('X', x[type](), List[Int, True](q))
+fn X[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[type, tol]:
+    '''Create an Pauli X gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit: The qubit on which the gate applies.
+    
+    Returns:
+        An X gate.
+    '''
+    return Gate[type, tol]('X', x[type](), List[Int, True](qubit))
 
+
+@always_inline
 fn y[type: DType]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         0, ComplexScalar[type](0, -1), 
         ComplexScalar[type](0, 1), 0,
     )
-fn Y[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Int) raises -> Gate[type, tol]:
-    '''Create a Y gate applied to qubit `q`.'''
-    return Gate[type, tol]('Y', y[type](), List[Int, True](q))
+fn Y[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[type, tol]:
+    '''Create a Pauli Y gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit: The qubit on which the gate applies.
+    
+    Returns:
+        A Y gate.
+    '''
+    return Gate[type, tol]('Y', y[type](), List[Int, True](qubit))
 
+
+@always_inline
 fn z[type: DType]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         1, 0, 
         0, -1,
     )
-fn Z[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Int) raises -> Gate[type, tol]:
-    '''Create a Z gate applied to qubit `q`.'''
-    return Gate[type, tol]('Z', z[type](), List[Int, True](q))
+fn Z[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[type, tol]:
+    '''Create a Pauli Z gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit: The qubit on which the gate applies.
+    
+    Returns:
+        A Z gate.
+    '''
+    return Gate[type, tol]('Z', z[type](), List[Int, True](qubit))
 
+
+@always_inline
 fn h[type: DType]() raises -> CMatrix[type]:
     var inv_sqrt2: Scalar[type] = 1 / sqrt(2.0).cast[type]()
     return CMatrix[type](2, 2,
         inv_sqrt2, inv_sqrt2, 
         inv_sqrt2, -inv_sqrt2,
     )
-fn H[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Int) raises -> Gate[type, tol]:
-    '''Create a Hadamard gate applied to qubit `q`.'''
-    return Gate[type, tol]('H', h[type](), List[Int, True](q))     
+fn H[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[type, tol]:
+    '''Create a Hadamard gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit: The qubit on which the gate applies.
+    
+    Returns:
+        A Hadamard gate.
+    '''
+    return Gate[type, tol]('H', h[type](), List[Int, True](qubit))     
 
+
+@always_inline
 fn s[type: DType]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         1, 0, 
         0, ComplexScalar[type](0, 1),
     )
-fn S[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Int) raises -> Gate[type, tol]:
-    '''Create an S gate applied to qubit `q`.'''
-    return Gate[type, tol]('S', s[type](), List[Int, True](q))
+fn S[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[type, tol]:
+    '''Create an S gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit: The qubit on which the gate applies.
+    
+    Returns:
+        An S gate.
+    '''
+    return Gate[type, tol]('S', s[type](), List[Int, True](qubit))
 
+
+@always_inline
 fn t[type: DType]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         1, 0, 
         0, ComplexScalar[type](0, pi / 4).exp(),
     )
-fn T[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Int) raises -> Gate[type, tol]:
-    '''Create a T gate applied to qubit `q`.'''
-    return Gate[type, tol]('T', t[type](), List[Int, True](q))
+fn T[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[type, tol]:
+    '''Create a T gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit: The qubit on which the gate applies.
+    
+    Returns:
+        A T gate.
+    '''
+    return Gate[type, tol]('T', t[type](), List[Int, True](qubit))
+
 
 # Unparameterized multi-qubit gates #############
 
-fn CX[type: DType, tol: Scalar[type] = DEFAULT_TOL](control: Int, target: Int) raises -> Gate[type, tol]:
-    '''Create a controlled-X gate applied to qubit `target` and controlled on qubit `control`.'''
+
+fn I[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[type, tol]:
+    '''Create an identity gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit: The qubit on which the gate applies.
+    
+    Returns:
+        An identity gate.
+    '''
+    return Gate[type, tol]('I', CMatrix[type].eye(2, 2), List[Int, True](qubit))
+
+
+fn I[type: DType, tol: Scalar[type] = DEFAULT_TOL](
+    qubits: List[Int, True]
+) raises -> Gate[type, tol]:
+    '''Create an identity gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit: The qubit on which the gate applies.
+    
+    Returns:
+        An identity gate.
+    '''
+    var dim: Int = 2 ** len(qubits)
+    return Gate[type, tol]('I', CMatrix[type].eye(dim, dim), qubits)
+
+
+fn CX[type: DType, tol: Scalar[type] = DEFAULT_TOL](
+    control: Int, target: Int
+) raises -> Gate[type, tol]:
+    '''Create a controlled X gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        control: The qubit on which the gate is controlled.
+        target: The qubit on which the gate is applied.
+    
+    Returns:
+        A controlled X gate.
+    '''
     var cx = Gate[type, tol]('CX', x[type](), List[Int, True](target))
     return cx.control(control)
 
-fn CCX[type: DType, tol: Scalar[type] = DEFAULT_TOL](control1: Int, control2: Int, target: Int) raises -> Gate[type, tol]:
-    '''Create a controlled-controlled-X gate applied to qubit `target` and controlled on qubits
-     `control1` and `control2`.'''
+
+fn CCX[type: DType, tol: Scalar[type] = DEFAULT_TOL](
+    control1: Int, control2: Int, target: Int
+) raises -> Gate[type, tol]:
+    '''Create a controlled controlled X (Toffoli) gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        control1: The first control qubit.
+        control2: The second control qubit.
+        target: The qubit on which the gate is applied.
+    
+    Returns:
+        A controlled controlled X (Toffoli) gate.
+    '''
     var ccx = Gate[type, tol]('CCX', x[type](), List[Int, True](target))
     return ccx.control(control1, control2)
 
+
 # Parameterized single-qubit gates ##############
 
+
+@always_inline
 fn rx[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
     var a = ComplexScalar[type](cos(t / 2), 0)
     var b = ComplexScalar[type](0, -sin(t / 2))
@@ -251,10 +495,28 @@ fn rx[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
         a, b,
         b, a,
     )
-fn RX[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Int, theta: Scalar[type]) raises -> Gate[type, tol]:
-    '''Create an RX rotation gate with angle `theta` applied to qubit `q`.'''
-    return Gate[type, tol]('RX', rx[type](theta), List[Int, True](q), List[Scalar[type], True](theta))
+fn RX[type: DType, tol: Scalar[type] = DEFAULT_TOL](
+    qubit: Int, theta: Scalar[type]
+) raises -> Gate[type, tol]:
+    '''Create an RX rotation gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit: The qubit on which the gate applies.
+        theta: A rotation angle for the gate.
+    
+    Returns:
+        An RX rotation gate.
+    '''
+    return Gate[type, tol](
+        'RX', rx[type](theta), List[Int, True](qubit), List[Scalar[type], True](theta)
+    )
 
+
+@always_inline
 fn ry[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
     var a = ComplexScalar[type](cos(t / 2), 0)
     var b = ComplexScalar[type](sin(t / 2), 0)
@@ -262,10 +524,28 @@ fn ry[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
         a, -b,
         b, a,
     )
-fn RY[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Int, theta: Scalar[type]) raises -> Gate[type, tol]:
-    '''Create an RY rotation gate with angle `theta` applied to qubit `q`.'''
-    return Gate[type, tol]('RY', ry[type](theta), List[Int, True](q), List[Scalar[type], True](theta))
+fn RY[type: DType, tol: Scalar[type] = DEFAULT_TOL](
+    qubit: Int, theta: Scalar[type]
+) raises -> Gate[type, tol]:
+    '''Create an RY rotation gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit: The qubit on which the gate applies.
+        theta: A rotation angle for the gate.
+    
+    Returns:
+        An RY rotation gate.
+    '''
+    return Gate[type, tol](
+        'RY', ry[type](theta), List[Int, True](qubit), List[Scalar[type], True](theta)
+    )
 
+
+@always_inline
 fn rz[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
     var c: Scalar[type] = cos(t / 2)
     var s: Scalar[type] = sin(t / 2)
@@ -273,10 +553,28 @@ fn rz[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
         ComplexScalar[type](c, -s), 0, 
         0, ComplexScalar[type](c, s),
     )
-fn RZ[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Int, theta: Scalar[type]) raises -> Gate[type, tol]:
-    '''Create an RZ rotation gate with angle `theta` applied to qubit `q`.'''
-    return Gate[type, tol]('RZ', rz[type](theta), List[Int, True](q), List[Scalar[type], True](theta))
+fn RZ[type: DType, tol: Scalar[type] = DEFAULT_TOL](
+    qubit: Int, theta: Scalar[type]
+) raises -> Gate[type, tol]:
+    '''Create an RZ rotation gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit: The qubit on which the gate applies.
+        theta: A rotation angle for the gate.
+    
+    Returns:
+        An RZ rotation gate.
+    '''
+    return Gate[type, tol](
+        'RZ', rz[type](theta), List[Int, True](qubit), List[Scalar[type], True](theta)
+    )
 
+
+@always_inline
 fn u[type: DType](t: Scalar[type], p: Scalar[type], l: Scalar[type]) raises -> CMatrix[type]:
     var ct: Scalar[type] = cos(t / 2)
     var st: Scalar[type] = sin(t / 2)
@@ -286,10 +584,33 @@ fn u[type: DType](t: Scalar[type], p: Scalar[type], l: Scalar[type]) raises -> C
         ComplexScalar[type](cos(p) * st, sin(p) * st), 
         ComplexScalar[type](cos(p + l) * ct, sin(p + l) * ct),
     )
-fn U[type: DType, tol: Scalar[type] = DEFAULT_TOL](q: Int, theta: Scalar[type], phi: Scalar[type], lbda: Scalar[type]) raises -> Gate[type, tol]:
-    '''Create a U gate applied to qubit `q`.'''
-    return Gate[type, tol]('U', u[type](theta, phi, lbda), List[Int, True](q), List[Scalar[type], True](theta, phi, lbda))
+fn U[type: DType, tol: Scalar[type] = DEFAULT_TOL](
+    qubit: Int, theta: Scalar[type], phi: Scalar[type], lbda: Scalar[type]
+) raises -> Gate[type, tol]:
+    '''Create a U gate applied.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit: The qubit on which the gate applies.
+        theta: The first Euler angle.
+        phi: The second Euler angle.
+        lbda: The third Euler angle.
+
+    Returns:
+        A U gate.
+    '''
+    return Gate[type, tol](
+        'U', 
+        u[type](theta, phi, lbda), 
+        List[Int, True](qubit), 
+        List[Scalar[type], True](theta, phi, lbda),
+    )
+
 
 # Parameterized multi-qubit gates ###############
+
 
 # TODO: Add more gates

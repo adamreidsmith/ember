@@ -9,6 +9,13 @@ from ..config import DEFAULT_TOL
 
 @value
 struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, Writable, Movable):
+    '''A quantum circuit.
+
+    Parameters:
+        type: A type for the circuit data.
+        tol: A tolerance for unitarity and closeness checks.
+    '''
+
     var n_qubits: Int
     '''The number of qubits in the quantum circuit.'''
     var n_clbits: Int
@@ -17,7 +24,12 @@ struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, 
     '''The gates applied to the qubits in the quantum circuit.'''
     
     fn __init__(out self, n_qubits: Int, n_clbits: Int = 0) raises:
-        '''Initialize a QuantumCircuit with `n_qubits` qubits and `n_clbits` classical bits.'''
+        '''Initialize a QuantumCircuit.
+        
+        Args:
+            n_qubits: The number of qubits in the quantum circuit.
+            n_clbits: The number of classical bits in the quantum circuit.
+        '''
         if n_qubits < 1:
             raise Error('Quantum circuit must have at least one qubit')
         self.n_qubits = n_qubits
@@ -25,7 +37,11 @@ struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, 
         self._data = List[Gate[Self.type, Self.tol]]()
 
     fn apply(mut self, gate: Gate[Self.type, Self.tol]) raises:
-        '''Apply `gate` to the quantum circuit.'''
+        '''Apply a gate to the quantum circuit.
+        
+        Args:
+            gate: The gate to apply.
+        '''
         for q in gate.applied_to:
             if q[] < 0 or q[] >= self.n_qubits:
                 raise Error(
@@ -53,6 +69,11 @@ struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, 
 
     @no_inline
     fn __str__(self) -> String:
+        '''Convert the quantum circuit to a string.
+
+        Returns:
+            A string representation of the quantum circuit.
+        '''
         alias max_width: Int = 120
 
         fn max(l: List[Int, True]) -> Int:
@@ -112,4 +133,9 @@ struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, 
 
     @no_inline
     fn write_to[W: Writer](self, mut writer: W):
+        '''Write the quantum circuit to a writer.
+
+        Args:
+            writer: The writer to write to.
+        '''
         writer.write(String(self))

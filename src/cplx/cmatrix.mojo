@@ -16,7 +16,11 @@ struct CMatrix[type: DType](
     Stringable,
     Writable,
 ):
-    '''Complex matrices with fast, efficient operations.'''
+    '''Complex matrices with fast, efficient operations.
+    
+    Parameters:
+        type: A type for the matrix data.
+    '''
 
     var re: UnsafePointer[Scalar[Self.type]]
     '''The real components of the matrix elements.'''
