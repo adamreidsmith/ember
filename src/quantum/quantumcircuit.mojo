@@ -5,7 +5,6 @@ from ..cplx import CMatrix
 from .gates import *
 from ..config import DEFAULT_TOL
 
-# TODO: Add classical bit control
 
 @value
 struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, Writable, Movable):
@@ -42,6 +41,7 @@ struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, 
         Args:
             gate: The gate to apply.
         '''
+        # Make sure all qubits the gate is applied to are in the circuit
         for q in gate.applied_to:
             if q[] < 0 or q[] >= self.n_qubits:
                 raise Error(
@@ -50,20 +50,30 @@ struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, 
                     + String(self.n_qubits - 1) + '.'
                 )
         if gate._is_measure:
-            for q in gate._measure_targs:
-                if q[] < 0 or q[] >= self.n_clbits:
+            # Make sure all qubits being measured are in the circuit
+            for c in gate._measure_targs:
+                if c[] < 0 or c[] >= self.n_clbits:
                     raise Error(
                         'Gate ' + gate.name + ' contains invalid classical bit specifier: '
-                        + String(q[]) + '. Quantum circuit has ' + String(self.n_clbits)
+                        + String(c[]) + '. Quantum circuit has ' + String(self.n_clbits)
                         + ' classical bits labeled 0 to ' + String(self.n_clbits - 1) + '.'
                     )
         else:
+            # Make sure all qubits the gate is controlled on are in the circuit
             for q in gate.controlled_on:
                 if q[] < 0 or q[] >= self.n_qubits:
                     raise Error(
                         'Gate ' + gate.name + ' contains invalid control qubit specifier: '
                         + String(q[]) + '. Quantum circuit has ' + String(self.n_qubits)
                         + ' qubits labeled 0 to ' + String(self.n_qubits - 1) + '.'
+                    )
+            # Make sure all classical bits the gate is controlled on are in the circuit
+            for c in gate.classical_controls:
+                if c[] < 0 or c[] >= self.n_clbits:
+                    raise Error(
+                        'Gate ' + gate.name + ' contains invalid classical bit specifier: '
+                        + String(c[]) + '. Quantum circuit has ' + String(self.n_clbits)
+                        + ' classical bits labeled 0 to ' + String(self.n_clbits - 1) + '.'
                     )
         self._data.append(gate)
 
@@ -74,6 +84,7 @@ struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, 
         Returns:
             A string representation of the quantum circuit.
         '''
+        # TODO: Print classical bits and classical controls in the circuit
         alias max_width: Int = 120
 
         fn max(l: List[Int, True]) -> Int:

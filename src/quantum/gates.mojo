@@ -25,6 +25,8 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
     '''The qubits the gate is applied to.'''
     var controlled_on: List[Int, True]
     '''The qubits the gate is controlled on.'''
+    var classical_controls: List[Int, True]
+    '''The classical bits the gate is controlled on.'''
     var params: List[Scalar[Self.type], True]
     '''The parameter values applied to the gate.'''
 
@@ -69,6 +71,7 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
         self.applied_to = qubits^
         self.params = params^
         self.controlled_on = List[Int, True]()
+        self.classical_controls = List[Int, True]()
 
         # Placeholders. Only applicable to the measurement gate
         self._is_measure = False
@@ -92,6 +95,7 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
             matrix=CMatrix[Self.type](rows=0, cols=0, fill_zeros=False),
             applied_to=qubits^,
             controlled_on=List[Int, True](),
+            classical_controls=List[Int, True](),
             params=List[Scalar[Self.type], True](),
             _is_measure=True,
             _measure_targs=clbits,
@@ -196,11 +200,41 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
                 self.n_qubits += 1
         return self
     
+    fn control(
+        mut self, 
+        qubits: List[Int, True] = List[Int, True](), 
+        clbits: List[Int, True] = List[Int, True](),
+    ) raises -> Self:
+        '''Control the gate on specified qubits or classical bits.
+        
+        Args:
+            qubits: The qubits to set as controls.
+            clbits: The classical bits to set as controls.
+        
+        Returns:
+            Self.
+        '''
+        if self._is_measure:
+            raise Error('Cannot control a measurement gate.')
+        for q in qubits:
+            if q[] in self.applied_to:
+                raise Error(
+                    'Cannot control gate ' + self.name + ' on qubit ' 
+                    + String(q) + ' on which it is applied'
+                )
+            if q[] not in self.controlled_on:
+                self.controlled_on.append(q[])
+                self.n_qubits += 1
+        for c in clbits:
+            if c[] not in self.classical_controls:
+                self.classical_controls.append(c[])
+        return self
+    
     @always_inline
     fn __eq__(self, other: Self) -> Bool:
         '''Check two gates for equality. Gates are considered equal if they have the same name, 
-        they are applied to and controlled on the same qubits, and their matrices are (close to) 
-        equal.
+        they are applied to and controlled on the same qubits/classical bits, and their matrices
+        are (close to) equal.
         
         Args:
             other: The gate to check for equality.
@@ -213,6 +247,7 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
             or self.n_qubits != other.n_qubits
             or self.applied_to != other.applied_to
             or Set(self.controlled_on) != Set(other.controlled_on)
+            or Set(self.classical_controls) != Set(other.classical_controls)
             # or not self.matrix.matrix_equals(other.matrix)
             or not self.matrix.is_close[Self.tol](other.matrix)
         ):
@@ -434,7 +469,7 @@ fn I[type: DType, tol: Scalar[type] = DEFAULT_TOL](
         tol: A tolerance for unitarity and closeness checks.
     
     Args:
-        qubit: The qubit on which the gate applies.
+        qubits: The qubit on which the gate applies.
     
     Returns:
         An identity gate.
@@ -460,7 +495,7 @@ fn CX[type: DType, tol: Scalar[type] = DEFAULT_TOL](
         A controlled X gate.
     '''
     var cx = Gate[type, tol]('CX', x[type](), List[Int, True](target))
-    return cx.control(control)
+    return cx.control(qubits=List[Int, True](control))
 
 
 fn CCX[type: DType, tol: Scalar[type] = DEFAULT_TOL](
@@ -481,7 +516,7 @@ fn CCX[type: DType, tol: Scalar[type] = DEFAULT_TOL](
         A controlled controlled X (Toffoli) gate.
     '''
     var ccx = Gate[type, tol]('CCX', x[type](), List[Int, True](target))
-    return ccx.control(control1, control2)
+    return ccx.control(qubits=List[Int, True](control1, control2))
 
 
 # Parameterized single-qubit gates ##############
