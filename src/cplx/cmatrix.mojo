@@ -1986,10 +1986,9 @@ struct CMatrix[type: DType](
         '''
         if self.rows != other.rows or self.cols != other.cols:
             return False
-        for r in range(self.rows):
-            for c in range(self.cols):
-                if self.load_crd[1](r, c) != other.load_crd[1](r, c):
-                    return False
+        for idx in range(self.size):
+            if self.load_idx[1](idx) != other.load_idx[1](idx):
+                return False
         return True
 
     fn is_close[tol: Scalar[Self.type] = DEFAULT_TOL](self, other: Self) -> Bool:
@@ -2007,10 +2006,9 @@ struct CMatrix[type: DType](
         '''
         if self.rows != other.rows or self.cols != other.cols:
             return False
-        for r in range(self.rows):
-            for c in range(self.cols):
-                if not self.load_crd[1](r, c).is_close[tol](other.load_crd[1](r, c)):
-                    return False
+        for idx in range(self.size):
+            if not self.load_idx[1](idx).is_close[tol](other.load_idx[1](idx)):
+                return False
         return True
 
     fn is_close[tol: Scalar[Self.type] = DEFAULT_TOL](self, other: ComplexScalar[Self.type]) -> Bool:
@@ -2025,10 +2023,9 @@ struct CMatrix[type: DType](
         Returns:
             True if all elements of self are within tol of other, False otherwise.
         '''
-        for r in range(self.rows):
-            for c in range(self.cols):
-                if not self.load_crd[1](r, c).is_close[tol](other):
-                    return False
+        for idx in range(self.size):
+            if not self.load_idx[1](idx).is_close[tol](other):
+                return False
         return True
 
     fn __eq__(self, other: Self) raises -> Self:
