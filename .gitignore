@@ -10,3 +10,6 @@
 mojoproject.toml
 magic.lock
 .DS_Store
+.vscode
+
+dep
