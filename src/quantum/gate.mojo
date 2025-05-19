@@ -19,11 +19,13 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
     '''An identifier for the gate.'''
     var n_qubits: Int
     '''The number of qubits the gate acts on.'''
+    # TODO: Once Mojo supports dynamic traits, we can define a `CMatrixLike` trait to represent
+    # a CMatrix or a CSRCMatrix, allowing gate matrices to be optionally sparse
     var matrix: CMatrix[Self.type]
     '''The unitary matrix that implements the gate.'''
-    var applied_to: List[Int, True]
+    var qubits: List[Int, True]
     '''The qubits the gate is applied to.'''
-    var controlled_on: List[Int, True]
+    var controls: List[Int, True]
     '''The qubits the gate is controlled on.'''
     var classical_controls: List[Int, True]
     '''The classical bits the gate is controlled on.'''
@@ -68,12 +70,13 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
         self.n_qubits = n_qubits
         self.name = name^ 
         self.matrix = matrix^
-        self.applied_to = qubits^
+        self.qubits = qubits^
         self.params = params^
-        self.controlled_on = List[Int, True]()
+        self.controls = List[Int, True]()
         self.classical_controls = List[Int, True]()
 
-        # Placeholders. Only applicable to the measurement gate
+        # Placeholders only applicable to the measurement gate, which must be 
+        # instantiated with the _measure method
         self._is_measure = False
         self._measure_targs = List[Int, True]()
 
@@ -93,8 +96,8 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
             name='Measure',
             n_qubits=len(qubits),
             matrix=CMatrix[Self.type](rows=0, cols=0, fill_zeros=False),
-            applied_to=qubits^,
-            controlled_on=List[Int, True](),
+            qubits=qubits^,
+            controls=List[Int, True](),
             classical_controls=List[Int, True](),
             params=List[Scalar[Self.type], True](),
             _is_measure=True,
@@ -124,28 +127,34 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
             A string representation of the gate.
         '''
         var str_rep: String = '<Gate ' + self.name + ': '
-        if not self.applied_to and not self.controlled_on and not self.params:
+        if not self.qubits and not self.controls and not self.params:
             return str_rep[:-2] + '>'
         if self._is_measure:
-            var meas_str: String = 'qubtis=(q' + String(self.applied_to[0])
-            for qubit in self.applied_to[1:]:
+            var meas_str: String = 'qubits=(q' + String(self.qubits[0])
+            for qubit in self.qubits[1:]:
                 meas_str += ', q' + String(qubit[])
             meas_str += '), clbits=(c' + String(self._measure_targs[0])
             for clbit in self._measure_targs[1:]:
                 meas_str += ', c' + String(clbit[])
             return str_rep + meas_str + ')>'
         var qubits_str: String = ''
-        if self.applied_to:
-            qubits_str = 'qubtis=(q' + String(self.applied_to[0])
-            for qubit in self.applied_to[1:]:
+        if self.qubits:
+            qubits_str = 'qubits=(q' + String(self.qubits[0])
+            for qubit in self.qubits[1:]:
                 qubits_str += ', q' + String(qubit[])
             qubits_str += ')'
         var controls_str: String = ''
-        if self.controlled_on:
-            controls_str = 'controls=(q' + String(self.controlled_on[0])
-            for qubit in self.controlled_on[1:]:
+        if self.controls:
+            controls_str = 'controls=(q' + String(self.controls[0])
+            for qubit in self.controls[1:]:
                 controls_str += ', q' + String(qubit[])
             controls_str += ')'
+        var classical_controls_str: String = ''
+        if self.classical_controls:
+            classical_controls_str = 'classical controls=(c' + String(self.classical_controls[0])
+            for clbit in self.classical_controls[1:]:
+                classical_controls_str += ', c' + String(clbit[])
+            classical_controls_str += ')'
         var params_str: String = ''
         if self.params:
             params_str = 'params=(' + String(self.params[0])
@@ -156,6 +165,8 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
             str_rep += qubits_str if str_rep[-2:] == ': ' else ', ' + qubits_str
         if controls_str:
             str_rep += controls_str if str_rep[-2:] == ': ' else ', ' + controls_str
+        if classical_controls_str:
+            str_rep += classical_controls_str if str_rep[-2:] == ': ' else ', ' + classical_controls_str
         if params_str:
             str_rep += params_str if str_rep[-2:] == ': ' else ', ' + params_str
         return str_rep + '>'
@@ -190,13 +201,13 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
         if self._is_measure:
             raise Error('Cannot control a measurement gate.')
         for q in qubits:
-            if q in self.applied_to:
+            if q in self.qubits:
                 raise Error(
                     'Cannot control gate ' + self.name + ' on qubit ' 
                     + String(q) + ' on which it is applied'
                 )
-            if q not in self.controlled_on:
-                self.controlled_on.append(q)
+            if q not in self.controls:
+                self.controls.append(q)
                 self.n_qubits += 1
         return self
     
@@ -217,13 +228,13 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
         if self._is_measure:
             raise Error('Cannot control a measurement gate.')
         for q in qubits:
-            if q[] in self.applied_to:
+            if q[] in self.qubits:
                 raise Error(
                     'Cannot control gate ' + self.name + ' on qubit ' 
                     + String(q) + ' on which it is applied'
                 )
-            if q[] not in self.controlled_on:
-                self.controlled_on.append(q[])
+            if q[] not in self.controls:
+                self.controls.append(q[])
                 self.n_qubits += 1
         for c in clbits:
             if c[] not in self.classical_controls:
@@ -245,8 +256,8 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
         if (
             self.name != other.name 
             or self.n_qubits != other.n_qubits
-            or self.applied_to != other.applied_to
-            or Set(self.controlled_on) != Set(other.controlled_on)
+            or self.qubits != other.qubits
+            or Set(self.controls) != Set(other.controls)
             or Set(self.classical_controls) != Set(other.classical_controls)
             # or not self.matrix.matrix_equals(other.matrix)
             or not self.matrix.is_close[Self.tol](other.matrix)
@@ -279,7 +290,7 @@ fn Measure[type: DType, tol: Scalar[type] = DEFAULT_TOL](
     if len(qubits) != len(Set(qubits)):
         raise Error('List of qubits must be unique')
     if len(clbits) != len(Set(clbits)):
-        raise Error('List of clbits must be unique')
+        raise Error('List of classical bits must be unique')
     if len(qubits) != len(clbits):
         raise Error('qubits and clbits must be lists of the same length')
     return Gate[type, tol]._measure(qubits, clbits)

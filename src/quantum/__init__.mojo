@@ -1,4 +1,4 @@
-from .gates import (
+from .gate import (
     Gate,
     Measure,
     X,
@@ -7,6 +7,7 @@ from .gates import (
     H,
     S,
     T,
+    I,
     CX,
     CCX,
     RX,
