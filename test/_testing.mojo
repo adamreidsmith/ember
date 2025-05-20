@@ -1,7 +1,7 @@
 from testing import assert_almost_equal, assert_equal
 from math import isnan
 
-from src import CMatrix, ComplexScalar
+from ember import CMatrix, ComplexScalar
 
 fn _assert_almost_equal[type: DType, size: Int](lhs: SIMD[type, size], rhs: SIMD[type, size], msg: String = String(''), *, atol: Float64 = 1e-10, rtol: Float64 = 0) raises:
     return assert_almost_equal[type, size](lhs, rhs, msg, atol=atol, rtol=rtol)

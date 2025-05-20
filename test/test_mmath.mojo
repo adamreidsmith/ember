@@ -1,7 +1,7 @@
 from testing import assert_equal, assert_raises
 from ._testing import _assert_matrix_almost_equal, _assert_matrix_equal
 
-from src import (
+from ember import (
     kron,
     kron_sequential,
     sparse_kron,
@@ -21,7 +21,7 @@ from src import (
     hstack,
     vstack,
 )
-from src import CSRCMatrix, CMatrix, ComplexScalar
+from ember import CSRCMatrix, CMatrix, ComplexScalar
 
 alias type = DType.float64
 

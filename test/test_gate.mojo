@@ -3,8 +3,8 @@ from math import sqrt, pi
 from testing import assert_equal, assert_raises
 from ._testing import _assert_matrix_equal
 
-from src import Gate, Measure, X, Y, Z, H, S, T, I, RX, RY, RZ, CX, CCX, U
-from src import CMatrix, ComplexScalar
+from ember import Gate, Measure, X, Y, Z, H, S, T, I, RX, RY, RZ, CX, CCX, U
+from ember import CMatrix, ComplexScalar
 
 
 alias type = DType.float64
@@ -238,7 +238,7 @@ def test_unparameterized_multi_qubit_gates():
     assert_equal(len(gate.classical_controls), 0, 'I')
     assert_equal(gate._is_measure, False, 'I')
     # CX
-    from src import swap_rows_inplace
+    from ember import swap_rows_inplace
     x = CMatrix[type].eye(2, 2)
     swap_rows_inplace(x, 0, 1)
     gate = CX[type](0, 3)

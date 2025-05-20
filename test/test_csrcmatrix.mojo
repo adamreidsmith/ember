@@ -3,7 +3,7 @@ import math
 from collections import Dict
 
 from ._testing import _assert_matrix_equal, _assert_matrix_almost_equal
-from src import CSRCMatrix, CMatrix, ComplexScalar
+from ember import CSRCMatrix, CMatrix, ComplexScalar
 
 alias type = DType.float64
 
@@ -135,6 +135,12 @@ def test_init():
     _assert_matrix_equal(CSRCMatrix[type](cm.zeros_like()).to_dense(), cm.zeros_like(), 'init')
     _assert_matrix_equal(CSRCMatrix[type](cm.eye_like()).to_dense(), cm.eye_like(), 'init')
     _assert_matrix_equal(CSRCMatrix[type](CMatrix[type](0, 0)).to_dense(), CMatrix[type](0, 0), 'init')
+    cms = CSRCMatrix[type](cm)
+    l = cms.to_list()
+    assert_equal(len(l), cm.size, 'to_list')
+    for idx in range(cm.size):
+        assert_equal(l[idx].re, cm.load_idx[1](idx).re, 'to_list')
+        assert_equal(l[idx].im, cm.load_idx[1](idx).im, 'to_list')
 
 def test_properties():
     m1 = CSRCMatrix[type](CMatrix[type](List[List[ComplexScalar[type], True]](

@@ -2,7 +2,7 @@ from testing import assert_true, assert_false
 import math
 
 from ._testing import _assert_almost_equal
-from src import ComplexSIMD, ComplexScalar
+from ember import ComplexSIMD, ComplexScalar
 
 alias type = DType.float64
 

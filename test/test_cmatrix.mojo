@@ -2,7 +2,7 @@ from testing import assert_true, assert_false, assert_equal, assert_raises
 import math
 
 from ._testing import _assert_almost_equal, _assert_matrix_equal, _assert_matrix_almost_equal
-from src import CMatrix, ComplexScalar
+from ember import CMatrix, ComplexScalar
 
 alias type = DType.float64
 
@@ -19,6 +19,7 @@ def run_cmatrix_tests():
     test_fill()
     test_compare()
     test_static_constructors()
+    test_conversion()
     print('All tests passed')
 
 def test_init():
@@ -487,3 +488,18 @@ def test_static_constructors():
                 for step in range(-10, 10, 3):
                     _assert_matrix_equal(CMatrix[type].arange(r, c, start, step), CMatrix[type](r, c).range_like(start, step), 'i')
                     _assert_matrix_equal(CMatrix[type].arange(r, c, start, step), CMatrix[type](r, c).range_like(start, step), 'i')
+
+def test_conversion():
+    for r in range(30):
+        for c in range(30):
+            m = CMatrix[type].arange(r, c)
+            l = m.to_list()
+            assert_equal(len(l), m.size, 'to_list')
+            for idx in range(m.size):
+                assert_equal(l[idx].re, m.load_idx[1](idx).re, 'to_list')
+                assert_equal(l[idx].im, m.load_idx[1](idx).im, 'to_list')
+            l2 = m.to_2d_list()
+            for row in range(m.rows):
+                for col in range(m.cols):
+                    assert_equal(l2[row][col].re, m.load_crd[1](row, col).re, 'to_2d_list')
+                    assert_equal(l2[row][col].im, m.load_crd[1](row, col).im, 'to_2d_list')

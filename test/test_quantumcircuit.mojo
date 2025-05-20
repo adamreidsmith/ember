@@ -1,10 +1,11 @@
 from collections import Dict
+from math import sqrt
 
 from testing import assert_equal, assert_raises
 from ._testing import _assert_matrix_equal
 
-from src import Gate, Measure, X, Y, T, CCX
-from src import QuantumCircuit
+from ember import Gate, Measure, X, Y, T, CCX
+from ember import QuantumCircuit, CMatrix, CSRCMatrix
 
 
 alias type = DType.float64
@@ -14,6 +15,7 @@ def run_quantumcircuit_tests():
     test_init()
     test_set_cbits()
     test_apply()
+    test_set_initial_state()
     print('All tests passed')
 
 def test_init():
@@ -99,3 +101,31 @@ def test_apply():
         qc.apply(g[])
     for i in range(len(gates)):
         assert_equal(gates[i], qc._data[i], 'apply')
+
+def test_set_initial_state():
+    qc = QuantumCircuit[type](3)
+    statevector = CSRCMatrix[type](CMatrix[type].arange(3, 3))
+    with assert_raises(contains='Expected 1D'):
+        qc.set_initial_state(statevector)
+    statevector = CSRCMatrix[type](CMatrix[type].arange(1, 9))
+    with assert_raises(contains='Expected statevector with 2^'):
+        qc.set_initial_state(statevector)
+    statevector = CSRCMatrix[type](CMatrix[type].arange(1, 8))
+    with assert_raises(contains='not normalized'):
+        qc.set_initial_state(statevector)
+    qc.set_initial_state(statevector, normalize=True)
+    var t: Scalar[type] = 0
+    for i in range(statevector.size):
+        t += statevector[0, i].squared_norm()
+    svn = statevector / sqrt(t)
+    for i in range(svn.size):
+        assert_equal(svn[0, i].re, qc._initial_state[0, i].re, 'set_initial_state')
+        assert_equal(svn[0, i].im, qc._initial_state[0, i].im, 'set_initial_state')
+    qc.set_initial_state(svn.to_list(), normalize=True)
+    for i in range(svn.size):
+        assert_equal(svn[0, i].re, qc._initial_state[0, i].re, 'set_initial_state')
+        assert_equal(svn[0, i].im, qc._initial_state[0, i].im, 'set_initial_state')
+    qc.set_initial_state(svn.to_dense(), normalize=True)
+    for i in range(svn.size):
+        assert_equal(svn[0, i].re, qc._initial_state[0, i].re, 'set_initial_state')
+        assert_equal(svn[0, i].im, qc._initial_state[0, i].im, 'set_initial_state')
