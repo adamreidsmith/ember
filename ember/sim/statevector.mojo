@@ -143,6 +143,7 @@ struct StatevectorSimulator[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFA
             n_clbits=0,
             clbits=List[Int, True](),
             _data=List[Gate[Self.type, Self.tol]](),
+            _initial_state=CSRCMatrix[Self.type](0, 0),
         )
     
     fn __init__(out self, seed: Int):
@@ -160,6 +161,7 @@ struct StatevectorSimulator[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFA
             n_clbits=0,
             clbits=List[Int, True](),
             _data=List[Gate[Self.type, Self.tol]](),
+            _initial_state=CSRCMatrix[Self.type](0, 0),
         )
         self.set_seed(seed)
     
@@ -192,9 +194,12 @@ struct StatevectorSimulator[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFA
         self._qc = qc
         self._cb = self._qc.clbits
 
-        # Initialize the statevector to the |0> state
-        self._sv = List[ComplexScalar[Self.type], True](length=2 ** self._qc.n_qubits, fill=0)
-        self._sv[0] = 1
+        if len(qc._initial_state) > 0:
+            self._sv = self._qc._initial_state.to_list()
+        else:
+            # Initialize the statevector to the |0> state
+            self._sv = List[ComplexScalar[Self.type], True](length=2 ** self._qc.n_qubits, fill=0)
+            self._sv[0] = 1
 
         for gate_ref in qc._data:
             var gate: Gate[Self.type, Self.tol] = gate_ref[]
@@ -517,25 +522,4 @@ struct StatevectorSimulator[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFA
             statevector /= sqrt(total_prob)
 
         return statevector^
-    
-    # fn set_clbits(mut self, bit_values: Dict[Int, Int]) raises:
-    #     '''Set the classical bits to the values specified in bit_values.
-
-    #     Args:
-    #         bit_values: A mapping of classical bit specifiers to bit values.
-    #     '''
-    #     # Check that the bits are in the circuit and that all values are binary
-    #     for kv in bit_values.items():
-    #         var bit: Int = kv[].key
-    #         var value: Int = kv[].value
-    #         if bit < 0 or bit >= self._qc.n_clbits:
-    #             raise Error('Cannot set bit ' + String(bit) + ' as it is not in the circuit.')
-    #         if value not in Tuple[Int, Int](0, 1):
-    #             raise Error(
-    #                 'Bits can only be set to 0 or 1. Received ' + String(value) 
-    #                 + ' for bit ' + String(bit) + '.'
-    #             )
-        
-    #     for kv in bit_values.items():
-    #         self._cb[kv[].key] = kv[].value
         

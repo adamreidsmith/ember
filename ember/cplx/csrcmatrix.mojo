@@ -387,7 +387,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRES
     # Conversion operations and helpers
 
     def to_dense(self) -> CMatrix[Self.type]:
-        '''Convert self to a dense CMatrix.
+        '''Convert the sparse matrix to a dense matrix.
         
         Returns:
             A dense representation of self.
@@ -397,6 +397,25 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRES
             for k in range(self.row_idx[row], self.row_idx[row + 1]):
                 dense[row, self.col_idx[k]] = self.v[k]
         return dense
+    
+    fn to_list(self) -> List[ComplexScalar[Self.type], True]:
+        '''Flatten the sparse amtrix and convert it to a dense matrix.
+        
+        Returns:
+            A list of values in the sparse matrix (inlcuding zeros).
+        '''
+        var result = List[ComplexScalar[Self.type], True](capacity=self.size)
+        var result_ptr: Int = 0
+        for row in range(self.rows):
+            var row_start: Int = self.row_idx[row]
+            var row_end: Int = self.row_idx[row + 1]
+            for i in range(row_start, row_end):
+                var idx: Int = row * self.cols + self.col_idx[i]
+                if idx > result_ptr:
+                    result.extend(List[ComplexScalar[Self.type], True](length=idx - result_ptr, fill=0))
+                result.append(self.v[i])
+                result_ptr = idx + 1
+        return result^
 
     fn _row_idx_to_indices(self) -> List[Int, True]:
         '''Convert the list of index pointers to a list of row indices.

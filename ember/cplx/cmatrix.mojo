@@ -2369,3 +2369,30 @@ struct CMatrix[type: DType](
                         result.re.store(r * self.cols + c, one)
             parallelize[col_eq](self.cols, self.cols)
         return result
+
+    # Conversion ######################
+
+    fn to_list(self) -> List[ComplexScalar[Self.type], True]:
+        '''Flatten the matrix and convert it to a list of complex values.
+
+        Returns:
+            A list of matrix values.
+        '''
+        var result = List[ComplexScalar[Self.type], True](capacity=self.size)
+        for idx in range(self.size):
+            result.append(self.load_idx[1](idx))
+        return result
+    
+    fn to_2d_list(self) -> List[List[ComplexScalar[Self.type], True]]:
+        '''Return the matrix as a list of lists of complex values.
+
+        Returns:
+            A list of lists of matrix values.
+        '''
+        var result = List[List[ComplexScalar[Self.type], True]](capacity=self.rows)
+        for r in range(self.rows):
+            var row = List[ComplexScalar[Self.type], True](capacity=self.cols)
+            for c in range(self.cols):
+                row.append(self.load_crd[1](r, c))
+            result.append(row)
+        return result
