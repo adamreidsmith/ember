@@ -14,7 +14,7 @@ from math import sqrt
 
 from ..quantum import QuantumCircuit, Gate
 from ..cplx import CMatrix, CSRCMatrix, CSRBuilder
-from ..config import DEFAULT_TOL
+from ..config import DEFAULT_TOL, DEFAULT_TYPE
 
 
 ## Bit-twiddling functions of unsigned integers ###################################################
@@ -116,7 +116,7 @@ fn set_bits(owned n: UInt, t: List[UInt, True], v: UInt) -> UInt:
 ###################################################################################################
 
 @value
-struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
+struct StatevectorSimulator[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL]:
     '''A quantum circuit statevector simulator.
     
     Parameters:
@@ -141,7 +141,7 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
         self._qc = QuantumCircuit[Self.type, Self.tol](
             n_qubits=0,
             n_clbits=0,
-            _cbits=List[Int, True](),
+            clbits=List[Int, True](),
             _data=List[Gate[Self.type, Self.tol]](),
         )
     
@@ -158,7 +158,7 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
         self._qc = QuantumCircuit[Self.type, Self.tol](
             n_qubits=0,
             n_clbits=0,
-            _cbits=List[Int, True](),
+            clbits=List[Int, True](),
             _data=List[Gate[Self.type, Self.tol]](),
         )
         self.set_seed(seed)
@@ -190,7 +190,7 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
             Self.
         '''
         self._qc = qc
-        self._cb = self._qc._cbits
+        self._cb = self._qc.clbits
 
         # Initialize the statevector to the |0> state
         self._sv = List[ComplexScalar[Self.type], True](length=2 ** self._qc.n_qubits, fill=0)
@@ -507,7 +507,7 @@ struct StatevectorSimulator[type: DType, tol: Scalar[type] = DEFAULT_TOL]:
         '''
         # Normalize probabilities to ensure they sum to one
         var statevector = CMatrix[Self.type](rows=len(self._sv), cols=1, fill_zeros=False)
-        var total_prob: Scalar[type] = 0
+        var total_prob: Scalar[Self.type] = 0
         for i in range(len(self._sv)):
             total_prob += self._sv[i].squared_norm()
             statevector.store_idx[1](i, self._sv[i])

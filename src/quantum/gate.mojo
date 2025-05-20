@@ -3,11 +3,13 @@ from collections import Set
 from utils import Variant
 
 from ..cplx import CMatrix, ComplexScalar
-from ..config import DEFAULT_TOL
+from ..config import DEFAULT_TOL, DEFAULT_TYPE
 
 
 @value
-struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Stringable, CollectionElement):
+struct Gate[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    Writable, Sized, Stringable, CollectionElement, EqualityComparable
+):
     '''A quantum gate.
     
     Parameters:
@@ -243,9 +245,11 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
     
     @always_inline
     fn __eq__(self, other: Self) -> Bool:
-        '''Check two gates for equality. Gates are considered equal if they have the same name, 
-        they are applied to and controlled on the same qubits/classical bits, and their matrices
-        are (close to) equal.
+        '''Check two gates for equality. Gates are considered equal if all of their fields are the
+        same.
+        
+        The complex and floating point values in the gate matrix and list of parameters are 
+        considered equal if they are within tol of eachother.
         
         Args:
             other: The gate to check for equality.
@@ -261,15 +265,38 @@ struct Gate[type: DType, tol: Scalar[type] = DEFAULT_TOL](Writable, Sized, Strin
             or Set(self.classical_controls) != Set(other.classical_controls)
             # or not self.matrix.matrix_equals(other.matrix)
             or not self.matrix.is_close[Self.tol](other.matrix)
+            or self._is_measure != other._is_measure
+            or self._measure_targs != other._measure_targs
         ):
             return False
+        if len(self.params) != len(other.params):
+            return False
+        for i in range(len(self.params)):
+            if abs(self.params[i] - other.params[i]) >= Self.tol:
+                return False
         return True
+    
+    @always_inline
+    fn __ne__(self, other: Self) -> Bool:
+        '''Check two gates for inequality. Gates are considered inequal if any of their fields
+        differ.
+
+        The complex and floating point values in the gate matrix and list of parameters are 
+        considered inequal if they differ by at least tol.
+        
+        Args:
+            other: The gate to check for inequality.
+        
+        Returns:
+            True if the gates are inequal, False otherwise.
+        '''
+        return not self.__eq__(other)
 
 
 # Measurement
 
 
-fn Measure[type: DType, tol: Scalar[type] = DEFAULT_TOL](
+fn Measure[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     qubits: List[Int, True], clbits: List[Int, True]
 ) raises -> Gate[type, tol]:
     '''Create a measurement on a set of qubits.
@@ -296,7 +323,7 @@ fn Measure[type: DType, tol: Scalar[type] = DEFAULT_TOL](
     return Gate[type, tol]._measure(qubits, clbits)
 
 
-fn Measure[type: DType, tol: Scalar[type] = DEFAULT_TOL](
+fn Measure[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     qubit: Int, clbit: Int
 ) raises -> Gate[type, tol]:
     '''Create a measurement on a qubit.
@@ -319,12 +346,14 @@ fn Measure[type: DType, tol: Scalar[type] = DEFAULT_TOL](
 
 
 @always_inline
-fn x[type: DType]() raises -> CMatrix[type]:
+fn x[type: DType = DEFAULT_TYPE]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         0, 1, 
         1, 0,
     )
-fn X[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[type, tol]:
+fn X[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    qubit: Int
+) raises -> Gate[type, tol]:
     '''Create an Pauli X gate.
     
     Parameters:
@@ -341,12 +370,14 @@ fn X[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[ty
 
 
 @always_inline
-fn y[type: DType]() raises -> CMatrix[type]:
+fn y[type: DType = DEFAULT_TYPE]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         0, ComplexScalar[type](0, -1), 
         ComplexScalar[type](0, 1), 0,
     )
-fn Y[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[type, tol]:
+fn Y[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    qubit: Int
+) raises -> Gate[type, tol]:
     '''Create a Pauli Y gate.
     
     Parameters:
@@ -363,12 +394,14 @@ fn Y[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[ty
 
 
 @always_inline
-fn z[type: DType]() raises -> CMatrix[type]:
+fn z[type: DType = DEFAULT_TYPE]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         1, 0, 
         0, -1,
     )
-fn Z[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[type, tol]:
+fn Z[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    qubit: Int
+) raises -> Gate[type, tol]:
     '''Create a Pauli Z gate.
     
     Parameters:
@@ -385,13 +418,15 @@ fn Z[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[ty
 
 
 @always_inline
-fn h[type: DType]() raises -> CMatrix[type]:
+fn h[type: DType = DEFAULT_TYPE]() raises -> CMatrix[type]:
     var inv_sqrt2: Scalar[type] = 1 / sqrt(2.0).cast[type]()
     return CMatrix[type](2, 2,
         inv_sqrt2, inv_sqrt2, 
         inv_sqrt2, -inv_sqrt2,
     )
-fn H[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[type, tol]:
+fn H[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    qubit: Int
+) raises -> Gate[type, tol]:
     '''Create a Hadamard gate.
     
     Parameters:
@@ -408,12 +443,14 @@ fn H[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[ty
 
 
 @always_inline
-fn s[type: DType]() raises -> CMatrix[type]:
+fn s[type: DType = DEFAULT_TYPE]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         1, 0, 
         0, ComplexScalar[type](0, 1),
     )
-fn S[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[type, tol]:
+fn S[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    qubit: Int
+) raises -> Gate[type, tol]:
     '''Create an S gate.
     
     Parameters:
@@ -430,12 +467,14 @@ fn S[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[ty
 
 
 @always_inline
-fn t[type: DType]() raises -> CMatrix[type]:
+fn t[type: DType = DEFAULT_TYPE]() raises -> CMatrix[type]:
     return CMatrix[type](2, 2,
         1, 0, 
         0, ComplexScalar[type](0, pi / 4).exp(),
     )
-fn T[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[type, tol]:
+fn T[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    qubit: Int
+) raises -> Gate[type, tol]:
     '''Create a T gate.
     
     Parameters:
@@ -454,7 +493,9 @@ fn T[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[ty
 # Unparameterized multi-qubit gates #############
 
 
-fn I[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[type, tol]:
+fn I[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    qubit: Int
+) raises -> Gate[type, tol]:
     '''Create an identity gate.
     
     Parameters:
@@ -470,7 +511,7 @@ fn I[type: DType, tol: Scalar[type] = DEFAULT_TOL](qubit: Int) raises -> Gate[ty
     return Gate[type, tol]('I', CMatrix[type].eye(2, 2), List[Int, True](qubit))
 
 
-fn I[type: DType, tol: Scalar[type] = DEFAULT_TOL](
+fn I[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     qubits: List[Int, True]
 ) raises -> Gate[type, tol]:
     '''Create an identity gate.
@@ -489,7 +530,7 @@ fn I[type: DType, tol: Scalar[type] = DEFAULT_TOL](
     return Gate[type, tol]('I', CMatrix[type].eye(dim, dim), qubits)
 
 
-fn CX[type: DType, tol: Scalar[type] = DEFAULT_TOL](
+fn CX[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     control: Int, target: Int
 ) raises -> Gate[type, tol]:
     '''Create a controlled X gate.
@@ -509,7 +550,7 @@ fn CX[type: DType, tol: Scalar[type] = DEFAULT_TOL](
     return cx.control(qubits=List[Int, True](control))
 
 
-fn CCX[type: DType, tol: Scalar[type] = DEFAULT_TOL](
+fn CCX[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     control1: Int, control2: Int, target: Int
 ) raises -> Gate[type, tol]:
     '''Create a controlled controlled X (Toffoli) gate.
@@ -534,14 +575,14 @@ fn CCX[type: DType, tol: Scalar[type] = DEFAULT_TOL](
 
 
 @always_inline
-fn rx[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
+fn rx[type: DType = DEFAULT_TYPE](t: Scalar[type]) raises -> CMatrix[type]:
     var a = ComplexScalar[type](cos(t / 2), 0)
     var b = ComplexScalar[type](0, -sin(t / 2))
     return CMatrix[type](2, 2,
         a, b,
         b, a,
     )
-fn RX[type: DType, tol: Scalar[type] = DEFAULT_TOL](
+fn RX[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     qubit: Int, theta: Scalar[type]
 ) raises -> Gate[type, tol]:
     '''Create an RX rotation gate.
@@ -563,14 +604,14 @@ fn RX[type: DType, tol: Scalar[type] = DEFAULT_TOL](
 
 
 @always_inline
-fn ry[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
+fn ry[type: DType = DEFAULT_TYPE](t: Scalar[type]) raises -> CMatrix[type]:
     var a = ComplexScalar[type](cos(t / 2), 0)
     var b = ComplexScalar[type](sin(t / 2), 0)
     return CMatrix[type](2, 2,
         a, -b,
         b, a,
     )
-fn RY[type: DType, tol: Scalar[type] = DEFAULT_TOL](
+fn RY[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     qubit: Int, theta: Scalar[type]
 ) raises -> Gate[type, tol]:
     '''Create an RY rotation gate.
@@ -592,14 +633,14 @@ fn RY[type: DType, tol: Scalar[type] = DEFAULT_TOL](
 
 
 @always_inline
-fn rz[type: DType](t: Scalar[type]) raises -> CMatrix[type]:
+fn rz[type: DType = DEFAULT_TYPE](t: Scalar[type]) raises -> CMatrix[type]:
     var c: Scalar[type] = cos(t / 2)
     var s: Scalar[type] = sin(t / 2)
     return CMatrix[type](2, 2,
         ComplexScalar[type](c, -s), 0, 
         0, ComplexScalar[type](c, s),
     )
-fn RZ[type: DType, tol: Scalar[type] = DEFAULT_TOL](
+fn RZ[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     qubit: Int, theta: Scalar[type]
 ) raises -> Gate[type, tol]:
     '''Create an RZ rotation gate.
@@ -621,7 +662,7 @@ fn RZ[type: DType, tol: Scalar[type] = DEFAULT_TOL](
 
 
 @always_inline
-fn u[type: DType](t: Scalar[type], p: Scalar[type], l: Scalar[type]) raises -> CMatrix[type]:
+fn u[type: DType = DEFAULT_TYPE](t: Scalar[type], p: Scalar[type], l: Scalar[type]) raises -> CMatrix[type]:
     var ct: Scalar[type] = cos(t / 2)
     var st: Scalar[type] = sin(t / 2)
     return CMatrix[type](2, 2,
@@ -630,7 +671,7 @@ fn u[type: DType](t: Scalar[type], p: Scalar[type], l: Scalar[type]) raises -> C
         ComplexScalar[type](cos(p) * st, sin(p) * st), 
         ComplexScalar[type](cos(p + l) * ct, sin(p + l) * ct),
     )
-fn U[type: DType, tol: Scalar[type] = DEFAULT_TOL](
+fn U[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     qubit: Int, theta: Scalar[type], phi: Scalar[type], lbda: Scalar[type]
 ) raises -> Gate[type, tol]:
     '''Create a U gate applied.

@@ -3,11 +3,13 @@ from collections import Set, Dict
 
 from ..cplx import CMatrix
 from .gate import *
-from ..config import DEFAULT_TOL
+from ..config import DEFAULT_TOL, DEFAULT_TYPE
 
 
 @value
-struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, Writable, Movable):
+struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    Stringable, Writable, Movable
+):
     '''A quantum circuit.
 
     Parameters:
@@ -19,7 +21,7 @@ struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, 
     '''The number of qubits in the quantum circuit.'''
     var n_clbits: Int
     '''The number of classical bits in the quantum circuit.'''
-    var _cbits: List[Int, True]
+    var clbits: List[Int, True]
     '''The initial values of the classical bits in the circuit.'''
     var _data: List[Gate[Self.type, Self.tol]]
     '''The gates applied to the qubits in the quantum circuit.'''
@@ -35,7 +37,7 @@ struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, 
             raise Error('Quantum circuit must have at least one qubit')
         self.n_qubits = n_qubits
         self.n_clbits = n_clbits
-        self._cbits = List[Int, True](length=n_clbits, fill=0)
+        self.clbits = List[Int, True](length=n_clbits, fill=0)
         self._data = List[Gate[Self.type, Self.tol]]()
 
     fn apply(mut self, gate: Gate[Self.type, Self.tol]) raises:
@@ -44,40 +46,32 @@ struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, 
         Args:
             gate: The gate to apply.
         '''
+        fn raise_invalid_bit(bit: Int, quantum: Bool) raises:
+            var n_bits: Int = self.n_qubits if quantum else self.n_clbits
+            var bit_type: String = 'qubit' if quantum else 'classical bit'
+            raise Error(
+                'Gate ' + gate.name + ' contains invalid ' + bit_type + ' specifier: ' 
+                + String(bit) + '. Quantum circuit has ' + String(n_bits) + ' ' + bit_type 
+                + 's indexed 0 to ' + String(n_bits - 1) + '.'
+            )
         # Make sure all qubits the gate is applied to are in the circuit
         for q in gate.qubits:
             if q[] < 0 or q[] >= self.n_qubits:
-                raise Error(
-                    'Gate ' + gate.name + ' contains invalid qubit specifier: ' + String(q[])
-                    + '. Quantum circuit has ' + String(self.n_qubits) + ' qubits indexed 0 to ' 
-                    + String(self.n_qubits - 1) + '.'
-                )
+                raise_invalid_bit(q[], True)
         if gate._is_measure:
             # Make sure all qubits being measured are in the circuit
             for c in gate._measure_targs:
                 if c[] < 0 or c[] >= self.n_clbits:
-                    raise Error(
-                        'Gate ' + gate.name + ' contains invalid classical bit specifier: '
-                        + String(c[]) + '. Quantum circuit has ' + String(self.n_clbits)
-                        + ' classical bits labeled 0 to ' + String(self.n_clbits - 1) + '.'
-                    )
+                    raise_invalid_bit(c[], False)
         else:
             # Make sure all qubits the gate is controlled on are in the circuit
             for q in gate.controls:
                 if q[] < 0 or q[] >= self.n_qubits:
-                    raise Error(
-                        'Gate ' + gate.name + ' contains invalid control qubit specifier: '
-                        + String(q[]) + '. Quantum circuit has ' + String(self.n_qubits)
-                        + ' qubits labeled 0 to ' + String(self.n_qubits - 1) + '.'
-                    )
+                    raise_invalid_bit(q[], True)
             # Make sure all classical bits the gate is controlled on are in the circuit
             for c in gate.classical_controls:
                 if c[] < 0 or c[] >= self.n_clbits:
-                    raise Error(
-                        'Gate ' + gate.name + ' contains invalid classical bit specifier: '
-                        + String(c[]) + '. Quantum circuit has ' + String(self.n_clbits)
-                        + ' classical bits labeled 0 to ' + String(self.n_clbits - 1) + '.'
-                    )
+                    raise_invalid_bit(c[], False)
         self._data.append(gate)
     
     fn set_clbits(mut self, bit_values: Dict[Int, Int]) raises:
@@ -99,74 +93,22 @@ struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, 
                 )
 
         for kv in bit_values.items():
-            self._cbits[kv[].key] = kv[].value
+            self.clbits[kv[].key] = kv[].value
+    
+    fn set_clbits(mut self, owned bit_values: List[Int, True]) raises:
+        '''Set the classical bits to the values specified in bit_values.
 
-    @no_inline
-    fn __str__2(self) -> String:
-        '''Convert the quantum circuit to a string.
-
-        Returns:
-            A string representation of the quantum circuit.
+        Args:
+            bit_values: A list of bit values corresponding to the classical bits. Must have length
+                self.n_clbits.
         '''
-        # TODO: Print classical bits and classical controls in the circuit
-        alias max_width: Int = 120
-
-        fn max(l: List[Int, True]) -> Int:
-            var mx: Int = l[0]
-            for e in l[1:]:
-                if e[] > mx:
-                    mx = e[]
-            return mx
-
-        # List of qubit lines
-        # Each qubit line is a list of gate strings
-        var lines = List[List[String]](List[String]('|0⟩ -')) * self.n_qubits
-        for gate in self._data:
-            var gate_str = String(gate[])
-            for i in range(self.n_qubits):
-                var mod_gate_str: String
-                if gate[]._is_measure:
-                    var measure_specifier_len: Int = len(String(max(gate[]._measure_targs))) + 2
-                    var measure_to: Int
-                    try:
-                        measure_to = gate[]._measure_targs[gate[].qubits.index(i)]
-                    except:
-                        measure_to = 0
-                    var n_dashes: Int = measure_specifier_len - len(String(measure_to)) - 1
-                    mod_gate_str = gate_str + '-' * n_dashes + '>' + String(measure_to)
-                else:
-                    mod_gate_str = gate_str
-                if i in gate[].qubits:
-                    lines[i].append(mod_gate_str)
-                elif i in gate[].controls and not gate[]._is_measure:
-                    var n_dashes: Int = len(mod_gate_str) - 1
-                    var left_dashes: Int = n_dashes // 2
-                    var right_dashes: Int = n_dashes - left_dashes
-                    lines[i].append('-' * left_dashes + '*' + '-' * right_dashes)
-                else:
-                    lines[i].append('-' * len(mod_gate_str))
-            for line in lines:
-                line[][-1] += '-'
-
-        var lines_split = List[List[String]]()
-        for line in lines:
-            var line_str = List[String]('')
-            for gate_str in line[]:
-                var gs: String = gate_str[]
-                if len(gate_str[]) > max_width:
-                    gs = gate_str[][:max_width]
-                if len(line_str[-1]) + len(gs) + 1 > max_width:
-                    line_str.append('')
-                line_str[-1] += gs
-            lines_split.append(line_str)
+        if len(bit_values) != self.n_clbits:
+            raise Error('bit_values must have the same length as the number of classical bits')
+        for bit in bit_values:
+            if bit[] not in Tuple[Int, Int](0, 1):
+                raise Error('Bits can only be set to 0 or 1. Received ' + String(bit) + '.')
+        self.clbits = bit_values^
         
-        var ret: String = ''
-        for i in range(len(lines_split[0])):
-            for line in lines_split:
-                ret += line[][i] + '\n'
-            ret += '\n'
-        ret = ret[:-2]
-        return ret
     
     @no_inline
     fn __str__(self) -> String:
@@ -197,7 +139,7 @@ struct QuantumCircuit[type: DType, tol: Scalar[type] = DEFAULT_TOL](Stringable, 
             var i_str: String = String(i)
             var spaces: Int = max_bit_num_len - len(i_str) + 2
             lines.append(
-                List[String]('c' + i_str + ':' + ' ' * spaces + String(self._cbits[i]) + '  -')
+                List[String]('c' + i_str + ':' + ' ' * spaces + String(self.clbits[i]) + '  -')
             )
 
         for gate in self._data:
