@@ -202,7 +202,40 @@ struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
         else:
             self._elems = Dict[Int, ComplexScalar[Self.type]]()
             for i in range(len(statevector)):
-                    self._elems[i] = statevector[i]
+                self._elems[i] = statevector[i]
+    
+    fn __init__(
+        out self, 
+        owned statevector: Self, 
+        normalize: Bool = False,
+        enforce_n_elements: Int = -1,
+    ) raises:
+        '''Initialize a statevector from another statevector.
+
+        Args:
+            statevector: A statevector.
+            normalize: If True, the statevector will be automatically normalized. If False and the
+                statevector is unnormalized, an error will be raised.
+            enforce_n_elements: If nonnegative, enforce that the statevector has exactly this many
+                elements.
+        '''
+        if enforce_n_elements >= 0 and len(statevector) != enforce_n_elements:
+            raise Error(
+                'Statevector must have ' + String(enforce_n_elements) + ' elements, but ' 
+                + String(len(statevector)) + ' elements were provided.'
+            )
+
+        var sum_sqr: Scalar[Self.type] = 0
+        for elem in statevector._elems.values():
+            sum_sqr += elem[].squared_norm()
+        if abs(sum_sqr - 1) >= Self.tol:
+            if normalize:
+                statevector.normalize(sum_sqr)
+            else:
+                raise Error('Statevector is not normalized.')
+        
+        self = statevector^
+        
     
     @staticmethod
     @always_inline
@@ -345,11 +378,17 @@ struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
         '''
         return self._n_elems
     
-    fn normalize(mut self):
-        '''Normalize the statevector in-place.'''
-        var sum_sqr: Scalar[Self.type] = 0
-        for elem in self._elems.values():
-            sum_sqr += elem[].squared_norm()
+    fn normalize(mut self, owned sum_sqr: Scalar[Self.type] = -1):
+        '''Normalize the statevector in-place.
+        
+        Args:
+            sum_sqr: The sum of absolute squares of the statevector elements. If negative, it will
+                be computed from the statevector elements.
+        '''
+        if sum_sqr < 0:
+            sum_sqr = 0
+            for elem in self._elems.values():
+                sum_sqr += elem[].squared_norm()
         if abs(sum_sqr - 1) >= Self.tol:
             var norm_factor: ComplexScalar[Self.type] = sqrt(sum_sqr)
             for idx_elem in self._elems.items():

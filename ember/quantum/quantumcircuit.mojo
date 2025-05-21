@@ -43,8 +43,17 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
         self.clbits = List[Int, True](length=n_clbits, fill=0)
         self._data = List[Gate[Self.type, Self.tol]]()
         self._initial_state = Statevector[Self.type, Self.tol]()
+    
+    fn apply(mut self, owned *gates: Gate[Self.type, Self.tol]) raises:
+        '''Apply a gate to the quantum circuit.
+        
+        Args:
+            gates: The gates to apply.
+        '''
+        for gate in gates:
+            self.apply(gate[])
 
-    fn apply(mut self, gate: Gate[Self.type, Self.tol]) raises:
+    fn apply(mut self, owned gate: Gate[Self.type, Self.tol]) raises:
         '''Apply a gate to the quantum circuit.
         
         Args:
@@ -163,6 +172,20 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
     
     @always_inline
     fn set_initial_state(
+        mut self, owned statevector: Statevector[Self.type, Self.tol], normalize: Bool = False
+    ) raises:
+        '''Set the initial circuit state to the provided statevector.
+
+        Args:
+            statevector: The statevector to use as the initial state. Should be a list with 
+                2^n_qubits values.
+            normalize: If True, the statevector will be automatically normalized. If False and the
+                statevector is unnormalized, an error will be raised.
+        '''
+        self._initial_state = statevector^
+    
+    @always_inline
+    fn set_initial_state(
         mut self,
         owned statevector: Dict[Int, ComplexScalar[Self.type]],
         normalize: Bool = False
@@ -178,6 +201,86 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
             statevector=statevector^, normalize=normalize, n_elements=2 ** self.n_qubits
         )
 
+    fn join(
+        mut self,
+        owned other: QuantumCircuit[Self.type, Self.tol],
+        qubits: List[Int, True],
+        clbits: List[Int, True] = List[Int, True]()
+    ) raises:
+        '''Apply the instructions from one circuit onto the qubits/clbits of self.
+
+        Args:
+            other: The circuit to join with self.
+            qubits: The qubits in self to join onto. Must be a list of length other.n_qubits.
+            clbits: The classical bits in self to join onto. Must be a list of length 
+                other.n_clbits.
+        '''
+        if self.n_qubits < other.n_qubits:
+            raise Error(
+                'Cannot join a circuit with ' + String(other.n_qubits) 
+                + ' qubits onto a circuit with ' + String(self.n_qubits) + ' qubits.'
+            )
+        if self.n_clbits < other.n_clbits:
+            raise Error(
+                'Cannot join a circuit with ' + String(other.n_clbits) 
+                + ' classical bits onto a circuit with ' + String(self.n_clbits) 
+                + ' classical bits.'
+            )
+        if len(qubits) != len(Set(qubits)):
+            raise Error('List of qubits is not unique.')
+        if len(clbits) != len(Set(clbits)):
+            raise Error('List of classical bits is not unique.')
+        if len(qubits) != other.n_qubits:
+            raise Error(
+                'Number of qubits specified does not match the number of qubits in the circuit.'
+            )
+        if len(clbits) != other.n_clbits:
+            raise Error(
+                'Number of classical bits specified does not match the number of classical bits'
+                ' in the circuit.'
+            )
+        for q in qubits:
+            if q[] < 0 or q[] >= self.n_qubits:
+                raise Error('Invalid qubit specifier: ' + String(q[]) + '.')
+        for c in clbits:
+            if c[] < 0 or c[] >= self.n_clbits:
+                raise Error('Invalid classical bit specifier: ' + String(c[]) + '.')
+        
+        var qubit_mapping_other_to_self = Dict[Int, Int]()
+        var clbit_mapping_other_to_self = Dict[Int, Int]()
+        for i in range(len(qubits)):
+            qubit_mapping_other_to_self[i] = qubits[i]
+        for i in range(len(clbits)):
+            clbit_mapping_other_to_self[i] = clbits[i]
+
+        fn get_new_bits(bits: List[Int, True], quantum: Bool) raises -> List[Int, True]:
+            var new_bits = List[Int, True]()
+            for b in bits:
+                if quantum:
+                    new_bits.append(qubit_mapping_other_to_self[b[]])
+                else:
+                    new_bits.append(clbit_mapping_other_to_self[b[]])
+            return new_bits
+        
+        for gate_ref in other._data:
+            var gate: Gate[Self.type, Self.tol] = gate_ref[]
+            var new_qubits: List[Int, True] = get_new_bits(gate.qubits, True)
+            var new_controls: List[Int, True] = get_new_bits(gate.controls, True)
+            var new_cl_controls: List[Int, True] = get_new_bits(gate.classical_controls, False)
+            var new_measure_targs: List[Int, True] = get_new_bits(gate._measure_targs, False)
+            var new_gate = Gate[Self.type, Self.tol](
+                name=gate.name,
+                n_qubits=gate.n_qubits,
+                matrix=gate.matrix,
+                qubits=new_qubits^,
+                controls=new_controls^,
+                classical_controls=new_cl_controls^,
+                params=gate.params,
+                _is_measure=gate._is_measure,
+                _measure_targs=new_measure_targs,
+            )
+            self.apply(new_gate^)
+
     @no_inline
     fn __str__(self) -> String:
         '''Convert the quantum circuit to a string.
@@ -185,6 +288,7 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
         Returns:
             A string representation of the quantum circuit.
         '''
+        # TODO: print an initialize instruction if the qc has an initial state
         alias max_width: Int = 120
 
         @parameter
@@ -209,6 +313,12 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
             lines.append(
                 List[String]('c' + i_str + ':' + ' ' * spaces + String(self.clbits[i]) + '  -')
             )
+        
+        if len(self._initial_state) > 0:
+            for i in range(self.n_qubits):
+                lines[i].append('Initialize-')
+            for i in range(self.n_qubits, self.n_qubits + self.n_clbits):
+                lines[i].append('-----------')
 
         for gate in self._data:
             var gate_str = String(gate[])
