@@ -1,1 +1,1 @@
-from .statevector import StatevectorSimulator
+from .statevectorsimulator import StatevectorSimulator
