@@ -3,6 +3,7 @@ from collections import Set, Dict
 
 from ..cplx import CMatrix, CSRCMatrix
 from .gate import Gate
+from .statevector import Statevector
 from ..config import DEFAULT_TOL, DEFAULT_TYPE
 
 
@@ -25,7 +26,7 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
     '''The initial values of the classical bits in the circuit.'''
     var _data: List[Gate[Self.type, Self.tol]]
     '''The gates applied to the qubits in the quantum circuit.'''
-    var _initial_state: CSRCMatrix[Self.type]
+    var _initial_state: Statevector[Self.type, Self.tol]
     '''The initial state of the quantum circuit. Defaults to |0⟩ on all qubits.'''
 
     fn __init__(out self, n_qubits: Int, n_clbits: Int = 0) raises:
@@ -41,7 +42,7 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
         self.n_clbits = n_clbits
         self.clbits = List[Int, True](length=n_clbits, fill=0)
         self._data = List[Gate[Self.type, Self.tol]]()
-        self._initial_state = CSRCMatrix[Self.type](0, 0)
+        self._initial_state = Statevector[Self.type, Self.tol]()
 
     fn apply(mut self, gate: Gate[Self.type, Self.tol]) raises:
         '''Apply a gate to the quantum circuit.
@@ -112,8 +113,9 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
                 raise Error('Bits can only be set to 0 or 1. Received ' + String(bit) + '.')
         self.clbits = bit_values^
     
+    @always_inline
     fn set_initial_state(
-        mut self, owned statevector: CSRCMatrix[Self.type], normalize: Bool=False
+        mut self, owned statevector: CSRCMatrix[Self.type], normalize: Bool = False
     ) raises:
         '''Set the initial circuit state to the provided statevector.
 
@@ -123,36 +125,9 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
             normalize: If True, the statevector will be automatically normalized. If False and the
                 statevector is unnormalized, an error will be raised.
         '''
-        # Check that the statevector is one dimensional
-        if statevector.rows != 1 and statevector.cols != 1:
-            raise Error(
-                'Expected 1D statevector. Received shape (' + String(statevector.rows) 
-                + ', ' + String(statevector.cols) + ').'
-            )
-
-        # Make it a row vector
-        if statevector.rows != 1:
-            statevector = statevector.transpose()
-
-        # Check that the statevector has the right number of elements
-        if statevector.cols != 2 ** self.n_qubits:
-            raise Error(
-                'Expected statevector with 2^' + String(self.n_qubits) + '=' 
-                + String(2 ** self.n_qubits) + 'elements. Received statevector with '
-                + String(statevector.rows) + ' elements.'
-            )
-
-        # Check that the statevector is normalized
-        var sum_sqr: Scalar[Self.type] = 0
-        for elem in statevector.v:
-            sum_sqr += elem[].squared_norm()
-        if abs(sum_sqr - 1) >= Self.tol:
-            if normalize:
-                statevector /= sqrt(sum_sqr)
-            else:
-                raise Error('Statevector is not normalized.')
-
-        self._initial_state = statevector^
+        self._initial_state = Statevector[Self.type, Self.tol](
+            statevector=statevector^, normalize=normalize, enforce_n_elements=2 ** self.n_qubits
+        )
     
     @always_inline
     fn set_initial_state(
@@ -166,11 +141,13 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
             normalize: If True, the statevector will be automatically normalized. If False and the
                 statevector is unnormalized, an error will be raised.
         '''
-            self.set_initial_state(CSRCMatrix[Self.type](statevector^), normalize)
+        self._initial_state = Statevector[Self.type, Self.tol](
+            statevector=statevector^, normalize=normalize, enforce_n_elements=2 ** self.n_qubits
+        )
     
     @always_inline
     fn set_initial_state(
-        mut self, owned statevector: List[ComplexScalar[Self.type], True], normalize: Bool=False
+        mut self, owned statevector: List[ComplexScalar[Self.type], True], normalize: Bool = False
     ) raises:
         '''Set the initial circuit state to the provided statevector.
 
@@ -180,20 +157,25 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
             normalize: If True, the statevector will be automatically normalized. If False and the
                 statevector is unnormalized, an error will be raised.
         '''
-        var length: Int = len(statevector)
-        var col_idx = List[Int, True](capacity=length)
-        for i in range(length):
-            col_idx.append(i)
-        self.set_initial_state(
-            CSRCMatrix(
-                rows=1,
-                cols=length,
-                size=length,
-                v=statevector^,
-                col_idx=col_idx^,
-                row_idx=List[Int, True](0, length),
-            ),
-            normalize,
+        self._initial_state = Statevector[Self.type, Self.tol](
+            statevector=statevector^, normalize=normalize, enforce_n_elements=2 ** self.n_qubits
+        )
+    
+    @always_inline
+    fn set_initial_state(
+        mut self,
+        owned statevector: Dict[Int, ComplexScalar[Self.type]],
+        normalize: Bool = False
+    ) raises:
+        '''Set the initial circuit state to the provided statevector.
+        
+        Args:
+            statevector: A dictionary of statevector index element pairs.
+            normalize: If True, the statevector will be automatically normalized. If False and the
+                statevector is unnormalized, an error will be raised.
+        '''
+        self._initial_state = Statevector[Self.type, Self.tol](
+            statevector=statevector^, normalize=normalize, n_elements=2 ** self.n_qubits
         )
 
     @no_inline

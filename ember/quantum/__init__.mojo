@@ -16,3 +16,4 @@ from .gate import (
     U,
 )
 from .quantumcircuit import QuantumCircuit
+from .statevector import Statevector
