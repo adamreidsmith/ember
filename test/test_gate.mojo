@@ -71,17 +71,17 @@ def test_measure():
 def test_control():
     gate = Gate[type]('test_gate', CMatrix[type].eye(8, 8), List[Int, True](0, 1, 2))
     with assert_raises(contains='on which it is applied'):
-        _ = gate.control(0, 3, 4)
-    _ = gate.control(3, 4, 5, 5)
+        gate.control(0, 3, 4)
+    gate.control(3, 4, 5, 5)
     assert_equal(gate.n_qubits, 6, 'control')
     assert_equal(len(gate.controls), 3, 'control')
     gate = Gate[type]('test_gate', CMatrix[type].eye(8, 8), List[Int, True](0, 1, 2))
-    _ = gate.control(List[Int, True](4, 5), List[Int, True](1, 3, 4, 3))
+    gate.control(List[Int, True](4, 5), List[Int, True](1, 3, 4, 3))
     assert_equal(gate.n_qubits, 5, 'control')
     assert_equal(len(gate.classical_controls), 3, 'control')
     gate = Gate[type]._measure(List[Int, True](1, 2, 3), List[Int, True](9, 5, 1))
     with assert_raises(contains='measurement'):
-        _ = gate.control(0)
+        gate.control(0)
 
 def test_other():
     g1 = Gate[type]('test_gate', CMatrix[type].eye(8, 8), List[Int, True](0, 1, 2))
@@ -95,10 +95,10 @@ def test_other():
     g2 = Gate[type]('test_gate', CMatrix[type].eye(4, 4), List[Int, True](0, 2))
     assert_equal(g1 == g2, False, '__eq__')
     g2 = Gate[type]('test_gate', CMatrix[type].eye(8, 8), List[Int, True](0, 1, 2))
-    _ = g2.control(3)
+    g2.control(3)
     assert_equal(g1 == g2, False, '__eq__')
     g2 = Gate[type]('test_gate', CMatrix[type].eye(8, 8), List[Int, True](0, 1, 2))
-    _ = g2.control(clbits=List[Int, True](3))
+    g2.control(clbits=List[Int, True](3))
     assert_equal(g1 == g2, False, '__eq__')
     g1 = Gate[type]('test_gate', CMatrix[type].eye(2, 2), List[Int, True](0))
     m = CMatrix[type].eye(2, 2)
