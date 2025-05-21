@@ -1,7 +1,7 @@
 from collections import Dict
 from math import sqrt
 
-from testing import assert_equal, assert_raises
+from testing import assert_equal, assert_raises, assert_almost_equal
 from ._testing import _assert_matrix_equal
 
 from ember import Gate, Measure, X, Y, T, CCX
@@ -108,7 +108,7 @@ def test_set_initial_state():
     with assert_raises(contains='Expected 1D'):
         qc.set_initial_state(statevector)
     statevector = CSRCMatrix[type](CMatrix[type].arange(1, 9))
-    with assert_raises(contains='Expected statevector with 2^'):
+    with assert_raises(contains='Statevector must have'):
         qc.set_initial_state(statevector)
     statevector = CSRCMatrix[type](CMatrix[type].arange(1, 8))
     with assert_raises(contains='not normalized'):
@@ -119,13 +119,13 @@ def test_set_initial_state():
         t += statevector[0, i].squared_norm()
     svn = statevector / sqrt(t)
     for i in range(svn.size):
-        assert_equal(svn[0, i].re, qc._initial_state[0, i].re, 'set_initial_state')
-        assert_equal(svn[0, i].im, qc._initial_state[0, i].im, 'set_initial_state')
+        assert_almost_equal(svn[0, i].re, qc._initial_state[i].re, 'set_initial_state', atol=1e-20, rtol=1e-20)
+        assert_almost_equal(svn[0, i].im, qc._initial_state[i].im, 'set_initial_state', atol=1e-20, rtol=1e-20)
     qc.set_initial_state(svn.to_list(), normalize=True)
     for i in range(svn.size):
-        assert_equal(svn[0, i].re, qc._initial_state[0, i].re, 'set_initial_state')
-        assert_equal(svn[0, i].im, qc._initial_state[0, i].im, 'set_initial_state')
+        assert_almost_equal(svn[0, i].re, qc._initial_state[i].re, 'set_initial_state', atol=1e-20, rtol=1e-20)
+        assert_almost_equal(svn[0, i].im, qc._initial_state[i].im, 'set_initial_state', atol=1e-20, rtol=1e-20)
     qc.set_initial_state(svn.to_dense(), normalize=True)
     for i in range(svn.size):
-        assert_equal(svn[0, i].re, qc._initial_state[0, i].re, 'set_initial_state')
-        assert_equal(svn[0, i].im, qc._initial_state[0, i].im, 'set_initial_state')
+        assert_almost_equal(svn[0, i].re, qc._initial_state[i].re, 'set_initial_state', atol=1e-20, rtol=1e-20)
+        assert_almost_equal(svn[0, i].im, qc._initial_state[i].im, 'set_initial_state', atol=1e-20, rtol=1e-20)
