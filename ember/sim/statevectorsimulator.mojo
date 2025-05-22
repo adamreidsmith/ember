@@ -11,6 +11,7 @@ Algorithms taken/adapted from [1].
 import random
 from algorithm import parallelize, vectorize
 from math import sqrt
+from collections import Dict
 
 from ..quantum import QuantumCircuit, Gate, Statevector
 from ..cplx import CMatrix, CSRCMatrix, CSRBuilder
@@ -181,15 +182,12 @@ struct StatevectorSimulator[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFA
         '''
         random.seed(seed)
 
-    fn run(mut self, qc: QuantumCircuit[Self.type, Self.tol], *, parallel: Bool = True) -> Self:
+    fn run(mut self, qc: QuantumCircuit[Self.type, Self.tol], *, parallel: Bool = True):
         '''Run the statevector simulator on the quantum circuit.
         
         Args:
             qc: The quantum circuit to simulate.
             parallel: Whether or not to parallelize statevector simulation.
-        
-        Returns:
-            Self.
         '''
         self._qc = qc
         self._cb = self._qc.clbits
@@ -224,8 +222,6 @@ struct StatevectorSimulator[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFA
                 else:
                     # Multi-qubit controlled gate
                     self._apply_multi_control_multi_qubit_gate(gate, parallel)
-        
-        return self
 
     fn _apply_one_qubit_gate(mut self, gate: Gate[Self.type, Self.tol], parallel: Bool):
         '''Apply a single qubit gate to the statevector.
@@ -339,7 +335,8 @@ struct StatevectorSimulator[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFA
                         self._sv._set(i, self._sv._get(i) + gate.matrix.load_crd[1](j, l) * v[l])
             parallelize[op_sv_elem](2 ** (self._qc.n_qubits - n))
         else:
-            var v = List[ComplexScalar[Self.type], True](length=2 ** n, fill=0)
+            # var v = List[ComplexScalar[Self.type], True](length=2 ** n, fill=0)
+            var v = Dict[Int, ComplexScalar[Self.type]]()
             for k in range(2 ** (self._qc.n_qubits - n)):
                 var z: UInt = insert_bits(UInt(k), q, 0)
 
@@ -352,7 +349,8 @@ struct StatevectorSimulator[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFA
                     self._sv._set(i, 0)
 
                     for l in range(2 ** n):
-                        self._sv._set(i, self._sv._get(i) + gate.matrix.load_crd[1](j, l) * v[l])
+                        # self._sv._set(i, self._sv._get(i) + gate.matrix.load_crd[1](j, l) * v[l])
+                        self._sv._set(i, self._sv._get(i) + gate.matrix.load_crd[1](j, l) * v.get(l, 0))
     
     fn _apply_multi_control_multi_qubit_gate(
         mut self, 
@@ -411,7 +409,8 @@ struct StatevectorSimulator[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFA
                         )
             parallelize[op_sv_elem](2 ** (self._qc.n_qubits - n))
         else:
-            var v = List[ComplexScalar[Self.type], True](length=N, fill=0)
+            # var v = List[ComplexScalar[Self.type], True](length=N, fill=0)
+            var v = Dict[Int, ComplexScalar[Self.type]]()
             for k in range(2 ** (self._qc.n_qubits - n)):
                 var z: UInt = insert_bits(UInt(k), q, 0)
 
@@ -427,7 +426,8 @@ struct StatevectorSimulator[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFA
                             i, 
                             self._sv._get(i) 
                             + gate.matrix.load_crd[1](j - rc_start, l - rc_start) 
-                            * v[l],
+                            # * v[l],
+                            * v.get(l, 0),
                         )
     
     fn _measure(mut self, gate: Gate[Self.type, Self.tol]):
@@ -504,5 +504,6 @@ struct StatevectorSimulator[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFA
         # Normalize probabilities to ensure they sum to one
         var statevector: Statevector[Self.type, Self.tol] = self._sv
         statevector.normalize()
+        statevector._clean()
         return statevector
             

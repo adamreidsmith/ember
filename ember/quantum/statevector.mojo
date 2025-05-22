@@ -2,17 +2,21 @@ from collections import Dict
 from math import sqrt
 
 from ..cplx import ComplexScalar, CSRCMatrix, CMatrix
-from ..config import DEFAULT_TYPE, DEFAULT_TOL
+from ..config import DEFAULT_TYPE, DEFAULT_TOL, DEFAULT_ZERO_THRESHOD
+
 
 @value
-struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
-    Copyable, Movable, Representable, Stringable, Writable, Sized, Defaultable
-):
+struct Statevector[
+    type: DType = DEFAULT_TYPE,
+    tol: Scalar[type] = DEFAULT_TOL,
+    zero_threshold: Scalar[type] = DEFAULT_ZERO_THRESHOD,
+](Copyable, Movable, Representable, Stringable, Writable, Sized, Defaultable):
     '''A statevector.
 
     Parameters:
         type: A type for the circuit data.
         tol: A tolerance for normalization checks.
+        zero_threshold: The value below which elements are considered zero.
     '''
 
     var _n_elems: Int
@@ -52,23 +56,29 @@ struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
                 )
             sum_sqr += elem.squared_norm()
         
+        self._n_elems = n_elements
+
         # Initialize the statevector, normalizing (or raising) if necessary
+        self._elems = Dict[Int, ComplexScalar[Self.type]]()
         if abs(sum_sqr - 1) >= Self.tol:
             if normalize:
-                self._elems = Dict[Int, ComplexScalar[Self.type]]()
                 var norm_factor: ComplexScalar[Self.type] = sqrt(sum_sqr)
                 for idx_elem in statevector.items():
-                    self._elems[idx_elem[].key] = idx_elem[].value / norm_factor
+                    var element: ComplexScalar[Self.type] = idx_elem[].value / norm_factor
+                    if element.norm() >= Self.zero_threshold:
+                        self._elems[idx_elem[].key] = element
             else:
                 raise Error('Statevector is not normalized.')
         else:
+            for idx_elem in statevector.items():
+                var element: ComplexScalar[Self.type] = idx_elem[].value
+                if element.norm() >= Self.zero_threshold:
+                    self._elems[idx_elem[].key] = element
             self._elems = statevector^
-        
-        self._n_elems = n_elements
     
-    fn __init__(
+    fn __init__[zero_threshold: Scalar[Self.type]](
         out self, 
-        owned statevector: CSRCMatrix[Self.type],  
+        owned statevector: CSRCMatrix[Self.type, zero_threshold],  
         normalize: Bool = False,
         enforce_n_elements: Int = -1,
     ) raises:
@@ -113,7 +123,9 @@ struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
         # Initialize the statevector
         self._elems = Dict[Int, ComplexScalar[Self.type]]()
         for i in range(statevector.cols):
-            self._elems[statevector.col_idx[i]] = statevector.v[i]
+            var element: ComplexScalar[Self.type] = statevector.v[i]
+            if element.norm() >= Self.zero_threshold:
+                self._elems[statevector.col_idx[i]] = element
     
     fn __init__(
         out self, 
@@ -162,7 +174,9 @@ struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
         # Initialize the statevector
         self._elems = Dict[Int, ComplexScalar[Self.type]]()
         for idx in range(statevector.cols):
-            self._elems[idx] = statevector.load_idx[1](idx)
+            var element: ComplexScalar[Self.type] = statevector.load_idx[1](idx)
+            if element.norm() >= Self.zero_threshold:
+                self._elems[idx] = element
             
     fn __init__(
         out self, 
@@ -204,9 +218,9 @@ struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
             for i in range(len(statevector)):
                 self._elems[i] = statevector[i]
     
-    fn __init__(
+    fn __init__[tol: Scalar[Self.type], zero_threshold: Scalar[Self.type]](
         out self, 
-        owned statevector: Self, 
+        owned statevector: Statevector[Self.type, tol, zero_threshold], 
         normalize: Bool = False,
         enforce_n_elements: Int = -1,
     ) raises:
@@ -234,9 +248,13 @@ struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
             else:
                 raise Error('Statevector is not normalized.')
         
-        self = statevector^
+        self._n_elems = statevector._n_elems
+        self._elems = Dict[Int, ComplexScalar[Self.type]]()
+        for idx_elem in statevector._elems.items():
+            var element: ComplexScalar[Self.type] = idx_elem[].value
+            if element.norm() >= Self.zero_threshold:
+                self._elems[idx_elem[].key] = element
         
-    
     @staticmethod
     @always_inline
     fn zero(n_qubits: Int) -> Self:
@@ -280,7 +298,7 @@ struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
         return self._elems.get(idx, 0)
     
     @always_inline
-    fn __setitem__(mut self, idx: Int, val: ComplexScalar[Self.type]) raises:
+    fn __setitem__(mut self, owned idx: Int, val: ComplexScalar[Self.type]) raises:
         '''Set the statevector element at index idx to val.
         
         Args:
@@ -290,9 +308,12 @@ struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
         if idx < -self._n_elems or idx >= self._n_elems:
             raise Error('Invalid statevector index: ' + String(idx) + '.')
         if idx < 0:
-            self._elems[self._n_elems + idx] = val
-        else:
+            idx = self._n_elems + idx
+        if val.norm() >= Self.zero_threshold:
             self._elems[idx] = val
+        else:
+            if idx in self._elems:
+                _ = self._elems.pop(idx)
 
     @always_inline
     fn _set(mut self, idx: Int, val: ComplexScalar[Self.type]):
@@ -393,3 +414,16 @@ struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
             var norm_factor: ComplexScalar[Self.type] = sqrt(sum_sqr)
             for idx_elem in self._elems.items():
                 self._elems[idx_elem[].key] = idx_elem[].value / norm_factor
+    
+    fn _clean(mut self):
+        '''Remove elements from the statevector which have norm less than the zero threshold.'''
+        var to_remove = List[Int, True]()
+        for idx_elem in self._elems.items():
+            if idx_elem[].value.norm() < Self.zero_threshold:
+                to_remove.append(idx_elem[].key)
+        for idx in to_remove:
+            try:
+                # This won't error since idx is definitely a key of self._elems
+                _ = self._elems.pop(idx[])
+            except:
+                pass

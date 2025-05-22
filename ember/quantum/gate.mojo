@@ -538,8 +538,8 @@ fn CX[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     Returns:
         A controlled X gate.
     '''
-    var cx = Gate[type, tol]('CX', x[type](), List[Int, True](target))
-    cx.control(qubits=List[Int, True](control))
+    var cx = Gate[type, tol]('X', x[type](), List[Int, True](target))
+    cx.control(control)
     return cx
 
 
@@ -560,8 +560,8 @@ fn CCX[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     Returns:
         A controlled controlled X (Toffoli) gate.
     '''
-    var ccx = Gate[type, tol]('CCX', x[type](), List[Int, True](target))
-    ccx.control(qubits=List[Int, True](control1, control2))
+    var ccx = Gate[type, tol]('X', x[type](), List[Int, True](target))
+    ccx.control(control1, control2)
     return ccx
 
 
