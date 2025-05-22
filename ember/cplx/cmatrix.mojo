@@ -4,11 +4,11 @@ from algorithm import parallelize, vectorize
 from sys import simdwidthof
 
 from .complexsimd import ComplexScalar, ComplexSIMD
-from ..config import DEFAULT_TOL
+from ..config import DEFAULT_TYPE, DEFAULT_TOL
 
 
 @value
-struct CMatrix[type: DType](
+struct CMatrix[type: DType = DEFAULT_TYPE](
     Absable,
     Sized,
     Representable,
@@ -151,7 +151,7 @@ struct CMatrix[type: DType](
         @parameter
         fn cpy_data[simd_width: Int](idx: Int):
             self.store_idx[simd_width](idx, existing.load_idx[simd_width](idx))
-        vectorize[cpy_data, simdwidthof[type]()](self.size)
+        vectorize[cpy_data, simdwidthof[Self.type]()](self.size)
 
     fn __moveinit__(out self, owned existing: Self):
         '''Initialize a matrix by moving data from another matrix.
@@ -1534,7 +1534,7 @@ struct CMatrix[type: DType](
                     A.store_crd[1](h, c, A.load_crd[1](i_argmax, c))
                     A.store_crd[1](i_argmax, c, p)
                 for i in range(h + 1, self.rows):
-                    var f: ComplexScalar[type] = A.load_crd[1](i, k) / A.load_crd[1](h, k)
+                    var f: ComplexScalar[Self.type] = A.load_crd[1](i, k) / A.load_crd[1](h, k)
                     A.store_crd[1](i, k, 0)
                     for j in range(k + 1, self.cols):
                         A.store_crd[1](i, j, A.load_crd[1](i, j) - A.load_crd[1](h, j) * f)
@@ -1865,7 +1865,7 @@ struct CMatrix[type: DType](
         '''Fill the matrix with values from range(self.size) in row-major order, in-place.'''
         memset_zero(self.im.address, self.size)
         for idx in range(self.size):
-            self.re.store(idx, SIMD[type, 1](idx))
+            self.re.store(idx, SIMD[Self.type, 1](idx))
 
     fn fill_range(self, start: Int):
         '''Fill the matrix with values from range(start, start + self.size) in row-major order, 
@@ -1876,7 +1876,7 @@ struct CMatrix[type: DType](
         '''
         memset_zero(self.im.address, self.size)
         for idx in range(self.size):
-            self.re.store(idx, SIMD[type, 1](idx + start))
+            self.re.store(idx, SIMD[Self.type, 1](idx + start))
 
     fn fill_range(self, start: Int, step: Int):
         '''Fill the matrix with values from range(start, start + self.size * step, step)
@@ -1888,7 +1888,7 @@ struct CMatrix[type: DType](
         '''
         memset_zero(self.im.address, self.size)
         for idx in range(self.size):
-            self.re.store(idx, SIMD[type, 1](step * idx + start))
+            self.re.store(idx, SIMD[Self.type, 1](step * idx + start))
 
     @always_inline
     fn range_like(self) -> Self:

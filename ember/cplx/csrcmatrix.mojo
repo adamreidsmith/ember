@@ -4,11 +4,11 @@ from collections import Dict
 
 from .complexsimd import ComplexScalar
 from .cmatrix import CMatrix
-from ..config import DEFAULT_TOL, DEFAULT_ZERO_THRESHOD
+from ..config import DEFAULT_TYPE, DEFAULT_TOL, DEFAULT_ZERO_THRESHOD
 
 
 @value
-struct CSRBuilder[type: DType, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRESHOD]:
+struct CSRBuilder[type: DType = DEFAULT_TYPE, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRESHOD]:
     '''A helper struct for constructing sparse matrices.
     
     Parameters:
@@ -83,7 +83,7 @@ struct CSRBuilder[type: DType, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRES
 
 
 @value
-struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRESHOD](
+struct CSRCMatrix[type: DType = DEFAULT_TYPE, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRESHOD](
     Absable,
     Sized, 
     Representable,
@@ -1482,7 +1482,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRES
             The elementwise quotient of self with other as a dense matrix.
         '''
         self._assert_same_shape(other)
-        alias _csnan = ComplexScalar[type](nan[Self.type](), nan[Self.type]())
+        alias _csnan = ComplexScalar[Self.type](nan[Self.type](), nan[Self.type]())
         var result = CMatrix[Self.type](self.rows, self.cols, fill_zeros=True)
         for row in range(self.rows):
             var row_ptr: Int = self.row_idx[row]
@@ -1506,7 +1506,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRES
     #         The elementwise quotient of self with other as a dense matrix.
     #     '''
     #     self._assert_same_shape(other)
-    #     alias _csnan = ComplexScalar[type](nan[Self.type](), nan[Self.type]())
+    #     alias _csnan = ComplexScalar[Self.type](nan[Self.type](), nan[Self.type]())
     #     var result = CMatrix[Self.type](self.rows, self.cols, fill_zeros=True)
     #     @parameter
     #     fn div_row(row: Int):
@@ -1588,7 +1588,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRES
             The elementwise floor division of self with other as a dense matrix.
         '''
         self._assert_same_shape(other)
-        alias _csnan = ComplexScalar[type](nan[Self.type](), nan[Self.type]())
+        alias _csnan = ComplexScalar[Self.type](nan[Self.type](), nan[Self.type]())
         var result = CMatrix[Self.type](self.rows, self.cols, fill_zeros=True)
         for row in range(self.rows):
             var row_ptr: Int = self.row_idx[row]
@@ -1612,7 +1612,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRES
     #         The elementwise floor division of self with other as a dense matrix.
     #     '''
     #     self._assert_same_shape(other)
-    #     alias _csnan = ComplexScalar[type](nan[Self.type](), nan[Self.type]())
+    #     alias _csnan = ComplexScalar[Self.type](nan[Self.type](), nan[Self.type]())
     #     var result = CMatrix[Self.type](self.rows, self.cols, fill_zeros=True)
     #     @parameter
     #     fn div_row(row: Int):
@@ -1694,7 +1694,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRES
             The elementwise modulo of self with other as a dense matrix.
         '''
         self._assert_same_shape(other)
-        alias _csnan = ComplexScalar[type](nan[Self.type](), nan[Self.type]())
+        alias _csnan = ComplexScalar[Self.type](nan[Self.type](), nan[Self.type]())
         var result = CMatrix[Self.type](self.rows, self.cols, fill_zeros=True)
         for row in range(self.rows):
             var row_ptr: Int = self.row_idx[row]
@@ -1718,7 +1718,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRES
     #         The elementwise modulo of self with other as a dense matrix.
     #     '''
     #     self._assert_same_shape(other)
-    #     alias _csnan = ComplexScalar[type](nan[Self.type](), nan[Self.type]())
+    #     alias _csnan = ComplexScalar[Self.type](nan[Self.type](), nan[Self.type]())
     #     var result = CMatrix[Self.type](self.rows, self.cols, fill_zeros=True)
     #     @parameter
     #     fn div_row(row: Int):
@@ -1820,7 +1820,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRES
         Returns:
             The matrix product of self with other as a dense column vector.
         '''
-        var result = CMatrix[type](self.rows, 1, fill_zeros=True)
+        var result = CMatrix[Self.type](self.rows, 1, fill_zeros=True)
         @parameter
         fn dot(row: Int):
             for i in range(self.row_idx[row], self.row_idx[row + 1]):
@@ -1839,7 +1839,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRES
         Returns:
             The matrix product of self with other as a dense matrix.
         '''
-        var result = CMatrix[type](self.rows, mat.cols, fill_zeros=True)
+        var result = CMatrix[Self.type](self.rows, mat.cols, fill_zeros=True)
         @parameter
         fn dot(row: Int):
             for col in range(mat.cols):
@@ -2132,7 +2132,7 @@ struct CSRCMatrix[type: DType, zero_threshold: Scalar[type] = DEFAULT_ZERO_THRES
         Returns:
             The Frobenius norm of self.
         '''
-        var norm_sqr_sum: Scalar[type] = 0
+        var norm_sqr_sum: Scalar[Self.type] = 0
         for v in self.v:
             norm_sqr_sum += v[].squared_norm()
         return sqrt(norm_sqr_sum)
