@@ -1506,6 +1506,18 @@ struct CMatrix[type: DType = DEFAULT_TYPE](
                 total += col_sums.load_idx[1](c)
             return total
 
+    fn trace(self) -> ComplexScalar[Self.type]:
+        '''Compute the trace of a matrix. This sums the elements along the main diagonal,
+        regardless of the shape of the matrix.
+
+        Returns:
+            The trace of the matrix.
+        '''
+        var trace = ComplexScalar[Self.type].zero()
+        for i in range(min(self.rows, self.cols)):
+            trace += self.load_crd[1](i, i)
+        return trace
+
     fn echelon[tol: Scalar[Self.type] = DEFAULT_TOL](self) -> Self:
         '''Compute the row echelon form of a matrix.
         

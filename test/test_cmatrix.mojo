@@ -300,6 +300,8 @@ def test_other():
         List[ComplexScalar[type], True](ComplexScalar[type](0, 2), ComplexScalar[type](-2, 3)),
         List[ComplexScalar[type], True](ComplexScalar[type](0, 0), ComplexScalar[type](0.5, 2.5)),
     ))
+    assert_equal(m1.trace().re, 3, 'trace')
+    assert_equal(m1.trace().im, 4, 'trace')
     _assert_matrix_equal(m1.echelon(), m1echelon, 'echelon')
     _assert_almost_equal(m1.det().re, -5, 'det')
     _assert_almost_equal(m1.det().im, 1, 'det')
