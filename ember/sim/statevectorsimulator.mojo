@@ -117,7 +117,11 @@ fn set_bits(owned n: UInt, t: List[UInt, True], v: UInt) -> UInt:
 ###################################################################################################
 
 @value
-struct StatevectorSimulator[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL]:
+struct StatevectorSimulator[
+    type: DType = DEFAULT_TYPE,
+    tol: Scalar[type] = DEFAULT_TOL
+
+]:
     '''A quantum circuit statevector simulator.
     
     Parameters:
@@ -495,7 +499,7 @@ struct StatevectorSimulator[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFA
 
         self._sv = new_statevector^
 
-    fn get_statevector(self) -> Statevector[Self.type, Self.tol]:
+    fn get_statevector[zero_threshold: Scalar[Self.type] = 0](self) -> Statevector[Self.type, Self.tol]:
         '''Get the statevector as a CMatrix.
         
         Returns:
@@ -504,6 +508,8 @@ struct StatevectorSimulator[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFA
         # Normalize probabilities to ensure they sum to one
         var statevector: Statevector[Self.type, Self.tol] = self._sv
         statevector.normalize()
-        statevector._clean()
+        @parameter
+        if zero_threshold > 0:
+            statevector._clean[zero_threshold]()
         return statevector
             
