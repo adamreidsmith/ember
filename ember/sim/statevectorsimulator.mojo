@@ -472,7 +472,7 @@ struct StatevectorSimulator[
             if r <= cumulative_prob:
                 selected_outcome = i
                 break
-        
+
         var norm_factor: Scalar[Self.type] = sqrt(probabilities[selected_outcome])
         var new_statevector = Statevector[Self.type, Self.tol].zero(n)
 
@@ -485,7 +485,7 @@ struct StatevectorSimulator[
                 if bit != expected_bit:
                     consistent = False
                     break
-            
+
             # Update statevector
             if consistent:
                 new_statevector._set(i, self._sv._get(i) / norm_factor)
@@ -500,8 +500,8 @@ struct StatevectorSimulator[
         self._sv = new_statevector^
 
     fn get_statevector[zero_threshold: Scalar[Self.type] = 0](self) -> Statevector[Self.type, Self.tol]:
-        '''Get the statevector as a CMatrix.
-        
+        '''Get the statevector.
+
         Returns:
             The statevector.
         '''
@@ -512,4 +512,11 @@ struct StatevectorSimulator[
         if zero_threshold > 0:
             statevector._clean[zero_threshold]()
         return statevector
-            
+
+    fn get_clbits(self) -> List[Int, True]:
+        '''Get the classical bit values.
+
+        Returns:
+            A list of classical bit values.
+        '''
+        return self._cb

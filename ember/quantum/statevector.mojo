@@ -7,7 +7,6 @@ from ..cplx import ComplexScalar, CSRCMatrix, CMatrix
 from ..config import DEFAULT_TYPE, DEFAULT_TOL, DEFAULT_ZERO_THRESHOD
 
 
-# @value
 struct Statevector[
     type: DType = DEFAULT_TYPE,
     tol: Scalar[type] = DEFAULT_TOL,
@@ -31,7 +30,7 @@ struct Statevector[
     # We cannot just store the lock itself because the BlockingScopedLock constructor requires a
     # mutable reference to the lock, which means methods in which we use
     # `with BlockingScopedLock(self._lock):` must have a mutable reference to self, but this is not
-    # always possible, for instance __getitem__ requires self to be borrowes.
+    # always possible, for instance __getitem__ requires self to be borrowed.
     var _lock: BlockingSpinLock
     '''Lock for thread-safe access to the statevector elements.'''
     var _lock_pointer: UnsafePointer[BlockingSpinLock]
@@ -47,7 +46,7 @@ struct Statevector[
 
     fn __init__(
         out self, 
-        owned statevector: Dict[Int, ComplexScalar[Self.type]], 
+        owned statevector: Dict[Int, ComplexScalar[Self.type]],
         n_elements: Int, 
         normalize: Bool = False,
     ) raises:
@@ -69,11 +68,11 @@ struct Statevector[
             var elem: ComplexScalar[Self.type] = idx_elem[].value
             if idx < 0 or idx >= n_elements:
                 raise Error(
-                    'Invalid statevector index for statevector with ' + String(n_elements) 
+                    'Invalid statevector index for statevector with ' + String(n_elements)
                     + ' elements: ' + String(idx) + '.'
                 )
             sum_sqr += elem.squared_norm()
-        
+
         self._size = n_elements
 
         # Initialize the statevector, normalizing (or raising) if necessary
@@ -96,7 +95,7 @@ struct Statevector[
     
     fn __init__[zero_threshold: Scalar[Self.type]](
         out self, 
-        owned statevector: CSRCMatrix[Self.type, zero_threshold],  
+        owned statevector: CSRCMatrix[Self.type, zero_threshold],
         normalize: Bool = False,
         enforce_n_elements: Int = -1,
     ) raises:
@@ -115,14 +114,14 @@ struct Statevector[
         # Check that the statevector is one dimensional
         if statevector.rows != 1 and statevector.cols != 1:
             raise Error(
-                'Expected 1D statevector. Received shape (' + String(statevector.rows) 
+                'Expected 1D statevector. Received shape (' + String(statevector.rows)
                 + ', ' + String(statevector.cols) + ').'
             )
-        
+
         # Enforce the right number of elements were provided
         if enforce_n_elements >= 0 and statevector.size != enforce_n_elements:
             raise Error(
-                'Statevector must have ' + String(enforce_n_elements) + ' elements, but ' 
+                'Statevector must have ' + String(enforce_n_elements) + ' elements, but '
                 + String(statevector.size) + ' elements were provided.'
             )
         self._size = statevector.size
@@ -140,15 +139,15 @@ struct Statevector[
                 statevector /= sqrt(sum_sqr)
             else:
                 raise Error('Statevector is not normalized.')
-        
+
         # Initialize the statevector
         self._elems = Dict[Int, ComplexScalar[Self.type]]()
         for i in range(statevector.cols):
             self._elems[statevector.col_idx[i]] = statevector.v[i]
-    
+
     fn __init__(
         out self, 
-        owned statevector: CMatrix[Self.type], 
+        owned statevector: CMatrix[Self.type],
         normalize: Bool = False, 
         enforce_n_elements: Int = -1,
     ) raises:
@@ -167,14 +166,14 @@ struct Statevector[
         # Check that the statevector is one dimensional
         if statevector.rows != 1 and statevector.cols != 1:
             raise Error(
-                'Expected 1D statevector. Received shape (' + String(statevector.rows) 
+                'Expected 1D statevector. Received shape (' + String(statevector.rows)
                 + ', ' + String(statevector.cols) + ').'
             )
-        
+
         # Enforce the right number of elements were provided
         if enforce_n_elements >= 0 and statevector.size != enforce_n_elements:
             raise Error(
-                'Statevector must have ' + String(enforce_n_elements) + ' elements, but ' 
+                'Statevector must have ' + String(enforce_n_elements) + ' elements, but '
                 + String(statevector.size) + ' elements were provided.'
             )
         self._size = statevector.size
@@ -192,17 +191,17 @@ struct Statevector[
                 statevector /= sqrt(sum_sqr)
             else:
                 raise Error('Statevector is not normalized.')
-        
+
         # Initialize the statevector
         self._elems = Dict[Int, ComplexScalar[Self.type]]()
         for idx in range(statevector.cols):
             var element: ComplexScalar[Self.type] = statevector.load_idx[1](idx)
             if element != 0:
                 self._elems[idx] = element
-            
+
     fn __init__(
         out self, 
-        owned statevector: List[ComplexScalar[Self.type], True], 
+        owned statevector: List[ComplexScalar[Self.type], True],
         normalize: Bool = False,
         enforce_n_elements: Int = -1,
     ) raises:
@@ -221,7 +220,7 @@ struct Statevector[
         # Enforce the right number of elements were provided
         if enforce_n_elements >= 0 and len(statevector) != enforce_n_elements:
             raise Error(
-                'Statevector must have ' + String(enforce_n_elements) + ' elements, but ' 
+                'Statevector must have ' + String(enforce_n_elements) + ' elements, but '
                 + String(len(statevector)) + ' elements were provided.'
             )
         self._size = len(statevector)
@@ -242,10 +241,10 @@ struct Statevector[
             self._elems = Dict[Int, ComplexScalar[Self.type]]()
             for i in range(len(statevector)):
                 self._elems[i] = statevector[i]
-    
+
     fn __init__[tol: Scalar[Self.type]](
         out self, 
-        owned statevector: Statevector[Self.type, tol], 
+        owned statevector: Statevector[Self.type, tol],
         normalize: Bool = False,
         enforce_n_elements: Int = -1,
     ) raises:
@@ -263,7 +262,7 @@ struct Statevector[
 
         if enforce_n_elements >= 0 and len(statevector) != enforce_n_elements:
             raise Error(
-                'Statevector must have ' + String(enforce_n_elements) + ' elements, but ' 
+                'Statevector must have ' + String(enforce_n_elements) + ' elements, but '
                 + String(len(statevector)) + ' elements were provided.'
             )
 
@@ -286,17 +285,27 @@ struct Statevector[
             self._elems = statevector._elems
 
     fn __copyinit__(out self, existing: Self):
+        '''Initialize a statevector by copying another.
+
+        Args:
+            existing: The statevector to copy.
+        '''
         self._size= existing._size
         self._elems = existing._elems
         self._lock = BlockingSpinLock()
         self._lock_pointer = UnsafePointer(to=self._lock)
-    
+
     fn __moveinit__(out self, owned existing: Self):
+        '''Initialize a statevector by moving another into self.
+
+        Args:
+            existing: The statevector to move into self.
+        '''
         self._size = existing._size
         self._elems = existing._elems
         self._lock = BlockingSpinLock()
         self._lock_pointer = UnsafePointer(to=self._lock)
-        
+
     @staticmethod
     @always_inline
     fn zero(n_qubits: Int) -> Self:
@@ -312,14 +321,14 @@ struct Statevector[
         statevector._size = 2 ** max(n_qubits, 0)
         statevector._elems = elems^
         return statevector^
-        
+
     @always_inline
     fn __getitem__(self, idx: Int) raises -> ComplexScalar[Self.type]:
         '''Get the statevector element at index idx.
-        
+
         Args:
             idx: The index of the element to get.
-        
+
         Returns:
             The element at index idx.
         '''
@@ -334,37 +343,37 @@ struct Statevector[
     fn _get(self, idx: Int) -> ComplexScalar[Self.type]:
         '''Get the statevector element at index idx without checking index validity. This does not
         support negative indices.
-        
+
         Args:
             idx: The index of the element to get.
-        
+
         Returns:
             The element at index idx.
         '''
         var elem: ComplexScalar[Self.type]
         with BlockingScopedLock(self._lock_pointer):
             return self._elems.get(idx, 0)
-    
+
     @always_inline
     fn __setitem__(mut self, idx: Int, val: ComplexScalar[Self.type]) raises:
         '''Set the statevector element at index idx to val.
-        
+
         Args:
             idx: The index of the element to set.
             val: The value to set.
         '''
         if idx < -self._size or idx >= self._size:
             raise Error('Invalid statevector index: ' + String(idx) + '.')
-        
+
         var true_idx: Int = self._size + idx if idx < 0 else idx
-        
+
         self._set(true_idx, val)
 
     @always_inline
     fn _set(mut self, idx: Int, val: ComplexScalar[Self.type]):
         '''Set the statevector element at index idx to val without checking index validity. This
         does not support negative indices.
-        
+
         Args:
             idx: The index of the element to set.
             val: The value to set.
@@ -379,12 +388,12 @@ struct Statevector[
     @no_inline
     fn __str__(self) -> String:
         '''Return a description of the statevector as a string.
-        
+
         Returns:
             A string representation of the statevector.
         '''
         return self._get_str_rep(max_lines=8, max_digits=8)
-    
+
     @no_inline
     fn _get_str_rep(self, max_lines: Int, max_digits: Int) -> String:
         '''Return a description of the statevector as a string.
@@ -392,7 +401,7 @@ struct Statevector[
         Args:
             max_lines: The maximum number of statevector elements to show.
             max_digits: The maximum number of digits to show in each float.
-        
+
         Returns:
             A string representation of the statevector.
         '''
@@ -427,11 +436,11 @@ struct Statevector[
             str_rep += ' ' + elem._str1(elem, max_digits=max_digits) + '\n'
         str_rep = str_rep[:-1] + ']'
         return str_rep
-    
+
     @no_inline
     fn __repr__(self) -> String:
         '''Return a string representation of the statevector.
-        
+
         Returns:
             A string representation of the statevector.
         '''
@@ -454,10 +463,10 @@ struct Statevector[
             The number of statevector elements.
         '''
         return self._size
-    
+
     fn normalize(mut self, owned sum_sqr: Scalar[Self.type] = -1):
         '''Normalize the statevector in-place.
-        
+
         Args:
             sum_sqr: The sum of absolute squares of the statevector elements. If negative, it will
                 be computed from the statevector elements.
@@ -471,10 +480,10 @@ struct Statevector[
                 var norm_factor: ComplexScalar[Self.type] = sqrt(sum_sqr)
                 for idx_elem in self._elems.items():
                     self._elems[idx_elem[].key] = idx_elem[].value / norm_factor
-    
+
     fn _clean[zero_threshold: Scalar[Self.type] = DEFAULT_ZERO_THRESHOD](mut self):
         '''Zero elements in the statevector which have norm less than the zero threshold.
-        
+
         Parameters:
             zero_threshold: The threshold below which elements are set to zero.
         '''

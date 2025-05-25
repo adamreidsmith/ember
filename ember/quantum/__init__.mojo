@@ -17,3 +17,4 @@ from .gate import (
 )
 from .quantumcircuit import QuantumCircuit
 from .statevector import Statevector
+from .densitymatrix import DensityMatrix
