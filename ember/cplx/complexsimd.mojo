@@ -402,7 +402,7 @@ struct ComplexSIMD[type: DType, size: Int](
         return Self(self.re + other.re, self.im + other.im)
     
     @always_inline
-    fn __add__(self, other: Self.Coef) -> Self:
+    fn __add__[_: None = None](self, other: Self.Coef) -> Self:
         '''Defines the `+` plus operator.
         
         Args:

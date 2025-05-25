@@ -161,13 +161,14 @@ struct CMatrix[type: DType = DEFAULT_TYPE](
 
     fn __del__(owned self):
         '''Delete the matrix and free memory.'''
-
-        # This loop may not be necessary since scalar types are trivial
-        for idx in range(self.size):
-            (self.re + idx).destroy_pointee()
-            (self.im + idx).destroy_pointee()
-        self.re.free()
-        self.im.free()
+        # # This loop may not be necessary since scalar types are trivial
+        # for idx in range(self.size):
+        #     (self.re + idx).destroy_pointee()
+        #     (self.im + idx).destroy_pointee()
+        if self.re:
+            self.re.free()
+        if self.im:
+            self.im.free()
     
     @always_inline
     fn _should_parallelize(self) -> Bool:
@@ -648,7 +649,187 @@ struct CMatrix[type: DType = DEFAULT_TYPE](
         '''
         (self.re + idx).strided_store[width=width](val.re, stride)
         (self.im + idx).strided_store[width=width](val.im, stride)
+    
+    fn get_column(
+        self, col: Int, row_start: Int = 0, row_end: Int = -1
+    ) raises -> CMatrix[Self.type]:
+        '''Get the specified column between the specified row indices.
 
+        Args:
+            col: The index of the column to return.
+            row_start: The row start index. Default is 0.
+            row_end: The row end index. If negative, it is taken to be self.rows. Default is -1.
+        
+        Returns:
+            The specified column values.
+        '''
+        if row_start < 0 or row_start >= self.rows:
+            raise Error('Invalid row start index: ' + String(row_start))
+        if row_end > self.rows:
+            raise Error('Invalid row end index: ' + String(row_end))
+        if col < 0 or col >= self.cols:
+            raise Error('Invalid column index: ' + String(col))
+        if row_end >= 0 and row_start >= row_end:
+            return CMatrix[type](rows=0, cols=0)
+        return self._get_column(col, row_start, row_end)
+    
+    fn _get_column(
+        self, col: Int, owned row_start: Int = 0, owned row_end: Int = -1
+    ) -> CMatrix[Self.type]:
+        '''Get the specified column between the specified row indices without checking index
+        validity.
+
+        Args:
+            col: The index of the column to return.
+            row_start: The row start index. Default is 0.
+            row_end: The row end index. If negative, it is taken to be self.rows. Default is -1.
+        
+        Returns:
+            The specified column values.
+        '''
+        if row_end < 0:
+            row_end = self.rows
+        
+        var result = CMatrix[type](rows=row_end - row_start, cols=1, fill_zeros=False)
+        for i in range(result.rows):
+            result.store_idx[1](i, self.load_crd[1](row_start + i, col))
+        return result
+    
+    fn get_row(
+        self, row: Int, col_start: Int = 0, col_end: Int = -1
+    ) raises -> CMatrix[Self.type]:
+        '''Get the specified row between the specified column indices.
+
+        Args:
+            row: The index of the row to return.
+            col_start: The column start index. Default is 0.
+            col_end: The column end index. If negative, it is taken to be self.cols. Default is -1.
+        
+        Returns:
+            The specified row values.
+        '''
+        if col_start < 0 or col_start >= self.cols:
+            raise Error('Invalid column start index: ' + String(col_start))
+        if col_end > self.cols:
+            raise Error('Invalid column end index: ' + String(col_end))
+        if row < 0 or row >= self.rows:
+            raise Error('Invalid row index: ' + String(row))
+        if col_end >= 0 and col_start >= col_end:
+            return CMatrix[type](rows=0, cols=0)
+        return self._get_row(row, col_start, col_end)
+    
+    fn _get_row(
+        self, row: Int, owned col_start: Int = 0, owned col_end: Int = -1
+    ) -> CMatrix[Self.type]:
+        '''Get the specified column between the specified row indices without checking index
+        validity.
+
+        Args:
+            row: The index of the row to return.
+            col_start: The column start index. Default is 0.
+            col_end: The column end index. If negative, it is taken to be self.cols. Default is -1.
+
+        Returns:
+            The specified row values.
+        '''
+        if col_end < 0:
+            col_end = self.cols
+        
+        var result = CMatrix[type](rows=1, cols=col_end - col_start, fill_zeros=False)
+        for i in range(result.cols):
+            result.store_idx[1](i, self.load_crd[1](row, col_start + i))
+        return result
+    
+    fn get_block(
+        self, row_start: Int = 0, row_end: Int = -1, col_start: Int = 0, col_end: Int = -1
+    ) raises -> CMatrix[Self.type]:
+        '''Get the specified block of the matrix.
+
+        Args:
+            row_start: The row start index. Default is 0.
+            row_end: The row end index. If negative, it is taken to be self.rows, Default is -1.
+            col_start: The column start index. Default is 0.
+            col_end: The column end index. If negative, it is taken to be self.cols, Default is -1.
+        
+        Returns:
+            The block with rows between row_start and row_end and columns between col_start 
+            and col_end.
+        '''
+        if row_start < 0 or row_start >= self.rows:
+            raise Error('Invalid row start index: ' + String(row_start))
+        if col_start < 0 or col_start >= self.cols:
+            raise Error('Invalid column start index: ' + String(col_start))
+        if row_end > self.rows:
+            raise Error('Invalid row end index: ' + String(row_end))
+        if col_end > self.cols:
+            raise Error('Invalid column end index: ' + String(col_end))
+        if (row_end >= 0 and row_start >= row_end) or (col_end >= 0 and col_start >= col_end):
+            return CMatrix[Self.type](rows=0, cols=0)
+        return self._get_block(row_start, row_end, col_start, col_end)
+    
+    fn _get_block(
+        self,
+        owned row_start: Int = 0,
+        owned row_end: Int = -1,
+        owned col_start: Int = 0,
+        owned col_end: Int = -1,
+    ) -> CMatrix[Self.type]:
+        '''Get the specified block of the matrix without cehcking index validity.
+
+        Args:
+            row_start: The row start index. Default is 0.
+            row_end: The row end index. If negative, it is taken to be self.rows, Default is -1.
+            col_start: The column start index. Default is 0.
+            col_end: The column end index. If negative, it is taken to be self.cols, Default is -1.
+        
+        Returns:
+            The block with rows between row_start and row_end and columns between col_start 
+            and col_end.
+        '''
+        if row_end < 0:
+            row_end = self.rows
+        if col_end < 0:
+            col_end = self.cols
+        
+        var result = CMatrix[Self.type](
+            rows=row_end - row_start, cols=col_end - col_start, fill_zeros=False
+        )
+        for r in range(result.rows):
+            for c in range(result.cols):
+                result.store_crd[1](r, c, self.load_crd[1](row_start + r, col_start + c))
+        return result
+    
+    fn set_block(self, row: Int, col: Int, block: CMatrix[Self.type]) raises:
+        '''Set the specified block in self with the supplied block.
+
+        Args:
+            row: The row start index.
+            col: The column start index.
+            block: The block of values to set.
+        '''
+        if block.rows <= 0 or block.cols <= 0:
+            return
+        if row < 0 or row >= self.rows:
+            raise Error('Invalid row start index: ' + String(row))
+        if col < 0 or col >= self.cols:
+            raise Error('Invalid column start index: ' + String(col))
+        if row + block.rows > self.rows or col + block.cols > self.cols:
+            raise Error('Block overflows matrix at specified position.')
+        self._set_block(row, col, block)
+    
+    fn _set_block(self, row: Int, col: Int, block: CMatrix[Self.type]):
+        '''Set the specified block in self with the supplied block without checking index or block
+        validity.
+
+        Args:
+            row: The row start index.
+            col: The column start index.
+            block: The block of values to set.
+        '''
+        for r in range(block.rows):
+            for c in range(block.cols):
+                self.store_crd[1](row + r, col + c, block.load_crd[1](r, c))
+    
     # Helper functions ################
 
     fn _parallelize_vectorize_op[
@@ -1537,11 +1718,10 @@ struct CMatrix[type: DType = DEFAULT_TYPE](
         parallelize[transpose_row](self.rows)
         return result
 
-    fn itranspose(mut self):
+    fn itranspose(mut self) raises:
         '''Compute the transpose of the matrix in-place.'''
-        # TODO: Make this memory safe
         if self.size == 0:
-            # For empty or zero-size matrices, swap dimensions and return.
+            # For empty matrices, just swap dimensions
             self.rows, self.cols = self.cols, self.rows
             return
 
@@ -1558,58 +1738,58 @@ struct CMatrix[type: DType = DEFAULT_TYPE](
                     var temp_im_val: Scalar[Self.type] = self.im.load[width=1](idx1)
                     self.im.store(idx1, self.im.load[width=1](idx2))
                     self.im.store(idx2, temp_im_val)
-        else:
-            # Non-square matrix transpose requires temporary storage for re-arrangement
-            var original_rows: Int = self.rows
-            var original_cols: Int = self.cols
-            var new_rows: Int = original_cols  # Transposed rows
-            var new_cols: Int = original_rows  # Transposed columns
+            return
 
-            # Allocate temporary buffers for the transposed data
-            var temp_re_ptr = UnsafePointer[Scalar[Self.type]].alloc(self.size)
-            var temp_im_ptr = UnsafePointer[Scalar[Self.type]].alloc(self.size)
+        # Non-square matrix transpose requires temporary storage for re-arrangement
+        var original_rows: Int = self.rows
+        var original_cols: Int = self.cols
+        var new_rows: Int = original_cols  # Transposed rows
+        var new_cols: Int = original_rows  # Transposed columns
 
+        # Allocate temporary buffers for the transposed data
+        var temp_re_ptr = UnsafePointer[Scalar[Self.type]].alloc(self.size)
+        var temp_im_ptr = UnsafePointer[Scalar[Self.type]].alloc(self.size)
+        # # Initialize temporary buffers to zero to ensure clean state
+        # memset_zero(temp_re_ptr, self.size)
+        # memset_zero(temp_im_ptr, self.size)
+
+        @parameter
+        fn process_original_row(r_orig: Int):
+            # r_orig is the row index in the original matrix
             @parameter
-            fn process_original_row(r_orig: Int):
-                # r_orig is the row index in the original matrix
-                @parameter
-                fn process_original_col_block[simd_width: Int](c_orig_block_start: Int):
-                    # c_orig_block_start is the starting column index for a SIMD block in the
-                    # original matrix.
+            fn process_original_col_block[simd_width: Int](c_orig_block_start: Int):
+                # c_orig_block_start is the starting column index for a SIMD block in the
+                # original matrix.
 
-                    # Load a row segment from self
-                    # self[r_orig, c_orig_block_start ... c_orig_block_start + simd_width - 1]
-                    var val_simd: ComplexSIMD[Self.type, simd_width] = self.load_crd[simd_width](
-                        r_orig, c_orig_block_start
-                    )
-                    
-                    # Store this SIMD vector as a column segment in the temporary buffers
-                    var target_idx_start: Int = c_orig_block_start * new_cols + r_orig
-                    
-                    # The stride to move to the next element in the same column of the transposed
-                    # view is new_cols
-                    (temp_re_ptr + target_idx_start).strided_store[width=simd_width](
-                        val_simd.re, new_cols
-                    )
-                    (temp_im_ptr + target_idx_start).strided_store[width=simd_width](
-                        val_simd.im, new_cols
-                    )
-                vectorize[process_original_col_block, simdwidthof[Self.type]()](original_cols)
-            parallelize[process_original_row](original_rows)
-            
-            # Free old memory
-            # This loop may not be necessary as scalar types are trivial
-            for idx in range(self.size):
-                (self.re + idx).destroy_pointee()
-                (self.im + idx).destroy_pointee()
-            self.re.free()
-            self.im.free()
+                # Load a row segment from self
+                # self[r_orig, c_orig_block_start ... c_orig_block_start + simd_width - 1]
+                var val_simd: ComplexSIMD[Self.type, simd_width] = self.load_crd[simd_width](
+                    r_orig, c_orig_block_start
+                )
+                
+                # Store this SIMD vector as a column segment in the temporary buffers
+                var target_idx_start: Int = c_orig_block_start * new_cols + r_orig
+                
+                # The stride to move to the next element in the same column of the transposed
+                # view is new_cols
+                (temp_re_ptr + target_idx_start).strided_store[width=simd_width](
+                    val_simd.re, new_cols
+                )
+                (temp_im_ptr + target_idx_start).strided_store[width=simd_width](
+                    val_simd.im, new_cols
+                )
+            vectorize[process_original_col_block, simdwidthof[Self.type]()](original_cols)
+        parallelize[process_original_row](original_rows)
 
-            self.re = temp_re_ptr
-            self.im = temp_im_ptr
+        # Free old memory
+        self.re.free()
+        self.im.free()
 
-            self.rows = new_rows
-            self.cols = new_cols
+        self.re = temp_re_ptr
+        self.im = temp_im_ptr
+
+        self.rows = new_rows
+        self.cols = new_cols
 
     # Fill operations #################
 

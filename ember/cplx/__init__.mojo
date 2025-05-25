@@ -31,6 +31,7 @@ from .mmath import (
     hstack,
     vstack,
     kron_power,
-    # extend_columns_to_orthonormal_basis,
+    is_positive_semidefinite,    
 )
+from .qr import complex_schur, eigvals
 from .csrcmatrix import CSRCMatrix, CSRBuilder

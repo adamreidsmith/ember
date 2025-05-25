@@ -6,12 +6,11 @@ from memory import memcpy
 from .complexsimd import ComplexScalar
 from .cmatrix import CMatrix
 from .csrcmatrix import CSRCMatrix
-from ..config import DEFAULT_TYPE, DEFAULT_TOL
+from .qr import eigvals
+from ..config import DEFAULT_TOL
 
 
-fn kron_sequential[type: DType = DEFAULT_TYPE](
-    A: CMatrix[type], B: CMatrix[type]
-) -> CMatrix[type]:
+fn kron_sequential[type: DType](A: CMatrix[type], B: CMatrix[type]) -> CMatrix[type]:
     '''Implements the Kronecker product of A with B using the naive algorithm. By convention, 
     if A or B is degenerate, (i.e., rows=0 or cols=0) the other matrix is returned.
 
@@ -41,7 +40,7 @@ fn kron_sequential[type: DType = DEFAULT_TYPE](
                     )
     return result
 
-fn kron[type: DType = DEFAULT_TYPE](*M: CMatrix[type]) -> CMatrix[type]:
+fn kron[type: DType](*M: CMatrix[type]) -> CMatrix[type]:
     '''Implements the Kronecker product of all supplied matrices.
 
     Parameters:
@@ -60,7 +59,7 @@ fn kron[type: DType = DEFAULT_TYPE](*M: CMatrix[type]) -> CMatrix[type]:
         result = kron(result, mat[])
     return result^
 
-fn kron[type: DType = DEFAULT_TYPE](A: CMatrix[type], B: CMatrix[type]) -> CMatrix[type]:
+fn kron[type: DType](A: CMatrix[type], B: CMatrix[type]) -> CMatrix[type]:
     '''Implements the Kronecker product of A with B. By convention, if A or B is degenerate,
     (that is, rows=0 or cols=0) the other matrix is returned.
 
@@ -86,16 +85,13 @@ fn kron[type: DType = DEFAULT_TYPE](A: CMatrix[type], B: CMatrix[type]) -> CMatr
         if B.load_idx[1](0) == 1:
             return A
         return B.load_idx[1](0) * A
-    if A._is_col_dominant:
-        return _kron_par_a_cols(A, B)
-    else:
-        return _kron_par_a_rows(A, B)
+    # TODO: Benchmark to see which is better
+    return _kron_par_a_rows(A, B)
+    # return _kron_par_a_cols(A, B)
 
 
-fn _kron_par_a_rows[type: DType = DEFAULT_TYPE](
-    A: CMatrix[type], B: CMatrix[type]
-) -> CMatrix[type]:
-    '''Implements the Kronecker product of A with B parallelized over the rows or A.
+fn _kron_par_a_rows[type: DType](A: CMatrix[type], B: CMatrix[type]) -> CMatrix[type]:
+    '''Implements the Kronecker product of A with B parallelized over the rows of A.
 
     Parameters:
         type: A type for the matrices.
@@ -120,12 +116,12 @@ fn _kron_par_a_rows[type: DType = DEFAULT_TYPE](
                         a_elem * B.load_crd[simd_width](r_b, c_b),
                     )
             vectorize[vec_col_b, simdwidthof[type]()](B.cols)
-    parallelize[par_row_a](A.rows, A.rows)
+    parallelize[par_row_a](A.rows)
     return result
 
 
 fn _kron_par_a_cols[type: DType](A: CMatrix[type], B: CMatrix[type]) -> CMatrix[type]:
-    '''Implements the Kronecker product of A with B parallelized over the columns or A.
+    '''Implements the Kronecker product of A with B parallelized over the columns of A.
 
     Parameters:
         type: A type for the matrices.
@@ -150,10 +146,11 @@ fn _kron_par_a_cols[type: DType](A: CMatrix[type], B: CMatrix[type]) -> CMatrix[
                         a_elem * B.load_crd[simd_width](r_b, c_b),
                     )
             vectorize[vec_col_b, simdwidthof[type]()](B.cols)
-    parallelize[par_col_a](A.cols, A.cols)
+    parallelize[par_col_a](A.cols)
     return result
 
-fn sparse_kron[type: DType = DEFAULT_TYPE](*M: CSRCMatrix[type]) -> CSRCMatrix[type]:
+
+fn sparse_kron[type: DType](*M: CSRCMatrix[type]) -> CSRCMatrix[type]:
     '''Implements the Kronecker product of all supplied sparse matrices.
 
     Parameters:
@@ -173,9 +170,7 @@ fn sparse_kron[type: DType = DEFAULT_TYPE](*M: CSRCMatrix[type]) -> CSRCMatrix[t
     return result^
 
 
-fn sparse_kron[type: DType = DEFAULT_TYPE](
-    A: CSRCMatrix[type], B: CSRCMatrix[type]
-) -> CSRCMatrix[type]:
+fn sparse_kron[type: DType](A: CSRCMatrix[type], B: CSRCMatrix[type]) -> CSRCMatrix[type]:
     '''Implements the Kronecker product of sparse matrices A with B. Note that the result
     uses the zero threshold of A.
 
@@ -236,9 +231,7 @@ fn sparse_kron[type: DType = DEFAULT_TYPE](
     )
 
 
-fn swap_rows[type: DType = DEFAULT_TYPE](
-    A: CMatrix[type], r1: Int, r2: Int
-) raises -> CMatrix[type]:
+fn swap_rows[type: DType](A: CMatrix[type], r1: Int, r2: Int) raises -> CMatrix[type]:
     '''Swap rows r1 and r2 in A and return the result.
 
     Parameters:
@@ -268,7 +261,7 @@ fn swap_rows[type: DType = DEFAULT_TYPE](
     return result
 
 
-fn swap_rows_inplace[type: DType = DEFAULT_TYPE](A: CMatrix[type], r1: Int, r2: Int) raises:
+fn swap_rows_inplace[type: DType](A: CMatrix[type], r1: Int, r2: Int) raises:
     '''Swap rows r1 and r2 in A in-place.
 
     Parameters:
@@ -300,9 +293,7 @@ fn swap_rows_inplace[type: DType = DEFAULT_TYPE](A: CMatrix[type], r1: Int, r2: 
         A.store_crd[1](r2, c, p)
 
 
-fn swap_cols[type: DType = DEFAULT_TYPE](
-    A: CMatrix[type], c1: Int, c2: Int
-) raises -> CMatrix[type]:
+fn swap_cols[type: DType](A: CMatrix[type], c1: Int, c2: Int) raises -> CMatrix[type]:
     '''Swap columns c1 and c2 in A and return the result.
 
     Parameters:
@@ -327,7 +318,7 @@ fn swap_cols[type: DType = DEFAULT_TYPE](
     return result
 
 
-fn swap_cols_inplace[type: DType = DEFAULT_TYPE](A: CMatrix[type], c1: Int, c2: Int) raises:
+fn swap_cols_inplace[type: DType](A: CMatrix[type], c1: Int, c2: Int) raises:
     '''Swap columns c1 and c2 in A in-place.
 
     Parameters:
@@ -348,7 +339,7 @@ fn swap_cols_inplace[type: DType = DEFAULT_TYPE](A: CMatrix[type], c1: Int, c2: 
         A.store_crd[1](r, c2, p)
 
 
-fn swap_vals[type: DType = DEFAULT_TYPE](
+fn swap_vals[type: DType](
     A: CMatrix[type], r1: Int, c1: Int, r2: Int, c2: Int
 ) raises -> CMatrix[type]:
     '''Swap values at (r1, c1) and (r2, c2) in A and return the result.
@@ -378,9 +369,7 @@ fn swap_vals[type: DType = DEFAULT_TYPE](
     return result
 
 
-fn swap_vals_inplace[type: DType = DEFAULT_TYPE](
-    mut A: CMatrix[type], r1: Int, c1: Int, r2: Int, c2: Int
-) raises:
+fn swap_vals_inplace[type: DType](mut A: CMatrix[type], r1: Int, c1: Int, r2: Int, c2: Int) raises:
     '''Swap values at (r1, c1) and (r2, c2) in-place.
 
     Parameters:
@@ -404,7 +393,7 @@ fn swap_vals_inplace[type: DType = DEFAULT_TYPE](
     A.store_crd[1](r2, c2, p1)
 
 
-fn augmented_ref[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+fn augmented_ref[type: DType, tol: Scalar[type] = DEFAULT_TOL](
     A: CMatrix[type], B: CMatrix[type]
 ) raises -> CMatrix[type]:
     '''Computes the row echelon form of the augmented matrix [A|B].
@@ -452,7 +441,7 @@ fn augmented_ref[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
 
 
 # TODO: Switch to a faster algorithm
-fn solve[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+fn solve[type: DType, tol: Scalar[type] = DEFAULT_TOL](
     A: CMatrix[type], B: CMatrix[type]
 ) raises -> CMatrix[type]:
     '''Solves a linear system of equations Ax=B via Gaussian elimination.
@@ -490,7 +479,7 @@ fn solve[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     return X
 
 
-fn one_norm[type: DType = DEFAULT_TYPE](A: CMatrix[type]) -> Scalar[type]:
+fn one_norm[type: DType](A: CMatrix[type]) -> Scalar[type]:
     '''Computes the one-norm of a matrix, i.e. the maximum absolute column sum.
     
     Parameters:
@@ -517,9 +506,7 @@ fn one_norm[type: DType = DEFAULT_TYPE](A: CMatrix[type]) -> Scalar[type]:
     return max
 
 
-fn _int_matrix_power[type: DType = DEFAULT_TYPE](
-    owned A: CMatrix[type], n: Int
-) raises -> CMatrix[type]:
+fn _int_matrix_power[type: DType](owned A: CMatrix[type], n: Int) raises -> CMatrix[type]:
     '''Computes A^n for a square matrix A and positive integer n.
     
     Parameters:
@@ -542,9 +529,7 @@ fn _int_matrix_power[type: DType = DEFAULT_TYPE](
         return _int_matrix_power(A @ A, (n - 1) // 2) @ A
 
 
-fn _int_matrix_power[type: DType = DEFAULT_TYPE](
-    owned A: CSRCMatrix[type], n: Int
-) raises -> CSRCMatrix[type]:
+fn _int_matrix_power[type: DType](owned A: CSRCMatrix[type], n: Int) raises -> CSRCMatrix[type]:
     '''Computes A^n for a square sparse matrix A and positive integer n.
     
     Parameters:
@@ -567,7 +552,7 @@ fn _int_matrix_power[type: DType = DEFAULT_TYPE](
         return _int_matrix_power(A @ A, (n - 1) // 2) @ A
 
 
-fn matrix_power[type: DType = DEFAULT_TYPE](A: CMatrix[type], n: Int) raises -> CMatrix[type]:
+fn matrix_power[type: DType](A: CMatrix[type], n: Int) raises -> CMatrix[type]:
     '''Computes A^n for a matrix A and integer n.
     
     Parameters:
@@ -590,9 +575,7 @@ fn matrix_power[type: DType = DEFAULT_TYPE](A: CMatrix[type], n: Int) raises -> 
     return _int_matrix_power(Ac^, n)
 
 
-fn matrix_power[type: DType = DEFAULT_TYPE](
-    A: CSRCMatrix[type], n: Int
-) raises -> CSRCMatrix[type]:
+fn matrix_power[type: DType](A: CSRCMatrix[type], n: Int) raises -> CSRCMatrix[type]:
     '''Computes A^n for a sparse matrix A and integer n.
     
     Parameters:
@@ -615,7 +598,7 @@ fn matrix_power[type: DType = DEFAULT_TYPE](
     return _int_matrix_power(Ac^, n)
 
 
-fn mmax[type: DType = DEFAULT_TYPE](A: CMatrix[type]) -> ComplexScalar[type]:
+fn mmax[type: DType](A: CMatrix[type]) -> ComplexScalar[type]:
     '''Returns the maximum value (by modulus) of the matrix.
     
     Parameters:
@@ -634,7 +617,7 @@ fn mmax[type: DType = DEFAULT_TYPE](A: CMatrix[type]) -> ComplexScalar[type]:
     return mx
 
 
-fn mmin[type: DType = DEFAULT_TYPE](A: CMatrix[type]) -> ComplexScalar[type]:
+fn mmin[type: DType](A: CMatrix[type]) -> ComplexScalar[type]:
     '''Returns the minimum value (by modulus) of the matrix.
     
     Parameters:
@@ -653,7 +636,7 @@ fn mmin[type: DType = DEFAULT_TYPE](A: CMatrix[type]) -> ComplexScalar[type]:
     return mx
 
 
-fn hstack[type: DType = DEFAULT_TYPE](A: CMatrix[type], B: CMatrix[type]) raises -> CMatrix[type]:
+fn hstack[type: DType](A: CMatrix[type], B: CMatrix[type]) raises -> CMatrix[type]:
     '''Stack two matrices horizontally and return the result.
     
     Parameters:
@@ -680,7 +663,7 @@ fn hstack[type: DType = DEFAULT_TYPE](A: CMatrix[type], B: CMatrix[type]) raises
     return result
 
 
-fn vstack[type: DType = DEFAULT_TYPE](A: CMatrix[type], B: CMatrix[type]) raises -> CMatrix[type]:
+fn vstack[type: DType](A: CMatrix[type], B: CMatrix[type]) raises -> CMatrix[type]:
     '''Stack two matrices vertically and return the result.
     
     Parameters:
@@ -727,7 +710,7 @@ alias theta9 = 2.1
 alias theta13 = 5.4
 
 
-fn _expm_pade[m: Int, type: DType = DEFAULT_TYPE](A: CMatrix[type]) raises -> CMatrix[type]:
+fn _expm_pade[m: Int, type: DType](A: CMatrix[type]) raises -> CMatrix[type]:
     '''Compute the matrix exponential using Pade approximation.
 
     Parameters:
@@ -759,9 +742,7 @@ fn _expm_pade[m: Int, type: DType = DEFAULT_TYPE](A: CMatrix[type]) raises -> CM
     # return (V - U).inv() @ (V + U)
 
 
-fn _expm_ss[type: DType = DEFAULT_TYPE](
-    A: CMatrix[type], norm: Scalar[type]
-) raises -> CMatrix[type]:
+fn _expm_ss[type: DType](A: CMatrix[type], norm: Scalar[type]) raises -> CMatrix[type]:
     '''Compute the matrix exponential using the scaling and squaring algorithm.
 
     Parameters:
@@ -804,7 +785,7 @@ fn _expm_ss[type: DType = DEFAULT_TYPE](
     return matrix_power(r13, 2 ** s)
 
 
-fn expm[type: DType = DEFAULT_TYPE](A: CMatrix[type]) raises -> CMatrix[type]:
+fn expm[type: DType](A: CMatrix[type]) raises -> CMatrix[type]:
     '''Compute the matrix exponential of a square matrix A.
     
     Implements algorithm 10.20 from [1].
@@ -834,7 +815,7 @@ fn expm[type: DType = DEFAULT_TYPE](A: CMatrix[type]) raises -> CMatrix[type]:
     return _expm_ss(A, norm)
 
 
-fn kron_power[type: DType = DEFAULT_TYPE](owned A: CMatrix[type], n: Int) raises -> CMatrix[type]:
+fn kron_power[type: DType](owned A: CMatrix[type], n: Int) raises -> CMatrix[type]:
     '''Computes the Kronecker product of a matrix with itself n times. By convention, n=0 returns a
     degenerate matrix of size (0, 0).
 
@@ -857,7 +838,7 @@ fn kron_power[type: DType = DEFAULT_TYPE](owned A: CMatrix[type], n: Int) raises
     return _kron_power(A^, n)
     
 
-fn _kron_power[type: DType = DEFAULT_TYPE](owned A: CMatrix[type], n: Int) -> CMatrix[type]:
+fn _kron_power[type: DType](owned A: CMatrix[type], n: Int) -> CMatrix[type]:
     '''Computes the Kronecker product of a matrix with itself n times.
     
     Parameters:
@@ -878,9 +859,7 @@ fn _kron_power[type: DType = DEFAULT_TYPE](owned A: CMatrix[type], n: Int) -> CM
         return kron(_kron_power(kron(A, A), (n - 1) // 2), A)
 
 
-fn kron_power[type: DType = DEFAULT_TYPE](
-    owned A: CSRCMatrix[type], n: Int
-) raises -> CSRCMatrix[type]:
+fn kron_power[type: DType](owned A: CSRCMatrix[type], n: Int) raises -> CSRCMatrix[type]:
     '''Computes the Kronecker product of a sparse matrix with itself n times. By convention, n=0
     returns a degenerate matrix of size (0, 0).
 
@@ -903,7 +882,7 @@ fn kron_power[type: DType = DEFAULT_TYPE](
     return _kron_power(A^, n)
     
 
-fn _kron_power[type: DType = DEFAULT_TYPE](owned A: CSRCMatrix[type], n: Int) -> CSRCMatrix[type]:
+fn _kron_power[type: DType](owned A: CSRCMatrix[type], n: Int) -> CSRCMatrix[type]:
     '''Computes the Kronecker product of a sparse matrix with itself n times. By convention, n=0
     returns a degenerate matrix of size (0, 0).
 
@@ -923,3 +902,31 @@ fn _kron_power[type: DType = DEFAULT_TYPE](owned A: CSRCMatrix[type], n: Int) ->
         return _kron_power(sparse_kron(A, A), n // 2)
     else:
         return sparse_kron(_kron_power(sparse_kron(A, A), (n - 1) // 2), A)
+
+
+fn is_positive_semidefinite[type: DType, tol: Scalar[type] = DEFAULT_TOL](A: CMatrix[type]) raises -> Bool:
+    '''Check if the CMatrix is positive semi-definite.
+
+    Parameters:
+        type: A type for the sparse matrix.
+        tol: A tolerance for closeness checks.
+
+    Args:
+        A: The matrix to check.
+
+    Returns:
+        True if the CMatrix is positive semi-definite, False otherwise.
+    '''
+    if not A.is_hermitian[tol]():  # Also checks if the matrix is square
+        return False
+    
+    var eigenvalues: List[ComplexScalar[type], True] = eigvals(A)
+    for val in eigenvalues:
+        if abs(val[].im) > tol:
+            raise Error(
+                'Non-real eigenvalue computed: ' + String(val[]) 
+                + '. Matrix is not Hermitian (or bug in eigenvalue code!)'
+            )
+        if val[].re < -tol:
+            return False
+    return True
