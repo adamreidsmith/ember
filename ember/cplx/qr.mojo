@@ -1,3 +1,13 @@
+'''
+This file implements the QR algorithm for efficiently computing matrix eigenvalues
+by performing a Schur decomposition.
+
+It is based off the MATLAB algorithms written by Gorka Eraña Robles in [1].
+
+[1] Eraña Robles, Gorka. "Implementing the QR Algorithm for Efficiently Computing Matrix
+    Eigenvalues and Eigenvectors." ADDI, June 22, 2017. https://addi.ehu.eus/handle/10810/26427.
+'''
+
 from math import sqrt
 
 from .complexsimd import ComplexScalar
