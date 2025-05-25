@@ -20,6 +20,7 @@ def run_cmatrix_tests():
     test_compare()
     test_static_constructors()
     test_conversion()
+    test_getters_setters()
     print('All tests passed')
 
 def test_init():
@@ -505,3 +506,147 @@ def test_conversion():
                 for col in range(m.cols):
                     assert_equal(l2[row][col].re, m.load_crd[1](row, col).re, 'to_2d_list')
                     assert_equal(l2[row][col].im, m.load_crd[1](row, col).im, 'to_2d_list')
+
+def test_getters_setters():
+    a = CMatrix[type].arange(19, 22)
+    with assert_raises(contains='Invalid row start'):
+        _ = a.get_column(0, -1, 5)
+    with assert_raises(contains='Invalid row start'):
+        _ = a.get_column(0, 19, 19)
+    with assert_raises(contains='Invalid row end'):
+        _ = a.get_column(0, 1, 30)
+    with assert_raises(contains='Invalid column'):
+        _ = a.get_column(-1, 1, 12)
+    with assert_raises(contains='Invalid column'):
+        _ = a.get_column(23, 1, 12)
+    c = a.get_column(2, 5, 5)
+    assert_equal(c.rows, 0, 'get_column')
+    assert_equal(c.cols, 0, 'get_column')
+    c = a.get_column(2)
+    assert_equal(c.cols, 1, 'get_column')
+    assert_equal(c.rows, a.rows, 'get_column')
+    ct = CMatrix[type].arange(19, 1) * 22 + 2
+    _assert_matrix_equal(c, ct, 'get_column')
+    c = a.get_column(2, 3)
+    assert_equal(c.cols, 1, 'get_column')
+    assert_equal(c.rows, a.rows - 3, 'get_column')
+    ct = CMatrix[type].arange(16, 1, 3) * 22 + 2
+    _assert_matrix_equal(c, ct, 'get_column')
+    c = a.get_column(2, 3, 14)
+    assert_equal(c.cols, 1, 'get_column')
+    assert_equal(c.rows, 11, 'get_column')
+    ct = CMatrix[type].arange(11, 1, 3) * 22 + 2
+    _assert_matrix_equal(c, ct, 'get_column')
+
+    a = CMatrix[type].arange(22, 19)
+    with assert_raises(contains='Invalid column start'):
+        _ = a.get_row(0, -1, 5)
+    with assert_raises(contains='Invalid column start'):
+        _ = a.get_row(0, 19, 19)
+    with assert_raises(contains='Invalid column end'):
+        _ = a.get_row(0, 1, 30)
+    with assert_raises(contains='Invalid row'):
+        _ = a.get_row(-1, 1, 12)
+    with assert_raises(contains='Invalid row'):
+        _ = a.get_row(23, 1, 12)
+    c = a.get_row(2, 5, 5)
+    assert_equal(c.rows, 0, 'get_row')
+    assert_equal(c.cols, 0, 'get_row')
+    c = a.get_row(2)
+    assert_equal(c.rows, 1, 'get_row')
+    assert_equal(c.cols, a.cols, 'get_row')
+    ct = CMatrix[type].arange(1, 19, 38)
+    _assert_matrix_equal(c, ct, 'get_row')
+    c = a.get_row(2, 3)
+    assert_equal(c.rows, 1, 'get_row')
+    assert_equal(c.cols, a.cols - 3, 'get_row')
+    ct = CMatrix[type].arange(1, 16, 41)
+    _assert_matrix_equal(c, ct, 'get_row')
+    c = a.get_row(2, 3, 14)
+    assert_equal(c.rows, 1, 'get_row')
+    assert_equal(c.cols, 11, 'get_row')
+    ct = CMatrix[type].arange(1, 11, 41)
+    _assert_matrix_equal(c, ct, 'get_row')
+
+    a = CMatrix[type].arange(22, 19)
+    with assert_raises(contains='Invalid row start'):
+        _ = a.get_block(-2, 13, 0, 5)
+    with assert_raises(contains='Invalid row start'):
+        _ = a.get_block(22, 22, 0, 5)
+    with assert_raises(contains='Invalid column start'):
+        _ = a.get_block(1, 13, -1, 5)
+    with assert_raises(contains='Invalid column start'):
+        _ = a.get_block(0, 22, 19, 19)
+    with assert_raises(contains='Invalid row end'):
+        _ = a.get_block(0, 40, 0, 5)
+    with assert_raises(contains='Invalid column end'):
+        _ = a.get_block(0, 4, 0, 50)
+    c = a.get_block(2, 1, 0, 5)
+    assert_equal(c.rows, 0, 'get_block')
+    assert_equal(c.cols, 0, 'get_block')
+    c = a.get_block(0, 12, 10, 10)
+    assert_equal(c.rows, 0, 'get_block')
+    assert_equal(c.cols, 0, 'get_block')
+    a = CMatrix[type].arange(3, 3)
+    c = a.get_block()
+    _assert_matrix_equal(c, a, 'get_block')
+    c = a.get_block(1)
+    ct = CMatrix[type](2, 3,
+        3, 4, 5,
+        6, 7, 8,
+    )
+    _assert_matrix_equal(c, ct, 'get_block')
+    c = a.get_block(1, 2)
+    ct = CMatrix[type](1, 3,
+        3, 4, 5,
+    )
+    _assert_matrix_equal(c, ct, 'get_block')
+    c = a.get_block(1, 2, 1)
+    ct = CMatrix[type](1, 2,
+        4, 5,
+    )
+    _assert_matrix_equal(c, ct, 'get_block')
+    c = a.get_block(1, 2, 1, 2)
+    ct = CMatrix[type](1, 1)
+    ct[0, 0] = 4
+    _assert_matrix_equal(c, ct, 'get_block')
+
+    a = CMatrix[type].arange(4, 5)
+    ac = a
+    block = CMatrix[type](0, 0)
+    ac.set_block(0, 0, block)
+    _assert_matrix_equal(a, ac, 'set_block')
+    ac = a
+    block = -CMatrix[type].arange(2, 2)
+    with assert_raises(contains='Invalid row start'):
+        ac.set_block(-1, 0, block)
+    with assert_raises(contains='Invalid row start'):
+        ac.set_block(4, 0, block)
+    with assert_raises(contains='Invalid column start'):
+        ac.set_block(0, -1, block)
+    with assert_raises(contains='Invalid column start'):
+        ac.set_block(0, 5, block)
+    with assert_raises(contains='Block overflows matrix'):
+        ac.set_block(3, 1, block)
+    with assert_raises(contains='Block overflows matrix'):
+        ac.set_block(1, 4, block)
+    ac.set_block(0, 0, block)
+    for r in range(4):
+        for c in range(5):
+            if r < 2 and c < 2:
+                assert_equal(ac[r, c].re, block[r, c].re, 'set_block')
+                assert_equal(ac[r, c].im, block[r, c].im, 'set_block')
+            else:
+                assert_equal(ac[r, c].re, a[r, c].re, 'set_block')
+                assert_equal(ac[r, c].im, a[r, c].im, 'set_block')
+    ac = a
+    ac.set_block(1, 2, block)
+    for r in range(4):
+        for c in range(5):
+            if 1 <= r < 3 and 2 <= c < 4:
+                assert_equal(ac[r, c].re, block[r - 1, c - 2].re, 'set_block')
+                assert_equal(ac[r, c].im, block[r - 1, c - 2].im, 'set_block')
+            else:
+                assert_equal(ac[r, c].re, a[r, c].re, 'set_block')
+                assert_equal(ac[r, c].im, a[r, c].im, 'set_block')
+

@@ -20,6 +20,7 @@ from ember import (
     matrix_power,
     hstack,
     vstack,
+    is_positive_semidefinite,
 )
 from ember import CSRCMatrix, CMatrix, ComplexScalar
 
@@ -35,6 +36,7 @@ def run_mmath_tests():
     test_solve()
     test_matrix_power()
     test_expm()
+    test_find_smallest_eigval()
     print('All tests passed')
 
 def test_swap():
@@ -276,3 +278,9 @@ def test_expm():
     )
     _assert_matrix_almost_equal(expm(a), r, 'expm', rtol=1e-8)
     _assert_matrix_almost_equal(expm(CMatrix[type].zeros(10, 10)), CMatrix[type].eye(10, 10), 'expm')
+
+def test_find_smallest_eigval():
+    # m = CMatrix.arange(4, 4, -5)
+    # print(m)
+    # print(find_smallest_eigval(m))
+    pass
