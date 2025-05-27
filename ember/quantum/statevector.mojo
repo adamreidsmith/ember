@@ -11,7 +11,7 @@ from ..cplx import ComplexScalar, CSRCMatrix, CMatrix
 from ..config import DEFAULT_TYPE, DEFAULT_TOL, DEFAULT_ZERO_THRESHOD
 
 
-struct Statevector[type: DType = DEFAULT_TYPE,tol: Scalar[type] = DEFAULT_TOL](
+struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     Copyable, Movable, Representable, Stringable, Writable, Sized, Defaultable
 ):
     '''A statevector.
@@ -360,12 +360,23 @@ struct Statevector[type: DType = DEFAULT_TYPE,tol: Scalar[type] = DEFAULT_TOL](
         Args:
             n_qubits: The number of qubits in the statevector.
         '''
-        var elems = Dict[Int, ComplexScalar[Self.type]]()
-        elems[0] = 1
-
         var statevector = Self()
+        statevector.n_qubits = max(n_qubits, 0)
         statevector._size = 2 ** max(n_qubits, 0)
-        statevector._elems = elems^
+        statevector._elems[0] = 1
+        return statevector^
+    
+    @staticmethod
+    @always_inline
+    fn _empty(n_qubits: Int) -> Self:
+        '''Initialize an empty statevector (all elements are zero).
+
+        Args:
+            n_qubits: The number of qubits in the statevector.
+        '''
+        var statevector = Self()
+        statevector.n_qubits = max(n_qubits, 0)
+        statevector._size = 2 ** max(n_qubits, 0)
         return statevector^
 
     @always_inline
@@ -427,7 +438,8 @@ struct Statevector[type: DType = DEFAULT_TYPE,tol: Scalar[type] = DEFAULT_TOL](
         with BlockingScopedLock(self._lock_pointer):
             if val != 0:
                 self._elems[idx] = val
-            elif idx in self._elems:
+            # elif idx in self._elems:
+            else:
                 # Default is only present to prevent the compiler from complaining about raising
                 _ = self._elems.pop(idx, 0)
 

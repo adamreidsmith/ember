@@ -288,7 +288,6 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
         Returns:
             A string representation of the quantum circuit.
         '''
-        # TODO: print an initialize instruction if the qc has an initial state
         alias max_width: Int = 120
 
         @parameter

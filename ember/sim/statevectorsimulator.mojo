@@ -7,7 +7,7 @@ Algorithms taken/adapted from [1].
 
 [1] Jones, Tyson, Bálint Koczor, and Simon C. Benjamin. “Distributed Simulation of
     Statevectors and Density Matrices.” arXiv.org, November 2, 2023. 
-    https://arxiv.org/abs/2311.01512. 
+    https://arxiv.org/abs/2311.01512.
 '''
 
 import random
@@ -159,6 +159,7 @@ struct StatevectorSimulator[
         Args:
             seed: An integer to seed the random number generator.
         '''
+        self.set_seed(seed)
         # Placeholders that are overwritten when `run` is called
         self._sv = Statevector[Self.type, Self.tol]()
         self._cb = List[Int, True]()
@@ -170,7 +171,6 @@ struct StatevectorSimulator[
             _data=List[Gate[Self.type, Self.tol]](),
             _initial_state=Statevector[Self.type, Self.tol](),
         )
-        self.set_seed(seed)
     
     @staticmethod
     @always_inline
@@ -188,12 +188,14 @@ struct StatevectorSimulator[
         '''
         random.seed(seed)
 
-    fn run(mut self, qc: QuantumCircuit[Self.type, Self.tol], *, parallel: Bool = True):
+    fn run[parallel: Bool = True](mut self, qc: QuantumCircuit[Self.type, Self.tol]):
         '''Run the statevector simulator on the quantum circuit.
+
+        Parameters:
+            parallel: Whether or not to parallelize statevector simulation. Default is True.
         
         Args:
             qc: The quantum circuit to simulate.
-            parallel: Whether or not to parallelize statevector simulation.
         '''
         self._qc = qc
         self._cb = self._qc.clbits
@@ -218,28 +220,31 @@ struct StatevectorSimulator[
             else:
                 if gate.n_qubits == 1:
                     # Single-qubit uncontrolled gate
-                    self._apply_one_qubit_gate(gate, parallel)
+                    self._apply_one_qubit_gate[parallel](gate)
                 elif len(gate.qubits) == 1:
                     # Single-qubit controlled gate
-                    self._apply_multi_control_one_qubit_gate(gate, parallel)
+                    self._apply_multi_control_one_qubit_gate[parallel](gate)
                 elif len(gate.controls) == 0:
                     # Multi-qubit uncontrolled gate
-                    self._apply_multi_qubit_gate(gate, parallel)
+                    self._apply_multi_qubit_gate[parallel](gate)
                 else:
                     # Multi-qubit controlled gate
-                    self._apply_multi_control_multi_qubit_gate(gate, parallel)
+                    self._apply_multi_control_multi_qubit_gate[parallel](gate)
 
-    fn _apply_one_qubit_gate(mut self, gate: Gate[Self.type, Self.tol], parallel: Bool):
+    fn _apply_one_qubit_gate[parallel: Bool](mut self, gate: Gate[Self.type, Self.tol]):
         '''Apply a single qubit gate to the statevector.
 
         Implements Alg. 2 of [1].
 
+        Parameters:
+            parallel: Whether or not to parallelize statevector simulation.
+
         Args:
             gate: The gate to apply. Must be a single-qubit uncontrolled gate.
-            parallel: Whether or not to parallelize statevector simulation.
         '''
         var t: UInt = gate.qubits[0]
 
+        @parameter
         if parallel:
             @parameter
             fn op_sv_elem(n: Int):
@@ -259,18 +264,18 @@ struct StatevectorSimulator[
                 self._sv._set(ib, gate.matrix.load_idx[1](0) * b + gate.matrix.load_idx[1](1) * g)
                 self._sv._set(ig, gate.matrix.load_idx[1](2) * b + gate.matrix.load_idx[1](3) * g)
     
-    fn _apply_multi_control_one_qubit_gate(
-        mut self, 
-        gate: Gate[Self.type, Self.tol], 
-        parallel: Bool
+    fn _apply_multi_control_one_qubit_gate[parallel: Bool](
+        mut self, gate: Gate[Self.type, Self.tol]
     ):
         '''Apply a single-qubit gate controlled on one or more qubits to the statevector.
 
         Implements Alg. 3 of [1].
 
+        Parameters:
+            parallel: Whether or not to parallelize statevector simulation.
+
         Args:
             gate: The gate to apply. Must be a single-qubit controlled gate.
-            parallel: Whether or not to parallelize statevector simulation.
         '''
         var s: UInt = len(gate.controls)
 
@@ -286,6 +291,7 @@ struct StatevectorSimulator[
         q.append(t)
         sort[T=UInt](q)
 
+        @parameter
         if parallel:
             @parameter
             fn op_sv_elem(j: Int):
@@ -305,14 +311,16 @@ struct StatevectorSimulator[
                 self._sv._set(ib, gate.matrix.load_idx[1](0) * b + gate.matrix.load_idx[1](1) * g)
                 self._sv._set(ig, gate.matrix.load_idx[1](2) * b + gate.matrix.load_idx[1](3) * g)
 
-    fn _apply_multi_qubit_gate(mut self, gate: Gate[Self.type, Self.tol], parallel: Bool):
+    fn _apply_multi_qubit_gate[parallel: Bool](mut self, gate: Gate[Self.type, Self.tol]):
         '''Apply a multi-qubit gate with no controls to the statevector.
 
         Implements Alg. 4 of [1].
 
+        Parameters:
+            parallel: Whether or not to parallelize statevector simulation.
+
         Args:
             gate: The gate to apply. Must be a multi-qubit uncontrolled gate.
-            parallel: Whether or not to parallelize statevector simulation.
         '''
         var n: UInt = len(gate.qubits)
 
@@ -323,6 +331,7 @@ struct StatevectorSimulator[
         var q: List[UInt, True] = t.copy()
         sort[T=UInt](q)
 
+        @parameter
         if parallel:
             @parameter
             fn op_sv_elem(k: Int):
@@ -358,18 +367,18 @@ struct StatevectorSimulator[
                         # self._sv._set(i, self._sv._get(i) + gate.matrix.load_crd[1](j, l) * v[l])
                         self._sv._set(i, self._sv._get(i) + gate.matrix.load_crd[1](j, l) * v.get(l, 0))
     
-    fn _apply_multi_control_multi_qubit_gate(
-        mut self, 
-        gate: Gate[Self.type, Self.tol], 
-        parallel: Bool
+    fn _apply_multi_control_multi_qubit_gate[parallel: Bool](
+        mut self, gate: Gate[Self.type, Self.tol]
     ):
         '''Apply a multi-controlled multi-qubit gate to the statevector.
 
         Adaptation of Alg. 4 of [1].
 
+        Parameters:
+            parallel: Whether or not to parallelize statevector simulation.
+
         Args:
             gate: The gate to apply. Must be a multi-qubit controlled gate.
-            parallel: Whether or not to parallelize statevector simulation.
         '''
         alias zero = ComplexScalar[Self.type](0)
         alias one = ComplexScalar[Self.type](1)
@@ -393,6 +402,7 @@ struct StatevectorSimulator[
                 return gate.matrix.load_crd[1](r - rc_start, c - rc_start)
             return one if r == c else zero
         
+        @parameter
         if parallel:
             @parameter
             fn op_sv_elem(k: Int):
@@ -476,7 +486,7 @@ struct StatevectorSimulator[
                 break
 
         var norm_factor: Scalar[Self.type] = sqrt(probabilities[selected_outcome])
-        var new_statevector = Statevector[Self.type, Self.tol].zero(n)
+        var new_statevector = Statevector[Self.type, Self.tol]._empty(n)
 
         # For each basis state, check if it's consistent with the selected measurement outcome
         for i in range(N):
