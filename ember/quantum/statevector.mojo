@@ -1,16 +1,19 @@
+##### UNTESTED ##### UNTESTED ##### UNTESTED ##### UNTESTED ##### UNTESTED ##### UNTESTED ##### 
+
 from collections import Dict
 from math import sqrt
+from bit import log2_floor
 from memory import UnsafePointer
 from utils import BlockingSpinLock, BlockingScopedLock
 
+from .densitymatrix import DensityMatrix
 from ..cplx import ComplexScalar, CSRCMatrix, CMatrix
 from ..config import DEFAULT_TYPE, DEFAULT_TOL, DEFAULT_ZERO_THRESHOD
 
 
-struct Statevector[
-    type: DType = DEFAULT_TYPE,
-    tol: Scalar[type] = DEFAULT_TOL,
-](Copyable, Movable, Representable, Stringable, Writable, Sized, Defaultable):
+struct Statevector[type: DType = DEFAULT_TYPE,tol: Scalar[type] = DEFAULT_TOL](
+    Copyable, Movable, Representable, Stringable, Writable, Sized, Defaultable
+):
     '''A statevector.
 
     Parameters:
@@ -20,6 +23,8 @@ struct Statevector[
 
     var _size: Int
     '''The size of the statevector.'''
+    var n_qubits: Int
+    '''The number of qubits in the state.'''
     var _elems: Dict[Int, ComplexScalar[Self.type]]
     '''A dictionary storing the nonzero statevector elements.'''
 
@@ -40,6 +45,7 @@ struct Statevector[
     fn __init__(out self):
         '''Initialize an empty statevector.'''
         self._size = 0
+        self.n_qubits = 0
         self._elems = Dict[Int, ComplexScalar[Self.type]]()
         self._lock = BlockingSpinLock()
         self._lock_pointer = UnsafePointer(to=self._lock)
@@ -61,6 +67,15 @@ struct Statevector[
         self._lock = BlockingSpinLock()
         self._lock_pointer = UnsafePointer(to=self._lock)
 
+        # Enforce statevector dimension is a power of 2
+        if not (n_elements & (n_elements - 1) == 0):
+            raise Error(
+                'Statevector does not represent a multi-qubit state. '
+                'Statevector dimension must be a power of 2.'
+            )
+        self._size = n_elements
+        self.n_qubits = log2_floor(n_elements)
+
         # Check that all indices are valid and compute the sum of squares of elements
         var sum_sqr: Scalar[Self.type] = 0
         for idx_elem in statevector.items():
@@ -72,8 +87,6 @@ struct Statevector[
                     + ' elements: ' + String(idx) + '.'
                 )
             sum_sqr += elem.squared_norm()
-
-        self._size = n_elements
 
         # Initialize the statevector, normalizing (or raising) if necessary
         self._elems = Dict[Int, ComplexScalar[Self.type]]()
@@ -117,14 +130,21 @@ struct Statevector[
                 'Expected 1D statevector. Received shape (' + String(statevector.rows)
                 + ', ' + String(statevector.cols) + ').'
             )
-
+        
         # Enforce the right number of elements were provided
         if enforce_n_elements >= 0 and statevector.size != enforce_n_elements:
             raise Error(
                 'Statevector must have ' + String(enforce_n_elements) + ' elements, but '
                 + String(statevector.size) + ' elements were provided.'
             )
+        # Enforce statevector dimension is a power of 2
+        if not (statevector.size & (statevector.size - 1) == 0):
+            raise Error(
+                'Statevector does not represent a multi-qubit state. '
+                'Statevector dimension must be a power of 2.'
+            )
         self._size = statevector.size
+        self.n_qubits = log2_floor(statevector.size)
 
         # Make it a row vector
         if statevector.rows != 1:
@@ -176,7 +196,14 @@ struct Statevector[
                 'Statevector must have ' + String(enforce_n_elements) + ' elements, but '
                 + String(statevector.size) + ' elements were provided.'
             )
+        # Enforce statevector dimension is a power of 2
+        if not (statevector.size & (statevector.size - 1) == 0):
+            raise Error(
+                'Statevector does not represent a multi-qubit state. '
+                'Statevector dimension must be a power of 2.'
+            )
         self._size = statevector.size
+        self.n_qubits = log2_floor(statevector.size)
 
         # Make it a row vector
         if statevector.rows != 1:
@@ -223,7 +250,14 @@ struct Statevector[
                 'Statevector must have ' + String(enforce_n_elements) + ' elements, but '
                 + String(len(statevector)) + ' elements were provided.'
             )
+        # Enforce statevector dimension is a power of 2
+        if not (len(statevector) & (len(statevector) - 1) == 0):
+            raise Error(
+                'Statevector does not represent a multi-qubit state. '
+                'Statevector dimension must be a power of 2.'
+            )
         self._size = len(statevector)
+        self.n_qubits = log2_floor(len(statevector))
 
         # Initialize the statevector, normalizing (or raising) if necessary
         var sum_sqr: Scalar[Self.type] = 0
@@ -260,11 +294,20 @@ struct Statevector[
         self._lock = BlockingSpinLock()
         self._lock_pointer = UnsafePointer(to=self._lock)
 
+        # Enforce statevector dimension is a power of 2
         if enforce_n_elements >= 0 and len(statevector) != enforce_n_elements:
             raise Error(
                 'Statevector must have ' + String(enforce_n_elements) + ' elements, but '
                 + String(len(statevector)) + ' elements were provided.'
             )
+        # Enforce statevector dimension is a power of 2
+        if not (statevector._size & (statevector._size - 1) == 0):
+            raise Error(
+                'Statevector does not represent a multi-qubit state. '
+                'Statevector dimension must be a power of 2.'
+            )
+        self._size = statevector._size
+        self.n_qubits = log2_floor(statevector._size)
 
         var sum_sqr: Scalar[Self.type] = 0
         with BlockingScopedLock(statevector._lock_pointer):
@@ -276,7 +319,6 @@ struct Statevector[
             else:
                 raise Error('Statevector is not normalized.')
         
-        self._size = statevector._size
         self._elems = Dict[Int, ComplexScalar[Self.type]]()
 
         with BlockingScopedLock(statevector._lock_pointer):
@@ -284,17 +326,20 @@ struct Statevector[
             # If we don't need a lock, we can transfer ownership of _elems instead of copying
             self._elems = statevector._elems
 
+    @always_inline
     fn __copyinit__(out self, existing: Self):
         '''Initialize a statevector by copying another.
 
         Args:
             existing: The statevector to copy.
         '''
-        self._size= existing._size
+        self._size = existing._size
+        self.n_qubits = existing.n_qubits
         self._elems = existing._elems
         self._lock = BlockingSpinLock()
         self._lock_pointer = UnsafePointer(to=self._lock)
 
+    @always_inline
     fn __moveinit__(out self, owned existing: Self):
         '''Initialize a statevector by moving another into self.
 
@@ -302,6 +347,7 @@ struct Statevector[
             existing: The statevector to move into self.
         '''
         self._size = existing._size
+        self.n_qubits = existing.n_qubits
         self._elems = existing._elems
         self._lock = BlockingSpinLock()
         self._lock_pointer = UnsafePointer(to=self._lock)
@@ -495,3 +541,87 @@ struct Statevector[
             for idx in to_remove:
                 # Default is only present to prevent the compiler from complaining about raising
                 _ = self._elems.pop(idx[], 0)
+
+    fn partial_trace(self, traced_qubit: Int) raises -> Self:
+        '''Perform a partial trace on a statevector over a specified qubit.
+
+        Args:
+            traced_qubit: The qubit index to trace out.
+
+        Returns:
+            A statevector representing the resulting state.
+
+        Raises:
+            Raises if the resulting state is not pure.
+        '''
+        return self.partial_trace(List[Int, True](traced_qubit))
+    
+    fn partial_trace(self, traced_qubits: List[Int, True]) raises -> Self:
+        '''Perform a partial trace on a statevector over specified qubits.
+
+        Args:
+            traced_qubits: List of qubit indices to trace out.
+
+        Returns:
+            A statevector representing the resulting state.
+
+        Raises:
+            Raises if the resulting state is not pure.
+        '''
+        var dm: DensityMatrix[Self.type, Self.tol] = self.to_density_matrix()
+        dm = dm.partial_trace(traced_qubits)
+        try:
+            var elems: Dict[Int, ComplexScalar[Self.type]]
+            var n_elems: Int
+            elems, n_elems = dm._to_sv_data()
+            return Self(statevector=elems^, n_elements=n_elems, normalize=False)
+        except e:
+            if 'not pure' in String(e):
+                raise Error(
+                    'Cannot perform partial trace as result is not pure. '
+                    'Use \'partial_trace_dm\' to perform the partial trace and return a '
+                    'density matrix.'
+                )
+            else:
+                raise e
+
+    fn partial_trace_dm(self, traced_qubit: Int) raises -> DensityMatrix[Self.type, Self.tol]:
+        '''Perform a partial trace on a statevector over a specified qubit.
+
+        Args:
+            traced_qubit: The qubit index to trace out.
+
+        Returns:
+            A density matrix representing the resulting state.
+        '''
+        return self.partial_trace_dm(List[Int, True](traced_qubit))
+
+    fn partial_trace_dm(
+        self, traced_qubits: List[Int, True]
+    ) raises -> DensityMatrix[Self.type, Self.tol]:
+        '''Perform a partial trace on a statevector over specified qubits.
+
+        Args:
+            traced_qubits: List of qubit indices to trace out.
+
+        Returns:
+            A density matrix representing the resulting state.
+        '''
+        var dm: DensityMatrix[Self.type, Self.tol] = self.to_density_matrix()
+        return dm.partial_trace(traced_qubits)
+
+    fn to_density_matrix(self) raises -> DensityMatrix[Self.type, Self.tol]:
+        '''Convert the statevector to a density matrix.
+
+        Returns:
+            A density matrix representation of the state.
+        '''
+        try:
+            return DensityMatrix[Self.type, Self.tol](elem_dict=self._elems, size=self._size)
+        except e:
+            if 'not normalized' in String(e):
+                var copy: Self = self
+                copy.normalize()
+                return DensityMatrix[Self.type, Self.tol](elem_dict=copy._elems^, size=copy._size)
+            else:
+                raise e
