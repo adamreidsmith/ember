@@ -13,6 +13,9 @@ from math import sqrt
 from .complexsimd import ComplexScalar
 from .cmatrix import CMatrix
 from ..config import DEFAULT_TYPE, DEFAULT_TOL
+from ..config import (
+    EPS64, EPS32, EPS16, REALMAX64, REALMAX32, REALMAX16, REALMIN64, REALMIN32, REALMIN16
+)
 
 alias sqrt2: Float64 = sqrt(Float64(2))
 
@@ -325,8 +328,6 @@ fn _hqr[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
             x, y = _rot_app[type](
                 c_vec.load_idx[1](k),
                 s_vec.load_idx[1](k).conj(),
-                # S._get_column(col=k, row_start=0, row_end=k + 1),
-                # S._get_column(col=k + 1, row_start=0, row_end=k + 1),
                 S._get_column(col=k, row_start=0, row_end=k + 2),
                 S._get_column(col=k + 1, row_start=0, row_end=k + 2),
             )
@@ -366,7 +367,7 @@ fn complex_schur[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
         A tuple containing the Schur form of A and the unitary matrix Q.
     '''
     if not A.is_square():
-        raise Error('Matrix must be square to have a Schur decomposition.')
+        raise Error('Matrix must be square.')
 
     var H: CMatrix[type]
     var Q: CMatrix[type]
@@ -376,7 +377,7 @@ fn complex_schur[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
 fn eigvals[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     A: CMatrix[type]
 ) raises -> List[ComplexScalar[type], True]:
-    '''Computes the eigenvalus of a matrix using the complex Schur decomposition.
+    '''Computes the eigenvalues of a matrix using the complex Schur decomposition.
 
     Parameters:
         type: A type for the data.
@@ -386,7 +387,7 @@ fn eigvals[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
         A: A square matrix.
     
     Returns:
-        A tuple containing the Schur form of A and the unitary matrix Q.
+        A list of eigenvalues of A.
     '''
     var S: CMatrix[type]
     S, _ = complex_schur[type, tol](A)
@@ -395,3 +396,122 @@ fn eigvals[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     for i in range(S.rows):
         eigenvalues.append(S.load_crd[1](i, i))
     return eigenvalues^
+
+fn _right_eigvec[type: DType = DEFAULT_TYPE](T: CMatrix[type]) raises -> CMatrix[type]:
+    '''This routine computes, given a square upper triangular matrix T, its right eigenvectors.
+    They are stored in the returned matrix as columns.
+
+    Parameters:
+        type: A type for the data.
+
+    Args:
+        T: An upper triangular matrix.
+    
+    Returns:
+        A matrix containing right eigenvectors of T.
+    '''
+    var n: Int = T.rows
+    var small_num: Scalar[type]
+    var big_num: Scalar[type]
+    if type == DType.float64:
+        small_num = Float64(n).cast[type]() / EPS64 * REALMIN64
+        big_num = EPS64 / Float64(n).cast[type]() * REALMAX64
+    elif type == DType.float32:
+        small_num = Float32(n).cast[type]() / EPS32 * REALMIN32
+        big_num = EPS32 / Float32(n).cast[type]() * REALMAX32
+    elif type == DType.float16:
+        small_num = Float16(n).cast[type]() / EPS16 * REALMIN16
+        big_num = EPS16 / Float16(n).cast[type]() * REALMAX16
+    else:
+        raise Error(
+            'Eigenvector computation only available for Float64, Float32, and FLoat16 types.'
+        )
+
+    var X: CMatrix[type] = T.zeros_like()
+    for k in range(n - 1, -1, -1):
+        for r in range(k):
+            X.store_crd[1](r, k, -T.load_crd[1](r, k))
+        X.store_crd[1](k, k, 1)
+        for r in range(k + 1, n):
+            X.store_crd[1](r, k, 0)
+
+        var dmin: Scalar[type]
+        if type == DType.float64:
+            dmin = max(EPS64 * T.load_crd[1](k, k).norm(), small_num)
+        elif type == DType.float32:
+            dmin = max(EPS32 * T.load_crd[1](k, k).norm(), small_num)
+        else:
+            dmin = max(EPS16 * T.load_crd[1](k, k).norm(), small_num)
+        
+        for j in range(k - 1, -1, -1):
+            var d: ComplexScalar[type] = T.load_crd[1](j, j) - T.load_crd[1](k, k)
+            if d.norm() <= dmin:
+                d = dmin
+            if X.load_crd[1](j, k).norm() / big_num >= d.norm():
+                var s: Scalar[type] = d.norm() / X.load_crd[1](j, k).norm()
+                for r in range(k + 1):
+                    X.store_crd[1](r, k, X.load_crd[1](r, k) * s)
+
+            X.store_crd[1](j, k, X.load_crd[1](j, k) / d)
+
+            var new_col: CMatrix[type] = (
+                X._get_column(col=k, row_start=0, row_end=j) 
+                - X.load_crd[1](j, k) 
+                * T.get_column(col=j, row_start=0, row_end=j)
+            )
+            X._set_block(row=0, col=k, block=new_col)
+
+        var new_col: CMatrix[type] = X._get_column(col=k, row_start=0, row_end=k + 1)
+        new_col /= new_col.frobenius_norm()
+        X._set_block(row=0, col=k, block=new_col)
+    
+    return X^
+
+fn eigvecs[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    A: CMatrix[type]
+) raises -> CMatrix[type]:
+    '''Computes the eigenvectors of a matrix using the complex Schur decomposition.
+
+    Parameters:
+        type: A type for the data.
+        tol: A tolerance for zero checks.
+
+    Args:
+        A: A square matrix.
+    
+    Returns:
+        A matrix whose columns represent eigenvectors of A.
+    '''
+
+    var S: CMatrix[type]
+    S, _ = complex_schur[type, tol](A)
+    return _right_eigvec[type](S)
+
+
+fn eigs[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    A: CMatrix[type]
+) raises -> Tuple[List[ComplexScalar[type], True], CMatrix[type]]:
+    '''Compute the eigenvalues and eigenvectors of a matrix.
+
+    Parameters:
+        type: A type for the data.
+        tol: A tolerance for zero checks.
+
+    Args:
+        A: A square matrix.
+
+    Returns:
+        A tuple containing a list of eigenvalues and a matrix of eigenvectors. The columns
+        of the matrix are the eigenvectors of A.
+    '''
+    
+    var S: CMatrix[type]
+    S, _ = complex_schur[type, tol](A)
+
+    var eigenvalues = List[ComplexScalar[type], True](capacity=S.rows)
+    for i in range(S.rows):
+        eigenvalues.append(S.load_crd[1](i, i))
+    
+    var eigenvectors: CMatrix[type] = _right_eigvec[type](S)
+
+    return (eigenvalues, eigenvectors)

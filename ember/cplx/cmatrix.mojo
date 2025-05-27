@@ -339,6 +339,8 @@ struct CMatrix[type: DType = DEFAULT_TYPE](
     @always_inline
     fn _assert_same_shape(self, other: Self) raises:
         '''Raise if other is not the same shape as self.'''
+        if self.size == 0 and other.size == 0:
+            return
         if self.rows != other.rows or self.cols != other.cols:
             raise Error(
                 'Incompatible matrix dimensions: ('
