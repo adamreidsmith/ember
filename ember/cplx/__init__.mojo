@@ -33,5 +33,5 @@ from .mmath import (
     kron_power,
     is_positive_semidefinite,    
 )
-from .qr import complex_schur, eigvals
+from .qr import complex_schur, eigvals, eigvecs, eigs
 from .csrcmatrix import CSRCMatrix, CSRBuilder
