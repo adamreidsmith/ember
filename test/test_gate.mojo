@@ -105,7 +105,7 @@ def test_other():
     m[1, 1] = -1
     g2 = Gate[type]('test_gate', m, List[Int, True](0))
     assert_equal(g1 == g2, False, '__eq__')
-    g2 = Gate[type]('test_gate', CMatrix[type].eye(2, 2) + 1e-13, List[Int, True](0))
+    g2 = Gate[type]('test_gate', CMatrix[type].eye(2, 2) + 1e-15, List[Int, True](0))
     assert_equal(g1 == g2, True, '__eq__')
 
 def test_unparameterized_single_qubit_gates():

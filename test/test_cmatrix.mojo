@@ -439,7 +439,7 @@ def test_compare():
     assert_false(m1.is_close(mi), 'is_close')
     mi = m1
     mi[0, 0] += 0.0000000000001
-    assert_true(m1.is_close(mi), 'is_close')
+    assert_true(m1.is_close[1e-12](mi), 'is_close')
     assert_true(m1.ones_like().is_close(ComplexScalar[type].one()), 'is_close')
     assert_false(m1.ones_like().is_close(ComplexScalar[type].one() + 0.0000001), 'is_close')
     _assert_matrix_equal(m1 == m1, m1.ones_like(), 'eq')

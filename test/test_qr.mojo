@@ -4,14 +4,15 @@ from testing import assert_equal, assert_raises, assert_almost_equal, assert_tru
 from ._testing import _assert_matrix_almost_equal, _assert_matrix_equal
 
 from ember import CMatrix, ComplexScalar
-from ember import complex_schur, eigvals
+from ember.cplx.qr import complex_schur, eigvals, _right_eigvec
 
 alias type = DType.float64
 
 def run_qr_tests():
     print('Running qr tests')
-    # test_complex_schur()
+    test_complex_schur()
     test_eigvals()
+    test_right_eigvec()
     print('All tests passed')
 
 def test_complex_schur():
@@ -72,3 +73,47 @@ def test_eigvals():
                 break
         else:
             raise Error('eigvals')
+
+def test_right_eigvec():
+    m = CMatrix[type].eye(3, 3)
+    eigs = _right_eigvec(m)
+    _assert_matrix_almost_equal(m, eigs, 'right_eigvec')
+    m = CMatrix[type].eye(100, 100)
+    eigs = _right_eigvec(m)
+    _assert_matrix_almost_equal(m, eigs, 'right_eigvec')
+
+    m = CMatrix[type](5, 5,
+        -10, -9, -8, -7, -6,
+        0, -4, -3, -2, -1,
+        0, 0, 2, 3, 4,
+        0, 0, 0, 8, 9,
+        0, 0, 0, 0, 14,
+    )
+    et = CMatrix[type](5, 5,
+        1.0000, -0.8321, -0.2524, -0.3735, -0.3752,
+        0, 0.5547, -0.4327, -0.2342, -0.1604,
+        0, 0, 0.8655, 0.4014, 0.3339,
+        0, 0, 0, 0.8028, 0.7070,
+        0, 0, 0, 0, 0.4713,
+    )
+    eigs = _right_eigvec(m)
+    _assert_matrix_almost_equal(eigs, et, atol=5e-4)
+
+    m = CMatrix[type](5, 5,
+        (-10.0, 25.0), (-9.0, 10.0), (-8.0, -5.0), (-7.0, -20.0), (-6.0, -35.0),
+        (0.0, 0.0), (-4.0, 7.0), (-3.0, -8.0), (-2.0, -23.0), (-1.0, -38.0),
+        (0.0, 0.0), (0.0, 0.0), (2.0, -11.0), (3.0, -26.0), (4.0, -41.0),
+        (0.0, 0.0), (0.0, 0.0), (0.0, 0.0), (8.0, -29.0), (9.0, -44.0),
+        (0.0, 0.0), (0.0, 0.0), (0.0, 0.0), (0.0 + 0.0),  (14.0, -47.0),
+    )
+    et = CMatrix[type](5, 5,
+        (1.0000, + 0.0000),  (-0.5302, - 0.2311),  (-0.0854, - 0.1780),   (0.0468, - 0.2144),   (0.1184, - 0.2221),
+        (0.0000, + 0.0000),   (0.8157, + 0.0000),   (0.3129, - 0.2533),   (0.3824, - 0.2446),   (0.3860, - 0.2394),
+        (0.0000, + 0.0000),   (0.0000, + 0.0000),   (0.8939, + 0.0000),   (0.6843, - 0.1436),   (0.5954, - 0.1751),
+        (0.0000, + 0.0000),   (0.0000, + 0.0000),   (0.0000, + 0.0000),   (0.5069, + 0.0000),   (0.5373, - 0.0648),
+        (0.0000, + 0.0000),   (0.0000, + 0.0000),   (0.0000, + 0.0000),   (0.0000, + 0.0000),   (0.2286, + 0.0000),
+
+    )
+    eigs = _right_eigvec(m)
+    _assert_matrix_almost_equal(eigs, et, atol=5e-4)
+
