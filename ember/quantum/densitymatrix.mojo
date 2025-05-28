@@ -1,6 +1,6 @@
 ##### UNTESTED ##### UNTESTED ##### UNTESTED ##### UNTESTED ##### UNTESTED ##### UNTESTED ##### 
 
-from collections import Dict
+from collections import Dict, Set
 from bit import log2_floor
 from math import sqrt
 from memory import UnsafePointer
@@ -11,7 +11,7 @@ from ..config import DEFAULT_TYPE, DEFAULT_TOL
 
 
 struct DensityMatrix[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
-    Copyable, Movable, Defaultable
+    Copyable, Movable, Defaultable, Stringable, Representable, Writable
 ):
     '''A density matrix representing the state of multiple qubits.
     
@@ -60,12 +60,16 @@ struct DensityMatrix[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL
         self._lock_pointer = UnsafePointer(to=self._lock)
     
     fn __init__(out self, elem_dict: Dict[Int, ComplexScalar[Self.type]], size: Int) raises:
-        '''Initialize a density matrix from a dictionary of statavector elements and a size.
+        '''Initialize a density matrix from a dictionary of statevector elements and a size.
 
         Args:
             elem_dict: A dictionary mapping statevector indices to non-zero values.
             size: The total length of the statevector.
         '''
+        if size < 0:
+            raise Error('Invalid statevector size: ' + String(size) + '.')
+        if size == 0:
+            return Self()
         if not (size & (size - 1) == 0):
             raise Error(
                 'Matrix does not represent a multi-qubit state. '
@@ -84,7 +88,6 @@ struct DensityMatrix[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL
         self._lock = BlockingSpinLock()
         self._lock_pointer = UnsafePointer(to=self._lock)
         self.matrix = CMatrix[Self.type](size, size, fill_zeros=False)
-        # TODO: Check that the statevector is normalized
         with BlockingScopedLock(self._lock_pointer):
             for i in range(size):
                 self.matrix.store_crd[1](i, i, elem_dict.get(i, 0).squared_norm())
@@ -94,7 +97,7 @@ struct DensityMatrix[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL
                     )
                     self.matrix.store_crd[1](i, j, elem)
                     self.matrix.store_crd[1](j, i, elem.conj())
-    
+
     @always_inline
     fn __copyinit__(out self, existing: Self):
         '''Initialize a density matrix by copying another.
@@ -119,6 +122,45 @@ struct DensityMatrix[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL
         self._lock = BlockingSpinLock()
         self._lock_pointer = UnsafePointer(to=self._lock)
     
+    @no_inline
+    fn __str__(self) -> String:
+        '''Represent the density matrix as a string.
+        
+        Returns:
+            A string representation of self.
+        '''
+        return self._get_str_rep(max_lines=8)
+    
+    @no_inline
+    fn _get_str_rep(self, max_lines: Int) -> String:
+        '''Represent the density matrix as a string.
+        
+        Returns:
+            A string representation of self.
+        '''
+        var str_rep = self.matrix._get_str_rep(max_lines=max_lines)
+        var dtype_idx: Int = str_rep.find('DType')
+        str_rep = str_rep[:dtype_idx] + 'DensityMatrix | ' + str_rep[dtype_idx:]
+        return str_rep
+    
+    @no_inline
+    fn __repr__(self) -> String:
+        '''Represent the density matrix as a string.
+        
+        Returns:
+            A string representation of self.
+        '''
+        return String(self)
+    
+    @no_inline
+    fn write_to[W: Writer](self, mut writer: W):
+        '''Write the density matrix to a writer.
+
+        Args:
+            writer: The writer to write to.
+        '''
+        writer.write(String(self))
+    
     @always_inline
     fn purity(self) raises -> Scalar[Self.type]:
         '''Compute the purity of the density matrix. Pure states have purity 1, whereas maximally
@@ -128,6 +170,7 @@ struct DensityMatrix[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL
             The purity of self.
         '''
         with BlockingScopedLock(self._lock_pointer):
+            # TODO: This can be made more efficient by only computing diagonal elements of rho^2
             return (self.matrix @ self.matrix).trace().re
     
     @always_inline
@@ -138,6 +181,20 @@ struct DensityMatrix[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL
             True if self is pure, False otherwise.
         '''
         return abs(self.purity() - 1) < tol
+    
+    fn partial_trace(self, *traced_qubits: Int) raises -> Self:
+        '''Compute the partial trace of the density matrix over specified qubit.
+
+        Args:
+            traced_qubits: Qubit indices to trace out.
+
+        Returns:
+            New density matrix with specified qubits traced out.
+        '''
+        var traced = List[Int, True]()
+        for q in traced_qubits:
+            traced.append(q)
+        return self.partial_trace(traced)
         
     fn partial_trace(self, traced_qubits: List[Int, True]) raises -> Self:
         '''Compute the partial trace of the density matrix over specified qubits.
@@ -152,6 +209,8 @@ struct DensityMatrix[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL
         for idx in traced_qubits:
             if idx[] < 0 or idx[] >= self.n_qubits:
                 raise Error('Invalid qubit specifier: ' + String(idx[]) + '.')
+        if len(traced_qubits) != len(Set(traced_qubits)):
+            raise Error('partial_trace received a repeated qubit specifier.')
 
         # Calculate remaining qubits
         var remaining_qubits = List[Int, True]()
@@ -209,7 +268,6 @@ struct DensityMatrix[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL
 
         return Self(result_matrix^)
 
-    # Helper function: Convert linear index to multi-dimensional indices
     @staticmethod
     fn _linear_to_multi_index(linear_idx: Int, n_qubits: Int) -> List[Int, True]:
         '''Convert a linear index to multi-dimensional indices.
@@ -221,6 +279,7 @@ struct DensityMatrix[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL
         Returns:
             The multi-index corresponding to the linear index.
         '''
+        # Qubit 0 is LSB
         var indices = List[Int, True]()
         var remaining: Int = linear_idx
 
@@ -230,7 +289,6 @@ struct DensityMatrix[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL
 
         return indices
 
-    # Helper function: Convert multi-dimensional indices to linear index
     @staticmethod
     fn _multi_to_linear_index(indices: List[Int, True], n_qubits: Int) -> Int:
         '''Convert multi-dimensional indices to a linear index.
@@ -242,6 +300,7 @@ struct DensityMatrix[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL
         Returns:
             The linear index corresponding to the multi-index.
         '''
+        # Qubit 0 is LSB
         var linear_idx: Int = 0
 
         for i in range(n_qubits):
@@ -249,7 +308,6 @@ struct DensityMatrix[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL
 
         return linear_idx
 
-    # TODO: Test these two methods and benchmark to check which to keep
     fn _to_sv_data[tol: Scalar[type] = Self.tol](
         self
     ) raises -> Tuple[Dict[Int, ComplexScalar[Self.type]], Int]:
@@ -300,56 +358,3 @@ struct DensityMatrix[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL
                 sv_elems[i] = elem
         
         return sv_elems^, len(sv)
-
-    fn _to_sv_data_direct[tol: Scalar[type] = Self.tol](
-        self
-    ) raises -> Tuple[Dict[Int, ComplexScalar[Self.type]], Int]:
-        '''Convert pure density matrix to statevector using direct extraction.
-        This method is more efficient but requires the density matrix to be exactly pure.
-
-        Parameters:
-            tol: A tolerance for purity checks.
-
-        Returns:
-            The data necessary to instantiate a Statevector.
-        '''
-        
-        if not self.is_pure[tol]():
-            raise Error('Cannot convert to statevector. Density matrix is not pure.')
-        
-        var sv_elems = Dict[Int, ComplexScalar[Self.type]]()
-        with BlockingScopedLock(self._lock_pointer):
-            # Find the first non-zero diagonal element to determine phase reference
-            var ref_idx: Int
-            for i in range(self.matrix.rows):
-                var diagonal_elem: ComplexScalar[Self.type] = self.matrix.load_crd[1](i, i)
-                if diagonal_elem.squared_norm() > Self.tol:
-                    ref_idx = i
-                    break
-            else:
-                raise Error('No non-zero diagonal elements found.')
-            
-            # Extract statevector amplitudes
-            var ref_amp: Scalar[Self.type] = sqrt(self.matrix.load_crd[1](ref_idx, ref_idx).re)
-            for i in range(self.matrix.rows):
-                if i == ref_idx:
-                    # Use positive real amplitude for reference
-                    sv_elems[i] = ComplexScalar[Self.type](ref_amp)
-                    continue
-                # Calculate amplitude from off-diagonal element
-                if ref_amp >= Self.tol:
-                    sv_elems[i] = self.matrix.load_crd[1](ref_idx, i) / ref_amp
-                    continue
-                # Check if this diagonal element is non-zero
-                var diag_elem: ComplexScalar[Self.type] = self.matrix.load_crd[1](i, i)
-                sv_elems[i] = sqrt(diag_elem.re) if abs(diag_elem.re) > Self.tol else 0
-            
-        # Verify the extracted statevector is normalized
-        var norm_squared: Scalar[Self.type] = 0
-        for amp in sv_elems.values():
-            norm_squared += amp[].squared_norm()
-        
-        if abs(norm_squared - 1) >= Self.tol:
-            raise Error('Extracted statevector is not normalized.')
-        
-        return sv_elems^, 2 ** self.n_qubits

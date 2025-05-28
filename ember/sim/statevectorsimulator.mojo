@@ -1,12 +1,10 @@
-##### UNTESTED ##### UNTESTED ##### UNTESTED ##### UNTESTED ##### UNTESTED ##### UNTESTED ##### 
-
 '''
 A quantum circuit statevector simulator.
 
-Algorithms taken/adapted from [1].
+Algorithms adapted from [1].
 
-[1] Jones, Tyson, Bálint Koczor, and Simon C. Benjamin. “Distributed Simulation of
-    Statevectors and Density Matrices.” arXiv.org, November 2, 2023. 
+[1] Jones, Tyson, Bálint Koczor, and Simon C. Benjamin. "Distributed Simulation of
+    Statevectors and Density Matrices." arXiv.org, November 2, 2023. 
     https://arxiv.org/abs/2311.01512.
 '''
 

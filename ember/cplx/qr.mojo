@@ -484,8 +484,8 @@ fn eigvecs[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     '''
 
     var S: CMatrix[type]
-    S, _ = complex_schur[type, tol](A)
-    return _right_eigvec[type](S)
+    S, Q = complex_schur[type, tol](A)
+    return Q @ _right_eigvec[type](S)
 
 
 fn eigs[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
@@ -506,12 +506,12 @@ fn eigs[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     '''
     
     var S: CMatrix[type]
-    S, _ = complex_schur[type, tol](A)
+    S, Q = complex_schur[type, tol](A)
 
     var eigenvalues = List[ComplexScalar[type], True](capacity=S.rows)
     for i in range(S.rows):
         eigenvalues.append(S.load_crd[1](i, i))
     
-    var eigenvectors: CMatrix[type] = _right_eigvec[type](S)
+    var eigenvectors: CMatrix[type] = Q @ _right_eigvec[type](S)
 
     return (eigenvalues, eigenvectors)
