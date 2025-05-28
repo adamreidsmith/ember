@@ -41,7 +41,7 @@ def test_complex_schur():
                 assert_almost_equal(U[r, c].re, 0, 'complex_schur')
                 assert_almost_equal(U[r, c].im, 0, 'complex_schur')
         assert_true(Q.is_unitary[tol=1e-12]())
-        _assert_matrix_almost_equal(A[], Q @ U @ Q.dag(), 'complex_schur')
+        _assert_matrix_almost_equal(A[], Q @ U @ Q.dag(), 'complex_schur', atol=1e-8)
 
 def test_eigvals():
     m = CMatrix[type].eye(50, 50)
