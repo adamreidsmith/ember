@@ -2,10 +2,10 @@ from collections import Dict, Set
 from math import sqrt
 
 from testing import assert_equal, assert_raises, assert_almost_equal
-from ._testing import _assert_matrix_equal
+from ._testing import _assert_matrix_equal, _assert_matrix_almost_equal
 
 from ember import Gate, Measure, X, Y, T, CCX, RZ, H
-from ember import QuantumCircuit, CMatrix, CSRCMatrix
+from ember import QuantumCircuit, CMatrix, CSRCMatrix, Statevector
 
 
 alias type = DType.float64
@@ -176,3 +176,26 @@ def test_join():
     x.control(clbits=List[Int, True](3, 2)) 
     assert_equal(qc._data[6], x, 'join')
     assert_equal(qc._data[7], Measure(List[Int, True](3, 2, 1), List[Int, True](1, 2, 3)), 'join')
+
+    qc = QuantumCircuit(3)
+    qc_other = QuantumCircuit(2)
+    qc.set_initial_state(Statevector[type].zero(3))
+    bell_cm = CMatrix[type](4, 1, 1, 0, 0, 1) / sqrt(2.0)
+    qc_other.set_initial_state(bell_cm)
+    with assert_raises(contains='Cannot join a circuit with qubit initialization'):
+        qc.join(qc_other, List[Int, True](0, 1))
+    qc = QuantumCircuit(3)
+    qc.apply(H(0))
+    with assert_raises(contains='mid-circuit qubit initialization'):
+        qc.join(qc_other, List[Int, True](0, 1))
+    qc = QuantumCircuit(3)
+    qc.join(qc_other, List[Int, True](0, 1))
+    _assert_matrix_almost_equal(qc._initial_state.partial_trace(2).to_dense(), bell_cm, 'join')
+
+    qc = QuantumCircuit(3, 3)
+    qc_other = QuantumCircuit(2, 2)
+    qc_other.set_clbits(List[Int, True](1, 1))
+    qc.join(qc_other, List[Int, True](0, 1), List[Int, True](0, 2))
+    assert_equal(qc.clbits[0], 1, 'join')
+    assert_equal(qc.clbits[1], 0, 'join')
+    assert_equal(qc.clbits[2], 1, 'join')
