@@ -1,9 +1,10 @@
 from math import sqrt
 from collections import Set, Dict
 
-from ..cplx import CMatrix, CSRCMatrix
+from ..cplx import CMatrix, CSRCMatrix, kron
 from .gate import Gate
 from .statevector import Statevector
+from .densitymatrix import DensityMatrix
 from ..config import DEFAULT_TOL, DEFAULT_TYPE
 
 
@@ -200,6 +201,22 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
         self._initial_state = Statevector[Self.type, Self.tol](
             statevector=statevector^, normalize=normalize, n_elements=2 ** self.n_qubits
         )
+    
+    fn join(
+        mut self,
+        owned other: QuantumCircuit[Self.type, Self.tol],
+        *qubits: Int,
+    ) raises:
+        '''Apply the instructions from one circuit onto the qubits of self.
+
+        Args:
+            other: The circuit to join with self.
+            qubits: The qubits in self to join onto.
+        '''
+        var self_qubits = List[Int, True](capacity=len(qubits))
+        for q in qubits:
+            self_qubits.append(q)
+        self.join(other, self_qubits)
 
     fn join(
         mut self,
@@ -245,21 +262,39 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
         for c in clbits:
             if c[] < 0 or c[] >= self.n_clbits:
                 raise Error('Invalid classical bit specifier: ' + String(c[]) + '.')
+        if other._initial_state.size != 0:
+            if self._initial_state.size != 0:
+                raise Error(
+                    'Cannot join a circuit with qubit initialization onto another circuit '
+                    'with qubit initialization.'
+                )
+            # If any qubits `other` is applied to in self have gates, raise an error
+            for q in qubits:
+                for gate in self._data:
+                    if q[] in gate[].qubits or q[] in gate[].controls:
+                        raise Error('Cannot apply mid-circuit qubit initialization at this time.')
+            
+            var new_initial_state = Statevector[Self.type, Self.tol]._empty(self.n_qubits)
+            for other_sv_idx in range(2 ** other.n_qubits):
+                var other_sv_idx_arr: List[Int, True] = self._int_to_bin_array(other_sv_idx, other.n_qubits)
+                
+                var self_sv_idx_arr = List[Int, True](length=self.n_qubits, fill=0)
+                for qubit_idx in range(other.n_qubits):
+                    var new_idx: Int = qubits[qubit_idx]
+                    self_sv_idx_arr[new_idx] = other_sv_idx_arr[qubit_idx]
+                
+                var self_sv_idx: Int = self._bin_array_to_int(self_sv_idx_arr)
+                new_initial_state[self_sv_idx] = other._initial_state[other_sv_idx]
+            self._initial_state = new_initial_state^
         
-        var qubit_mapping_other_to_self = Dict[Int, Int]()
-        var clbit_mapping_other_to_self = Dict[Int, Int]()
-        for i in range(len(qubits)):
-            qubit_mapping_other_to_self[i] = qubits[i]
-        for i in range(len(clbits)):
-            clbit_mapping_other_to_self[i] = clbits[i]
+        # Map classical bit values
+        for i in range(other.n_clbits):
+            self.clbits[clbits[i]] = other.clbits[i]
 
         fn get_new_bits(bits: List[Int, True], quantum: Bool) raises -> List[Int, True]:
             var new_bits = List[Int, True]()
             for b in bits:
-                if quantum:
-                    new_bits.append(qubit_mapping_other_to_self[b[]])
-                else:
-                    new_bits.append(clbit_mapping_other_to_self[b[]])
+                new_bits.append((qubits if quantum else clbits)[b[]])
             return new_bits
         
         for gate_ref in other._data:
@@ -280,6 +315,22 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
                 _measure_targs=new_measure_targs,
             )
             self.apply(new_gate^)
+    
+    @staticmethod
+    fn _int_to_bin_array(i: Int, length: Int) -> List[Int, True]:
+        '''Convert an integer to a binary array of specified length.'''
+        var bin_arr = List[Int, True](capacity=length)
+        for j in range(length):
+            bin_arr.append((i >> j) & 1)
+        return bin_arr
+    
+    @staticmethod
+    fn _bin_array_to_int(arr: List[Int, True]) -> Int:
+        '''Convert binary array to integer.'''
+        var i: Int = 0
+        for j in range(len(arr)):
+            i += arr[j] * (2 ** j)
+        return i
 
     @no_inline
     fn __str__(self) -> String:
