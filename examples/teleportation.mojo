@@ -94,7 +94,7 @@ fn quantum_teleportation() raises:
 
     # The result may not look exactly like the original state, so what's going on?
     # An important note is that statevectors are only defined up to a global phase,
-    # so the statevector for Bob's telported qubit may differ from the original state
+    # so the statevector for Bob's teleported qubit may differ from the original state
     # by a phase factor. If this is the case, each amplitude should differ from the
     # original by the same factor, and that factor should have norm 1.
     var amp_0_factor: ComplexScalar = state[0] / statevector[0]
