@@ -1,24 +1,24 @@
 import math
 
-from ..config import DEFAULT_TOL
+from ..config import DEFAULT_TYPE, DEFAULT_TOL
 
-alias ComplexScalar = ComplexSIMD[size=1]
+alias ComplexScalar = ComplexSIMD[type=_, size=1]
 
-alias ComplexSIMD16 = ComplexSIMD[DType.float16]
-alias ComplexSIMD32 = ComplexSIMD[DType.float32]
-alias ComplexSIMD64 = ComplexSIMD[DType.float64]
-alias BComplexSIMD16 = ComplexSIMD[DType.bfloat16]
+alias ComplexSIMD16 = ComplexSIMD[type=DType.float16, size=_]
+alias ComplexSIMD32 = ComplexSIMD[type=DType.float32, size=_]
+alias ComplexSIMD64 = ComplexSIMD[type=DType.float64, size=_]
+alias BComplexSIMD16 = ComplexSIMD[type=DType.bfloat16, size=_]
 
-alias Complex16 = ComplexSIMD16[1]
-alias Complex32 = ComplexSIMD32[1]
-alias Complex64 = ComplexSIMD64[1]
-alias BComplex16 = BComplexSIMD16[1]
+alias Complex16 = ComplexSIMD16[size=1]
+alias Complex32 = ComplexSIMD32[size=1]
+alias Complex64 = ComplexSIMD64[size=1]
+alias BComplex16 = BComplexSIMD16[size=1]
 
 alias _halfpi =  math.pi / 2
 
 
 @register_passable('trivial')
-struct ComplexSIMD[type: DType, size: Int](
+struct ComplexSIMD[type: DType = DEFAULT_TYPE, size: Int = 1](
         Defaultable, 
         Powable, 
         Roundable, 

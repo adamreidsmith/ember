@@ -65,7 +65,7 @@ struct CMatrix[type: DType = DEFAULT_TYPE](
                 remaining unfilled elements set to zero.
         '''
         if len(data) > rows * cols:
-            raise Error('More elements provided than fit in the cmatrix')
+            raise Error('More elements provided than fit in the matrix')
         self.rows = rows
         self.cols = cols
         self.size = self.rows * self.cols
@@ -86,7 +86,7 @@ struct CMatrix[type: DType = DEFAULT_TYPE](
                 remaining unfilled elements set to zero.
         '''
         if len(data) > rows * cols:
-            raise Error('More elements provided than fit in the cmatrix')
+            raise Error('More elements provided than fit in the matrix')
         self.rows = rows
         self.cols = cols
         self.size = self.rows * self.cols
