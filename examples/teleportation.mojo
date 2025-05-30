@@ -41,13 +41,13 @@ fn entangle_generation() raises -> QuantumCircuit:
     '''Generate an entangled Bell state.'''
     var qc = QuantumCircuit(2)
     qc.apply(H(0), CX(0, 1))
-    return qc
+    return qc^
 
 fn change_of_basis() raises -> QuantumCircuit:
     '''Change the basis so we can perform a Bell measurement.'''
     var qc = QuantumCircuit(2)
     qc.apply(CX(0, 1), H(0))
-    return qc
+    return qc^
 
 fn measure_and_update() raises -> QuantumCircuit:
     '''Measure Alice's qubits and perform operations on Bob's qubit based on the measurment.'''
@@ -58,7 +58,7 @@ fn measure_and_update() raises -> QuantumCircuit:
     var z: Gate = Z(2)
     z.control(clbits=List[Int, True](0))
     qc.apply(x, z)
-    return qc
+    return qc^
 
 fn teleport(state: Tuple[ComplexScalar, ComplexScalar]) raises -> QuantumCircuit:
     '''Put it all together to create the quantum teleportation circuit.'''
@@ -71,7 +71,7 @@ fn teleport(state: Tuple[ComplexScalar, ComplexScalar]) raises -> QuantumCircuit
         List[Int, True](0, 1, 2),
         List[Int, True](0, 1),
     )
-    return teleportation_circuit
+    return teleportation_circuit^
 
 fn quantum_teleportation() raises:
     # The state we will teleport is (1 / sqrt(2) + 0.3i)|0⟩ + (0.4 - 0.5i)|1⟩
