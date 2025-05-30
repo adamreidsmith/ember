@@ -241,40 +241,8 @@ struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
             enforce_n_elements: If nonnegative, enforce that the statevector has exactly this many
                 elements.
         '''
-        self._lock = BlockingSpinLock()
-        self._lock_pointer = UnsafePointer(to=self._lock)
-
-        # Enforce the right number of elements were provided
-        if enforce_n_elements >= 0 and len(statevector) != enforce_n_elements:
-            raise Error(
-                'Statevector must have ' + String(enforce_n_elements) + ' elements, but '
-                + String(len(statevector)) + ' elements were provided.'
-            )
-        # Enforce statevector dimension is a power of 2
-        if not (len(statevector) & (len(statevector) - 1) == 0):
-            raise Error(
-                'Statevector does not represent a multi-qubit state. '
-                'Statevector dimension must be a power of 2.'
-            )
-        self.size = len(statevector)
-        self.n_qubits = log2_floor(len(statevector))
-
-        # Initialize the statevector, normalizing (or raising) if necessary
-        var sum_sqr: Scalar[Self.type] = 0
-        for elem in statevector:
-            sum_sqr += elem[].squared_norm()
-        if abs(sum_sqr - 1) >= Self.tol:
-            if normalize:
-                self._data = Dict[Int, ComplexScalar[Self.type]]()
-                var norm_factor: ComplexScalar[Self.type] = sqrt(sum_sqr)
-                for i in range(len(statevector)):
-                    self._data[i] = statevector[i] / norm_factor
-            else:
-                raise Error('Statevector is not normalized.')
-        else:
-            self._data = Dict[Int, ComplexScalar[Self.type]]()
-            for i in range(len(statevector)):
-                self._data[i] = statevector[i]
+        var matrix = CMatrix[Self.type](len(statevector), 1, statevector)
+        return Self(matrix^, normalize, enforce_n_elements)
 
     fn __init__[tol: Scalar[Self.type]](
         out self, 
@@ -283,6 +251,9 @@ struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
         enforce_n_elements: Int = -1,
     ) raises:
         '''Initialize a statevector from another statevector.
+
+        Parameters:
+            tol: The tolerance of the incomming statevector.
 
         Args:
             statevector: A statevector.
@@ -325,6 +296,26 @@ struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
             # TODO: Find out if we need a lock in this case
             # If we don't need a lock, we can transfer ownership of _data instead of copying
             self._data = statevector._data
+    
+    fn __init__(
+        out self, 
+        *data: ComplexScalar[Self.type],
+        normalize: Bool = False,
+        enforce_n_elements: Int = -1,
+    ) raises:
+        '''Initialize a statevector from elements.
+
+        Args:
+            data: The statevector elements.
+            normalize: If True, the statevector will be automatically normalized. If False and the
+                statevector is unnormalized, an error will be raised.
+            enforce_n_elements: If nonnegative, enforce that the statevector has exactly this many
+                elements.
+        '''
+        var matrix = CMatrix[Self.type](len(data), 1, fill_zeros=False)
+        for i in range(len(data)):
+            matrix.store_idx[1](i, data[i])
+        return Self(matrix, normalize, enforce_n_elements)
 
     @always_inline
     fn __copyinit__(out self, existing: Self):
@@ -593,7 +584,7 @@ struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
         except e:
             if 'not pure' in String(e):
                 raise Error(
-                    'Cannot perform partial trace as result is not pure. '
+                    'Cannot perform partial trace as the resulting state is not pure. '
                     'Use \'partial_trace_dm\' to perform the partial trace and return a '
                     'density matrix.'
                 )
@@ -654,5 +645,18 @@ struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
         with BlockingScopedLock(self._lock_pointer):
             for idx_elem in self._data.items():
                 result.store_idx[1](idx_elem[].key, idx_elem[].value)
-        return result
-        
+        return result^
+    
+    fn apply_global_phase_factor(mut self, phase: ComplexScalar[Self.type]) raises -> Self:
+        '''Multiply the statevector by a global phase.
+
+        Args:
+            phase: The phase to multiply by.
+        '''
+        if not abs(phase).is_close[Self.tol](1):
+            raise Error('Phase does not have norm 1.')
+
+        var result = self
+        for idx in self._data.keys():
+            result._data[idx[]] *= phase
+        return result^

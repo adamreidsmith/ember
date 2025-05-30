@@ -1,5 +1,3 @@
-##### UNTESTED ##### UNTESTED ##### UNTESTED ##### UNTESTED ##### UNTESTED ##### UNTESTED ##### 
-
 from collections import Dict, Set
 from bit import log2_floor
 from math import sqrt
