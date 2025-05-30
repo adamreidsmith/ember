@@ -1,7 +1,7 @@
 '''
 Quantum Teleportation
 
-Support there are two researchers, Alice and Bob, and Alice wants to send a quantum state
+Suppose there are two researchers, Alice and Bob, and Alice wants to send a quantum state
 to Bob. Quantum telepportation allows Alice to do just this by only sending classical
 information, at the expense of a shared entangled state.  The protocol is as follows:
 
@@ -73,11 +73,7 @@ fn teleport(state: Tuple[ComplexScalar, ComplexScalar]) raises -> QuantumCircuit
     )
     return teleportation_circuit
 
-    
-
-
 fn quantum_teleportation() raises:
-
     # The state we will teleport is (1 / sqrt(2) + 0.3i)|0⟩ + (0.4 - 0.5i)|1⟩
     var state = (ComplexScalar(1.0 / sqrt(2.0), 0.3), ComplexScalar(0.4, -0.5))
 
