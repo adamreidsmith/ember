@@ -47,7 +47,7 @@ struct Gate[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
         out self,
         owned name: String,
         owned matrix: CMatrix[Self.type], 
-        owned qubits: List[Int, True] = List[Int, True](),
+        owned qubits: List[Int, True],
         owned params: List[Scalar[Self.type], True] = List[Scalar[Self.type], True](),
     ) raises:
         '''Initialize a gate with a name, unitary matrix, set of qubits, and parameters.
@@ -482,6 +482,32 @@ fn T[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     return Gate[type, tol]('T', t[type](), List[Int, True](qubit))
 
 
+@always_inline
+fn sx[type: DType = DEFAULT_TYPE]() raises -> CMatrix[type]:
+    var opi = ComplexScalar[type](0.5, 0.5)
+    var omi: ComplexScalar[type] = opi.conj()
+    return CMatrix[type](2, 2, 
+        opi, omi,
+        omi, opi,
+    )
+fn SX[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    qubit: Int
+) raises -> Gate[type, tol]:
+    '''Create an SX (square root fo X) gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit: The qubit on which the gate applies.
+    
+    Returns:
+        An SX gate.
+    '''
+    return Gate[type, tol]('SX', sx[type](), List[Int, True](qubit))
+
+
 # Unparameterized multi-qubit gates #############
 
 
@@ -565,13 +591,68 @@ fn CCX[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     return ccx
 
 
+@always_inline
+fn ecr[type: DType = DEFAULT_TYPE]() raises -> CMatrix[type]:
+    alias i = ComplexScalar[type].i()
+    return CMatrix[type](4, 4,
+        0,  1,  0,  i,
+        1,  0, -i,  0,
+        0,  i,  0,  1,
+        -i, 0,  1,  0,
+    ) / sqrt(2.0).cast[type]()
+fn ECR[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    qubit0: Int, qubit1: Int
+) raises -> Gate[type, tol]:
+    '''Create an ECR (echoed cross-resonance) gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit0: The first qubit on which the gate applies.
+        qubit1: The second qubit on which the gate applies.
+    
+    Returns:
+        An ECR gate.
+    '''
+    return Gate[type, tol]('ECR', ecr[type](), List[Int, True](qubit0, qubit1))
+
+
+@always_inline
+fn swap[type: DType = DEFAULT_TYPE]() raises -> CMatrix[type]:
+    return CMatrix[type](4, 4,
+        1, 0, 0, 0,
+        0, 0, 1, 0,
+        0, 1, 0, 0,
+        0, 0, 0, 1,
+    )
+fn SWAP[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    qubit0: Int, qubit1: Int
+) raises -> Gate[type, tol]:
+    '''Create a swap gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit0: The first qubit on which the gate applies.
+        qubit1: The second qubit on which the gate applies.
+    
+    Returns:
+        A swap gate.
+    '''
+    return Gate[type, tol]('SWAP', swap[type](), List[Int, True](qubit0, qubit1))
+
+
 # Parameterized single-qubit gates ##############
 
 
 @always_inline
 fn rx[type: DType = DEFAULT_TYPE](t: Scalar[type]) raises -> CMatrix[type]:
-    var a = ComplexScalar[type](cos(t / 2), 0)
-    var b = ComplexScalar[type](0, -sin(t / 2))
+    var a = ComplexScalar[type](cos(t / 2.0), 0)
+    var b = ComplexScalar[type](0, -sin(t / 2.0))
     return CMatrix[type](2, 2,
         a, b,
         b, a,
@@ -599,8 +680,8 @@ fn RX[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
 
 @always_inline
 fn ry[type: DType = DEFAULT_TYPE](t: Scalar[type]) raises -> CMatrix[type]:
-    var a = ComplexScalar[type](cos(t / 2), 0)
-    var b = ComplexScalar[type](sin(t / 2), 0)
+    var a = ComplexScalar[type](cos(t / 2.0), 0)
+    var b = ComplexScalar[type](sin(t / 2.0), 0)
     return CMatrix[type](2, 2,
         a, -b,
         b, a,
@@ -628,8 +709,8 @@ fn RY[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
 
 @always_inline
 fn rz[type: DType = DEFAULT_TYPE](t: Scalar[type]) raises -> CMatrix[type]:
-    var c: Scalar[type] = cos(t / 2)
-    var s: Scalar[type] = sin(t / 2)
+    var c: Scalar[type] = cos(t / 2.0)
+    var s: Scalar[type] = sin(t / 2.0)
     return CMatrix[type](2, 2,
         ComplexScalar[type](c, -s), 0, 
         0, ComplexScalar[type](c, s),
@@ -656,9 +737,11 @@ fn RZ[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
 
 
 @always_inline
-fn u[type: DType = DEFAULT_TYPE](t: Scalar[type], p: Scalar[type], l: Scalar[type]) raises -> CMatrix[type]:
-    var ct: Scalar[type] = cos(t / 2)
-    var st: Scalar[type] = sin(t / 2)
+fn u[type: DType = DEFAULT_TYPE](
+    t: Scalar[type], p: Scalar[type], l: Scalar[type]
+) raises -> CMatrix[type]:
+    var ct: Scalar[type] = cos(t / 2.0)
+    var st: Scalar[type] = sin(t / 2.0)
     return CMatrix[type](2, 2,
         ComplexScalar[type](ct, 0), 
         ComplexScalar[type](-cos(l) * st, -sin(l) * st), 
@@ -691,7 +774,262 @@ fn U[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
     )
 
 
+@always_inline
+fn phase[type: DType = DEFAULT_TYPE](t: Scalar[type]) raises -> CMatrix[type]:
+    var exp_it = ComplexScalar[type](cos(t), sin(t))
+    return CMatrix[type](2, 2,
+        1, 0,
+        0, exp_it,
+    )
+fn PHASE[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    qubit: Int, theta: Scalar[type]
+) raises -> Gate[type, tol]:
+    '''Create a phase gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit: The qubit on which the gate applies.
+        theta: The parameter value for the gate.
+    
+    Returns:
+        A phase gate.
+    '''
+    return Gate[type, tol](
+        'PHASE', phase[type](theta), List[Int, True](qubit), List[Scalar[type], True](theta)
+    )
+
+
+@always_inline
+fn r[type: DType = DEFAULT_TYPE](t: Scalar[type], p: Scalar[type]) raises -> CMatrix[type]:
+    var ct: Scalar[type] = cos(t / 2.0)
+    var st: Scalar[type] = sin(t / 2.0)
+    return CMatrix[type](2, 2,
+        ct, -ComplexScalar[type].i() * (-ComplexScalar[type](0, p)).exp() * st,
+        -ComplexScalar[type].i() * (ComplexScalar[type](0, p)).exp() * st, ct,
+    )
+fn R[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    qubit: Int, theta: Scalar[type], phi: Scalar[type]
+) raises -> Gate[type, tol]:
+    '''Create an R gate (a rotation by angle θ around the cos(φ)x + sin(φ)y axis).
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit: The qubit on which the gate applies.
+        theta: A rotation angle for the gate.
+        phi: The angle defining the rotation axis.
+    
+    Returns:
+        An R gate.
+    '''
+    return Gate[type, tol](
+        'R', r[type](theta, phi), List[Int, True](qubit), List[Scalar[type], True](theta, phi)
+    )
+
+
 # Parameterized multi-qubit gates ###############
 
 
-# TODO: Add more gates
+@always_inline
+fn rxx[type: DType = DEFAULT_TYPE](t: Scalar[type]) raises -> CMatrix[type]:
+    var ct: Scalar[type] = cos(t / 2.0)
+    var mist = ComplexScalar[type](0, -sin(t / 2.0)) 
+    return CMatrix[type](4, 4,
+        ct, 0, 0, mist,
+        0, ct, mist, 0,
+        0, mist, ct, 0,
+        mist, 0, 0, ct,
+    )
+fn RXX[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    qubit0: Int, qubit1: Int, theta: Scalar[type]
+) raises -> Gate[type, tol]:
+        '''Create an RXX rotation gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit0: The first qubit on which the gate applies.
+        qubit1: The second qubit on which the gate applies.
+        theta: A rotation angle for the gate.
+    
+    Returns:
+        An RXX rotation gate.
+    '''
+    return Gate[type, tol](
+        'RXX', rxx[type](theta), List[Int, True](qubit0, qubit1), List[Scalar[type], True](theta)
+    )
+
+
+@always_inline
+fn ryy[type: DType = DEFAULT_TYPE](t: Scalar[type]) raises -> CMatrix[type]:
+    var ct: Scalar[type] = cos(t / 2.0)
+    var ist = ComplexScalar[type](0, sin(t / 2.0)) 
+    return CMatrix[type](4, 4,
+        ct, 0, 0, ist,
+        0, ct, -ist, 0,
+        0, -ist, ct, 0,
+        ist, 0, 0, ct,
+    )
+fn RYY[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    qubit0: Int, qubit1: Int, theta: Scalar[type]
+) raises -> Gate[type, tol]:
+        '''Create an RYY rotation gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit0: The first qubit on which the gate applies.
+        qubit1: The second qubit on which the gate applies.
+        theta: A rotation angle for the gate.
+    
+    Returns:
+        An RYY rotation gate.
+    '''
+    return Gate[type, tol](
+        'RYY', ryy[type](theta), List[Int, True](qubit0, qubit1), List[Scalar[type], True](theta)
+    )
+
+
+@always_inline
+fn rzz[type: DType = DEFAULT_TYPE](t: Scalar[type]) raises -> CMatrix[type]:
+    var expit = ComplexScalar[type](cos(t / 2.0), sin(t / 2.0))
+    return CMatrix[type](4, 4,
+        expit.conj(), 0, 0, 0,
+        0, expit, 0, 0,
+        0, 0, expit, 0,
+        0, 0, 0, expit.conj(),
+    )
+fn RZZ[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    qubit0: Int, qubit1: Int, theta: Scalar[type]
+) raises -> Gate[type, tol]:
+        '''Create an RZZ rotation gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit0: The first qubit on which the gate applies.
+        qubit1: The second qubit on which the gate applies.
+        theta: A rotation angle for the gate.
+    
+    Returns:
+        An RZZ rotation gate.
+    '''
+    return Gate[type, tol](
+        'RZZ', rzz[type](theta), List[Int, True](qubit0, qubit1), List[Scalar[type], True](theta)
+    )
+
+
+@always_inline
+fn rzx[type: DType = DEFAULT_TYPE](t: Scalar[type]) raises -> CMatrix[type]:
+    var ct: Scalar[type] = cos(t / 2.0)
+    var ist = ComplexScalar[type](0, sin(t / 2.0)) 
+    return CMatrix[type](4, 4,
+        ct, 0, -ist, 0,
+        0, ct, 0, ist,
+        -ist, 0, ct, 0,
+        0, ist, 0, ct,
+    )
+fn RZX[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    qubit0: Int, qubit1: Int, theta: Scalar[type]
+) raises -> Gate[type, tol]:
+        '''Create an RZX rotation gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit0: The first qubit on which the gate applies.
+        qubit1: The second qubit on which the gate applies.
+        theta: A rotation angle for the gate.
+    
+    Returns:
+        An RZX rotation gate.
+    '''
+    return Gate[type, tol](
+        'RZX', rzx[type](theta), List[Int, True](qubit0, qubit1), List[Scalar[type], True](theta)
+    )
+
+@always_inline
+fn xxminusyy[type: DType = DEFAULT_TYPE](t: Scalar[type], b: Scalar[type]) raises -> CMatrix[type]:
+    var ct: Scalar[type] = cos(t / 2.0)
+    var mist = ComplexScalar[type](0, -sin(t / 2.0))
+    var expib = ComplexScalar[type](cos(b), sin(b))
+    return CMatrix[type](4, 4,
+        ct, 0, 0, mist * expib.conj(),
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        mist * expib, 0, 0, ct,
+    )
+fn XXMinusYY[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    qubit0: Int, qubit1: Int, theta: Scalar[type], beta: Scalar[type] = 0.0,
+) raises -> Gate[type, tol]:
+    '''Create an XX-YY gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit0: The first qubit on which the gate applies.
+        qubit1: The second qubit on which the gate applies.
+        theta: A rotation angle for the gate.
+        beta: A phase angle for the gate.
+    
+    Returns:
+        An XX-YY gate.
+    '''
+    return Gate[type, tol](
+        'XXMinusYY',
+        xxminusyy[type](theta, beta),
+        List[Int, True](qubit0, qubit1),
+        List[Scalar[type], True](theta, beta),
+    )
+
+
+@always_inline
+fn xxplusyy[type: DType = DEFAULT_TYPE](t: Scalar[type], b: Scalar[type]) raises -> CMatrix[type]:
+    var ct: Scalar[type] = cos(t / 2.0)
+    var mist = ComplexScalar[type](0, -sin(t / 2.0))
+    var expib = ComplexScalar[type](cos(b), sin(b))
+    return CMatrix[type](4, 4,
+        1, 0, 0, 0,
+        0, ct, mist * expib.conj(), 0,
+        0, mist * expib, ct, 0,
+        0, 0, 0, 1,
+    )
+fn XXPlusYY[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
+    qubit0: Int, qubit1: Int, theta: Scalar[type], beta: Scalar[type] = 0.0,
+) raises -> Gate[type, tol]:
+    '''Create an XX+YY gate.
+    
+    Parameters:
+        type: A type for the gate data.
+        tol: A tolerance for unitarity and closeness checks.
+    
+    Args:
+        qubit0: The first qubit on which the gate applies.
+        qubit1: The second qubit on which the gate applies.
+        theta: A rotation angle for the gate.
+        beta: A phase angle for the gate.
+    
+    Returns:
+        An XX+YY gate.
+    '''
+    return Gate[type, tol](
+        'XXPlusYY',
+        xxplusyy[type](theta, beta),
+        List[Int, True](qubit0, qubit1),
+        List[Scalar[type], True](theta, beta),
+    )
