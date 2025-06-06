@@ -81,7 +81,7 @@ struct Gate[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
         # instantiated with the _measure method
         self._is_measure = False
         self._measure_targs = List[Int, True]()
-
+    
     @staticmethod
     @always_inline
     fn _measure(owned qubits: List[Int, True], clbits: List[Int, True]) -> Self:
@@ -117,7 +117,8 @@ struct Gate[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
             return self.name
         var str_rep: String = self.name + '('
         for p in self.params:
-            str_rep += String(p[]) + ', '
+            var rounded_p: Scalar[Self.type] = round(p[], 4)
+            str_rep += String(rounded_p if rounded_p != 0 else p[]) + ', '
         str_rep = str_rep[:-2]
         return str_rep + ')'
     
@@ -283,7 +284,27 @@ struct Gate[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
             True if the gates are inequal, False otherwise.
         '''
         return not self.__eq__(other)
+    
+    fn inverse(self) raises -> Self:
+        '''Returns the inverse (Hermitian adjoint) of the gate.
 
+        Returns:
+            A gate representing the inverse of self.
+        '''
+        if self._is_measure:
+            raise Error('Cannot invert a measurement gate.')
+        return Self(
+            name=self.name + '_dg',
+            n_qubits=self.n_qubits,
+            matrix=self.matrix.dag(),
+            qubits=self.qubits,
+            controls=self.controls,
+            classical_controls=self.classical_controls,
+            params=self.params,
+            _is_measure=self._is_measure,
+            _measure_targs=self._measure_targs
+        )
+        
 
 # Measurement
 
