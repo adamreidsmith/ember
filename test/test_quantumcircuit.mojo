@@ -199,3 +199,5 @@ def test_join():
     assert_equal(qc.clbits[0], 1, 'join')
     assert_equal(qc.clbits[1], 0, 'join')
     assert_equal(qc.clbits[2], 1, 'join')
+
+# TODO: Test inverse

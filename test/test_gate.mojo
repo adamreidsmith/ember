@@ -1,9 +1,9 @@
-from math import sqrt, pi
+from math import sqrt, pi, sin, cos
 
 from testing import assert_equal, assert_raises
 from ._testing import _assert_matrix_equal
 
-from ember import Gate, Measure, X, Y, Z, H, S, T, I, RX, RY, RZ, CX, CCX, U
+from ember import Gate, Measure, X, Y, Z, H, S, T, SX, I, RX, RY, RZ, CX, CCX, ECR, SWAP, U, PHASE, R, RXX, RYY, RZZ, RZX, XXMinusYY, XXPlusYY
 from ember import CMatrix, ComplexScalar
 
 
@@ -222,6 +222,22 @@ def test_unparameterized_single_qubit_gates():
     assert_equal(len(gate._measure_targs), 0, 'I')
     assert_equal(len(gate.classical_controls), 0, 'I')
     assert_equal(gate._is_measure, False, 'I')
+    # SX
+    sx = CMatrix[type](2, 2,
+        ComplexScalar[type](1, 1), ComplexScalar[type](1, -1), 
+        ComplexScalar[type](1, -1), ComplexScalar[type](1, 1),
+    ) / 2
+    gate = SX[type](1)
+    _assert_matrix_equal(gate.matrix, sx, 'SX')
+    assert_equal(gate.name, 'SX', 'SX')
+    assert_equal(gate.n_qubits, 1, 'SX')
+    assert_equal(len(gate.qubits), 1, 'SX')
+    assert_equal(gate.qubits[0], 1, 'SX')
+    assert_equal(len(gate.params), 0, 'SX')
+    assert_equal(len(gate.controls), 0, 'SX')
+    assert_equal(len(gate._measure_targs), 0, 'SX')
+    assert_equal(len(gate.classical_controls), 0, 'SX')
+    assert_equal(gate._is_measure, False, 'SX')
     
 
 def test_unparameterized_multi_qubit_gates():
@@ -267,10 +283,28 @@ def test_unparameterized_multi_qubit_gates():
     assert_equal(len(gate._measure_targs), 0, 'X')
     assert_equal(len(gate.classical_controls), 0, 'X')
     assert_equal(gate._is_measure, False, 'X')
+    # ECR
+    gate = ECR[type](0, 1)
+    ecr = CMatrix[type](4, 4,
+    0, 1, 0, ComplexScalar[type].i(),
+    1, 0, -ComplexScalar[type].i(), 0,
+    0, ComplexScalar[type].i(), 0, 1,
+    -ComplexScalar[type].i(), 0, 1, 0,
+    ) / sqrt(2.0)
+    _assert_matrix_equal(gate.matrix, ecr, 'ECR')
+    assert_equal(gate.name, 'ECR', 'ECR')
+    assert_equal(gate.n_qubits, 2, 'ECR')
+    assert_equal(len(gate.qubits), 2, 'ECR')
+    assert_equal(gate.qubits[0], 0, 'ECR')
+    assert_equal(gate.qubits[1], 1, 'ECR')
+    assert_equal(len(gate.params), 0, 'ECR')
+    assert_equal(len(gate.controls), 0, 'ECR')
+    assert_equal(len(gate._measure_targs), 0, 'ECR')
+    assert_equal(len(gate.classical_controls), 0, 'ECR')
+    assert_equal(gate._is_measure, False, 'ECR')
 
 def test_parameterized_single_qubit_gates():
     # RX
-    from math import sin, cos
     t = 247.55
     a = ComplexScalar[type](cos(t / 2), 0)
     b = ComplexScalar[type](0, -sin(t / 2))
@@ -354,6 +388,134 @@ def test_parameterized_single_qubit_gates():
     assert_equal(len(gate._measure_targs), 0, 'U')
     assert_equal(len(gate.classical_controls), 0, 'U')
     assert_equal(gate._is_measure, False, 'U')
+    # PHASE
+    phase = CMatrix[type](2, 2,
+        1, 0,
+        0, ComplexScalar[type](0, t).exp(),
+    )
+    gate = PHASE[type](12, t)
+    _assert_matrix_equal(gate.matrix, phase, 'PHASE')
+    assert_equal(gate.name, 'PHASE', 'PHASE')
+    assert_equal(gate.n_qubits, 1, 'PHASE')
+    assert_equal(len(gate.qubits), 1, 'PHASE')
+    assert_equal(gate.qubits[0], 12, 'PHASE')
+    assert_equal(len(gate.params), 1, 'PHASE')
+    assert_equal(gate.params[0], t, 'PHASE')
+    assert_equal(len(gate.controls), 0, 'PHASE')
+    assert_equal(len(gate._measure_targs), 0, 'PHASE')
+    assert_equal(len(gate.classical_controls), 0, 'PHASE')
+    assert_equal(gate._is_measure, False, 'PHASE')
+    # R
+    a = cos(t / 2)
+    b = -ComplexScalar[type].i() * sin(t / 2)
+    r = CMatrix[type](2, 2,
+        a, b * ComplexScalar(0, -p).exp(),
+        b * ComplexScalar(0, p).exp(), a,
+    )
+    gate = R[type](12, t, p)
+    _assert_matrix_equal(gate.matrix, r, 'R')
+    assert_equal(gate.name, 'R', 'R')
+    assert_equal(gate.n_qubits, 1, 'R')
+    assert_equal(len(gate.qubits), 1, 'R')
+    assert_equal(gate.qubits[0], 12, 'R')
+    assert_equal(len(gate.params), 2, 'R')
+    assert_equal(gate.params[0], t, 'R')
+    assert_equal(gate.params[1], p, 'R')
+    assert_equal(len(gate.controls), 0, 'R')
+    assert_equal(len(gate._measure_targs), 0, 'R')
+    assert_equal(len(gate.classical_controls), 0, 'R')
+    assert_equal(gate._is_measure, False, 'R')
 
 def test_parameterized_multi_qubit_gates():
-    ...
+    # RXX
+    t = -224.13
+    a = cos(t / 2)
+    b = -ComplexScalar[type].i() * sin(t / 2)
+    rxx = CMatrix[type](4, 4,
+        a, 0, 0, b,
+        0, a, b, 0,
+        0, b, a, 0,
+        b, 0, 0, a,
+    )
+    gate = RXX[type](12, 19, t)
+    _assert_matrix_equal(gate.matrix, rxx, 'RXX')
+    assert_equal(gate.name, 'RXX', 'RXX')
+    assert_equal(gate.n_qubits, 2, 'RXX')
+    assert_equal(len(gate.qubits), 2, 'RXX')
+    assert_equal(gate.qubits[0], 12, 'RXX')
+    assert_equal(gate.qubits[1], 19, 'RXX')
+    assert_equal(len(gate.params), 1, 'RXX')
+    assert_equal(gate.params[0], t, 'RXX')
+    assert_equal(len(gate.controls), 0, 'RXX')
+    assert_equal(len(gate._measure_targs), 0, 'RXX')
+    assert_equal(len(gate.classical_controls), 0, 'RXX')
+    assert_equal(gate._is_measure, False, 'RXX')
+    # RYY
+    t = -224.13
+    a = cos(t / 2)
+    b = ComplexScalar[type].i() * sin(t / 2)
+    ryy = CMatrix[type](4, 4,
+        a, 0, 0, b,
+        0, a, -b, 0,
+        0, -b, a, 0,
+        b, 0, 0, a,
+    )
+    gate = RYY[type](12, 19, t)
+    _assert_matrix_equal(gate.matrix, ryy, 'RYY')
+    assert_equal(gate.name, 'RYY', 'RYY')
+    assert_equal(gate.n_qubits, 2, 'RYY')
+    assert_equal(len(gate.qubits), 2, 'RYY')
+    assert_equal(gate.qubits[0], 12, 'RYY')
+    assert_equal(gate.qubits[1], 19, 'RYY')
+    assert_equal(len(gate.params), 1, 'RYY')
+    assert_equal(gate.params[0], t, 'RYY')
+    assert_equal(len(gate.controls), 0, 'RYY')
+    assert_equal(len(gate._measure_targs), 0, 'RYY')
+    assert_equal(len(gate.classical_controls), 0, 'RYY')
+    assert_equal(gate._is_measure, False, 'RYY')
+    # RZZ
+    t = -224.13
+    e = ComplexScalar[type](0, t / 2).exp()
+    b = ComplexScalar[type](0, -t / 2).exp()
+    rzz = CMatrix[type](4, 4,
+        b, 0, 0, 0,
+        0, e, 0, 0,
+        0, 0, e, 0,
+        0, 0, 0, b,
+    )
+    gate = RZZ[type](12, 19, t)
+    _assert_matrix_equal(gate.matrix, rzz, 'RZZ')
+    assert_equal(gate.name, 'RZZ', 'RZZ')
+    assert_equal(gate.n_qubits, 2, 'RZZ')
+    assert_equal(len(gate.qubits), 2, 'RZZ')
+    assert_equal(gate.qubits[0], 12, 'RZZ')
+    assert_equal(gate.qubits[1], 19, 'RZZ')
+    assert_equal(len(gate.params), 1, 'RZZ')
+    assert_equal(gate.params[0], t, 'RZZ')
+    assert_equal(len(gate.controls), 0, 'RZZ')
+    assert_equal(len(gate._measure_targs), 0, 'RZZ')
+    assert_equal(len(gate.classical_controls), 0, 'RZZ')
+    assert_equal(gate._is_measure, False, 'RZZ')
+    # RZX
+    t = -224.13
+    a = cos(t / 2)
+    b = ComplexScalar[type].i() * sin(t / 2)
+    rzx = CMatrix[type](4, 4,
+        a, 0, -b, 0,
+        0, a, 0, b,
+        -b, 0, a, 0,
+        0, b, 0, a,
+    )
+    gate = RZX[type](12, 19, t)
+    _assert_matrix_equal(gate.matrix, rzx, 'RZX')
+    assert_equal(gate.name, 'RZX', 'RZX')
+    assert_equal(gate.n_qubits, 2, 'RZX')
+    assert_equal(len(gate.qubits), 2, 'RZX')
+    assert_equal(gate.qubits[0], 12, 'RZX')
+    assert_equal(gate.qubits[1], 19, 'RZX')
+    assert_equal(len(gate.params), 1, 'RZX')
+    assert_equal(gate.params[0], t, 'RZX')
+    assert_equal(len(gate.controls), 0, 'RZX')
+    assert_equal(len(gate._measure_targs), 0, 'RZX')
+    assert_equal(len(gate.classical_controls), 0, 'RZX')
+    assert_equal(gate._is_measure, False, 'RZX')
