@@ -441,7 +441,7 @@ struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
         Returns:
             A string representation of the statevector.
         '''
-        return self._get_str_rep(max_lines=8, max_digits=8)
+        return self._get_str_rep(max_lines=32, max_digits=8)
 
     @no_inline
     fn _get_str_rep(self, max_lines: Int, max_digits: Int) -> String:
@@ -512,6 +512,20 @@ struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
             The number of statevector elements.
         '''
         return self.size
+    
+    fn is_normalized(self) -> Bool:
+        '''Check if the statevector is normalized.
+
+        Returns:
+            True if the statevector is normalized, False otherwise.
+        '''
+        with BlockingScopedLock(self._lock_pointer):
+            var sum_sqr: Scalar[Self.type] = 0
+            for elem in self._data.values():
+                sum_sqr += elem[].squared_norm()
+            if abs(sum_sqr - 1) >= Self.tol:
+                return False
+        return True
 
     fn normalize(mut self, owned sum_sqr: Scalar[Self.type] = -1):
         '''Normalize the statevector in-place.
