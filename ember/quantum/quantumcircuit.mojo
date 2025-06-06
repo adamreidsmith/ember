@@ -201,7 +201,7 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
         self._initial_state = Statevector[Self.type, Self.tol](
             statevector=statevector^, normalize=normalize, n_elements=2 ** self.n_qubits
         )
-    
+
     fn join(
         mut self,
         owned other: QuantumCircuit[Self.type, Self.tol],
@@ -331,6 +331,27 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
         for j in range(len(arr)):
             i += arr[j] * (2 ** j)
         return i
+    
+    fn inverse(self) raises -> Self:
+        '''Compute and return the inverse of the quantum circuit.
+
+        Returns:
+            The inverse circuit.
+        '''
+        if len(self._initial_state) > 0:
+            raise Error('Cannot invert a circuit with an initialize instruction.')
+        var inverse = Self(
+            n_qubits=self.n_qubits,
+            n_clbits=self.n_clbits,
+            clbits=self.clbits,
+            _data=List[Gate[Self.type, Self.tol]](),
+            _initial_state=self._initial_state,
+        )
+        for i in reversed(range(len(self._data))):
+            if self._data[i]._is_measure:
+                raise Error('Cannot invert a circuit with measurement operations.')
+            inverse.apply(self._data[i].inverse())
+        return inverse
 
     @no_inline
     fn __str__(self) -> String:
