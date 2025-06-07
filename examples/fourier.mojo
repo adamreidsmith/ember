@@ -70,18 +70,17 @@ fn build_qft_circuit(
 fn quantum_fourier_transform() raises:
     '''This example demonstrates the use of the Quantum Fourier Transform (QFT) on a
     simple quantum state. The steps are as follows:
+        1. An initial state is prepared. For this example, we'll use a 4-qubit state
+        representing the number 5 in the computational basis, i.e., |0101⟩.
 
-    1. An initial state is prepared. For this example, we'll use a 4-qubit state
-       representing the number 5 in the computational basis, i.e., |0101⟩.
+        2. The QFT circuit is constructed and applied to this initial state.
 
-    2. The QFT circuit is constructed and applied to this initial state.
+        3. To verify the transformation, we also construct the inverse QFT (QFT†).
+        Applying the inverse QFT to the transformed state should return it to the
+        initial state.
 
-    3. To verify the transformation, we also construct the inverse QFT (QFT†).
-       Applying the inverse QFT to the transformed state should return it to the
-       initial state.
-
-    4. A simulator is used to run the circuits and observe the resulting statevectors
-       at each step.
+        4. A simulator is used to run the circuits and observe the resulting statevectors
+        at each step.
     '''
     # Initialize a quantum circuit to implement state preparation and the quantum 
     # Fourier transform.
