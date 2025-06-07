@@ -105,7 +105,7 @@
 			</thead>
 				<tr style='border-bottom: 1px solid #eee;'>
 					<td style='padding: 8px;'><b><a href='https://github.com/adamreidsmith/ember.git/blob/master/LICENSE'>LICENSE</a></b></td>
-					<td style='padding: 8px;'>Code>❯ REPLACE-ME</code></td>
+					<td style='padding: 8px;'>- The LICENSE file specifies the projects open-source licensing terms under the MIT License<br>- It grants users broad permissions to use, modify, and distribute the software, disclaiming any warranty or liability<br>- This ensures legal clarity and facilitates community contribution and wider adoption of the project.</td>
 				</tr>
 			</table>
 		</blockquote>
@@ -125,47 +125,47 @@
 			</thead>
 				<tr style='border-bottom: 1px solid #eee;'>
 					<td style='padding: 8px;'><b><a href='https://github.com/adamreidsmith/ember.git/blob/master/test/test_qr.mojo'>test_qr.mojo</a></b></td>
-					<td style='padding: 8px;'>Code>❯ REPLACE-ME</code></td>
+					<td style='padding: 8px;'>- Tests for QR decomposition algorithms are implemented<br>- The code verifies the complex Schur decomposition, eigenvalue calculation, and right eigenvector computation functions<br>- Various test matrices, including identity, random, and custom matrices, are used to assess the accuracy and robustness of these numerical linear algebra routines within the Ember library<br>- Test results confirm the correctness of the implemented algorithms.</td>
 				</tr>
 				<tr style='border-bottom: 1px solid #eee;'>
 					<td style='padding: 8px;'><b><a href='https://github.com/adamreidsmith/ember.git/blob/master/test/_testing.mojo'>_testing.mojo</a></b></td>
-					<td style='padding: 8px;'>Code>❯ REPLACE-ME</code></td>
+					<td style='padding: 8px;'>- The <code>_testing.mojo</code> file provides custom assertion functions for testing the <code>CMatrix</code> and <code>ComplexScalar</code> types within the Ember project<br>- It offers functions to compare matrices and scalars for exact equality and approximate equality, handling potential NaN values<br>- These functions enhance the testing framework by providing tailored comparison methods for the projects core data structures.</td>
 				</tr>
 				<tr style='border-bottom: 1px solid #eee;'>
 					<td style='padding: 8px;'><b><a href='https://github.com/adamreidsmith/ember.git/blob/master/test/test_csrcmatrix.mojo'>test_csrcmatrix.mojo</a></b></td>
-					<td style='padding: 8px;'>Code>❯ REPLACE-ME</code></td>
+					<td style='padding: 8px;'>- The file <code>test/test_csrcmatrix.mojo</code> contains unit tests for the <code>CSRCMatrix</code> class within the Ember project<br>- It verifies the correctness of <code>CSRCMatrix</code> functionality, including initialization, property access, arithmetic operations, matrix multiplication, comparisons, and static constructors<br>- These tests ensure the <code>CSRCMatrix</code> class behaves as expected within the larger Ember library, likely contributing to a robust and reliable linear algebra component.</td>
 				</tr>
 				<tr style='border-bottom: 1px solid #eee;'>
 					<td style='padding: 8px;'><b><a href='https://github.com/adamreidsmith/ember.git/blob/master/test/test_cmatrix.mojo'>test_cmatrix.mojo</a></b></td>
-					<td style='padding: 8px;'>Code>❯ REPLACE-ME</code></td>
+					<td style='padding: 8px;'>- The file <code>test/test_cmatrix.mojo</code> contains unit tests for the <code>CMatrix</code> class within the Ember project<br>- It verifies the correctness of <code>CMatrix</code> functionality, including initialization, arithmetic operations, matrix multiplication, comparisons, and various other methods, ensuring the <code>CMatrix</code> class behaves as expected within the broader Ember library<br>- The tests cover a comprehensive range of scenarios to validate the robustness and accuracy of the <code>CMatrix</code> implementation.</td>
 				</tr>
 				<tr style='border-bottom: 1px solid #eee;'>
 					<td style='padding: 8px;'><b><a href='https://github.com/adamreidsmith/ember.git/blob/master/test/test_quantumcircuit.mojo'>test_quantumcircuit.mojo</a></b></td>
-					<td style='padding: 8px;'>Code>❯ REPLACE-ME</code></td>
+					<td style='padding: 8px;'>- Tests comprise the <code>test_quantumcircuit.mojo</code> file, verifying the <code>QuantumCircuit</code> class functionality within the Ember quantum computing library<br>- It validates initialization, classical bit manipulation, gate application, statevector setting, circuit joining, and error handling for invalid operations<br>- The tests ensure correct behavior and data integrity across various <code>QuantumCircuit</code> methods.</td>
 				</tr>
 				<tr style='border-bottom: 1px solid #eee;'>
 					<td style='padding: 8px;'><b><a href='https://github.com/adamreidsmith/ember.git/blob/master/test/test_gate.mojo'>test_gate.mojo</a></b></td>
-					<td style='padding: 8px;'>Code>❯ REPLACE-ME</code></td>
+					<td style='padding: 8px;'>- The file <code>test/test_gate.mojo</code> contains unit tests for the <code>ember</code> librarys quantum gate functionality<br>- It verifies the correct operation of various gates (single-qubit, multi-qubit, parameterized and unparameterized) within the larger <code>ember</code> project, ensuring the accuracy and reliability of the gate implementations<br>- The tests cover initialization, measurement, control operations, and other gate-specific behaviors.</td>
 				</tr>
 				<tr style='border-bottom: 1px solid #eee;'>
 					<td style='padding: 8px;'><b><a href='https://github.com/adamreidsmith/ember.git/blob/master/test/test_statevectorsimulator.mojo'>test_statevectorsimulator.mojo</a></b></td>
-					<td style='padding: 8px;'>Code>❯ REPLACE-ME</code></td>
+					<td style='padding: 8px;'>- The file <code>test/test_statevectorsimulator.mojo</code> contains unit tests for the <code>StatevectorSimulator</code> class within the Ember quantum computing library<br>- It verifies the correctness of the simulators functionality by comparing its output (statevector calculations) against expected results using assertions<br>- This ensures the accuracy and reliability of the <code>StatevectorSimulator</code> component within the broader Ember project, which likely involves a larger quantum circuit simulation framework.</td>
 				</tr>
 				<tr style='border-bottom: 1px solid #eee;'>
 					<td style='padding: 8px;'><b><a href='https://github.com/adamreidsmith/ember.git/blob/master/test/test_complexsimd.mojo'>test_complexsimd.mojo</a></b></td>
-					<td style='padding: 8px;'>Code>❯ REPLACE-ME</code></td>
+					<td style='padding: 8px;'>- Unit tests validate the <code>ComplexSIMD</code> and <code>ComplexScalar</code> classes<br>- The tests encompass initialization, static constructors, arithmetic operations, comparisons, element-wise access, and various mathematical functions like exponentiation, logarithms, and trigonometric functions<br>- Successful execution confirms the correctness and functionality of these classes within the broader Ember project.</td>
 				</tr>
 				<tr style='border-bottom: 1px solid #eee;'>
 					<td style='padding: 8px;'><b><a href='https://github.com/adamreidsmith/ember.git/blob/master/test/test_mmath.mojo'>test_mmath.mojo</a></b></td>
-					<td style='padding: 8px;'>Code>❯ REPLACE-ME</code></td>
+					<td style='padding: 8px;'>- The file <code>test/test_mmath.mojo</code> contains unit tests for the <code>ember</code> librarys matrix math functions<br>- It verifies the correctness of functions like matrix multiplication (kron, sparse_kron), matrix manipulations (swap_rows, swap_cols), linear algebra operations (solve, expm), matrix norms (one_norm), and other specialized functions (mmax, mmin, augmented_ref, matrix_power, hstack, vstack, is_positive_semidefinite)<br>- These tests are crucial for ensuring the reliability and accuracy of the core matrix math capabilities within the larger <code>ember</code> project.</td>
 				</tr>
 				<tr style='border-bottom: 1px solid #eee;'>
 					<td style='padding: 8px;'><b><a href='https://github.com/adamreidsmith/ember.git/blob/master/test/__init__.mojo'>__init__.mojo</a></b></td>
-					<td style='padding: 8px;'>Code>❯ REPLACE-ME</code></td>
+					<td style='padding: 8px;'>- It orchestrates the execution of unit tests for various components within a quantum computing simulation library<br>- These components include matrix operations, quantum gates, circuits, simulators (statevector and density matrix), and related mathematical functions<br>- The file acts as a central entry point for running the complete test suite, ensuring comprehensive validation of the librarys functionality.</td>
 				</tr>
 				<tr style='border-bottom: 1px solid #eee;'>
 					<td style='padding: 8px;'><b><a href='https://github.com/adamreidsmith/ember.git/blob/master/test/test_densitymatrix.mojo'>test_densitymatrix.mojo</a></b></td>
-					<td style='padding: 8px;'>Code>❯ REPLACE-ME</code></td>
+					<td style='padding: 8px;'>- The file <code>test/test_densitymatrix.mojo</code> contains unit tests for the <code>DensityMatrix</code> class within the <code>ember</code> project<br>- It verifies the correctness of the <code>DensityMatrix</code> classs initialization and purity checks, among other functionalities, contributing to the overall quality assurance of the <code>ember</code> library<br>- The tests utilize assertion functions to compare expected and actual results, ensuring the reliability of the density matrix calculations within the larger <code>ember</code> codebase.</td>
 				</tr>
 			</table>
 		</blockquote>
@@ -185,15 +185,15 @@
 			</thead>
 				<tr style='border-bottom: 1px solid #eee;'>
 					<td style='padding: 8px;'><b><a href='https://github.com/adamreidsmith/ember.git/blob/master/examples/teleportation.mojo'>teleportation.mojo</a></b></td>
-					<td style='padding: 8px;'>Code>❯ REPLACE-ME</code></td>
+					<td style='padding: 8px;'>- The <code>teleportation.mojo</code> example demonstrates quantum teleportation using the Ember quantum computing framework<br>- It simulates Alice sending a quantum state to Bob via classical communication and a pre-shared entangled state<br>- The code constructs a quantum circuit implementing the teleportation protocol, simulates its execution, and verifies the successful transfer of the quantum state, accounting for global phase differences.</td>
 				</tr>
 				<tr style='border-bottom: 1px solid #eee;'>
 					<td style='padding: 8px;'><b><a href='https://github.com/adamreidsmith/ember.git/blob/master/examples/grover.mojo'>grover.mojo</a></b></td>
-					<td style='padding: 8px;'>Code>❯ REPLACE-ME</code></td>
+					<td style='padding: 8px;'>- Grovers algorithm implementation demonstrates quantum search<br>- It constructs and simulates a quantum circuit to locate a specific state within a larger search space, leveraging oracle and diffuser components for amplitude amplification<br>- The algorithm achieves a quadratic speedup compared to classical search methods by iteratively increasing the probability of measuring the target state<br>- The example finds the state |101⟩ in a 3-qubit system.</td>
 				</tr>
 				<tr style='border-bottom: 1px solid #eee;'>
 					<td style='padding: 8px;'><b><a href='https://github.com/adamreidsmith/ember.git/blob/master/examples/fourier.mojo'>fourier.mojo</a></b></td>
-					<td style='padding: 8px;'>Code>❯ REPLACE-ME</code></td>
+					<td style='padding: 8px;'>- The <code>examples/fourier.mojo</code> file provides an implementation of the Quantum Fourier Transform (QFT) algorithm<br>- It constructs a QFT circuit, allowing for approximation to reduce gate count, and applies it to a sample quantum state<br>- The code then verifies the transformations correctness by applying the inverse QFT, demonstrating the algorithms functionality within the Ember quantum computing framework<br>- The example showcases state preparation, QFT application, and statevector simulation for verification.</td>
 				</tr>
 			</table>
 		</blockquote>
@@ -213,7 +213,7 @@
 			</thead>
 				<tr style='border-bottom: 1px solid #eee;'>
 					<td style='padding: 8px;'><b><a href='https://github.com/adamreidsmith/ember.git/blob/master/ember/config.mojo'>config.mojo</a></b></td>
-					<td style='padding: 8px;'>Code>❯ REPLACE-ME</code></td>
+					<td style='padding: 8px;'>- Embers <code>config.mojo</code> defines project-wide constants<br>- It establishes default data types, tolerances for numerical comparisons, and zero thresholds for sparse data structures<br>- Crucially, it also sets machine epsilon and numeric limits for various floating-point precisions (Float64, Float32, Float16), ensuring consistent and predictable numerical behavior across the entire Ember application.</td>
 				</tr>
 				<tr style='border-bottom: 1px solid #eee;'>
 					<td style='padding: 8px;'><b><a href='https://github.com/adamreidsmith/ember.git/blob/master/ember/__init__.mojo'>__init__.mojo</a></b></td>
@@ -239,7 +239,7 @@
 						</tr>
 						<tr style='border-bottom: 1px solid #eee;'>
 							<td style='padding: 8px;'><b><a href='https://github.com/adamreidsmith/ember.git/blob/master/ember/sim/__init__.mojo'>__init__.mojo</a></b></td>
-							<td style='padding: 8px;'>Code>❯ REPLACE-ME</code></td>
+							<td style='padding: 8px;'>- StatevectorSimulator provides a quantum simulation capability within the Ember project<br>- Its a core component of the <code>ember/sim</code> module, offering a crucial simulation engine for the broader application<br>- The modules role is to facilitate quantum computation simulations, enabling the rest of the Ember codebase to perform and analyze quantum algorithms.</td>
 						</tr>
 					</table>
 				</blockquote>
