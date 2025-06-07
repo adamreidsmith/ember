@@ -674,3 +674,19 @@ struct Statevector[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TOL](
         for idx in self._data.keys():
             result._data[idx[]] *= phase
         return result^
+
+    fn get_probabilities(self) -> List[Scalar[Self.type], True]:
+        '''Calculates the measurement probabilities for each computational basis state.
+
+        According to the Born rule, the probability of measuring a basis state is the
+        squared magnitude of its complex amplitude.
+
+        Returns:
+            A list of real-valued probabilities, where each element corresponds to a
+            computational basis state.
+        '''
+        var probabilities = List[Scalar[Self.type], True](length=self.size, fill=0.0)
+        with BlockingScopedLock(self._lock_pointer):
+            for idx_elem in self._data.items():
+                probabilities[idx_elem[].key] = idx_elem[].value.squared_norm()
+        return probabilities^

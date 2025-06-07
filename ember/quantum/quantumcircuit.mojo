@@ -205,6 +205,34 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
     fn join(
         mut self,
         owned other: QuantumCircuit[Self.type, Self.tol],
+    ) raises:
+        '''Apply the instructions from one circuit onto the qubits of self.
+
+        Args:
+            other: The circuit to join with self.
+        '''
+        if other.n_qubits != self.n_qubits:
+            raise Error(
+                'Qubit mapping must be specified when joining a quantum circuit '
+                'onto another quantum circuit with a different number of qubits.'
+            )
+        if other.n_clbits > 0 and other.n_clbits != self.n_clbits:
+            raise Error(
+                'Classical bit mapping must be specified when joining a quantum circuit with '
+                'classical bits onto another quantum circuit with a different number of '
+                'classical bits.'
+            )
+        var self_qubits = List[Int, True](capacity=self.n_qubits)
+        for q in range(self.n_qubits):
+            self_qubits.append(q)
+        var self_clbits = List[Int, True](capacity=other.n_clbits)
+        for c in range(other.n_clbits):
+            self_clbits.append(c)
+        self.join(other, self_qubits, self_clbits)
+
+    fn join(
+        mut self,
+        owned other: QuantumCircuit[Self.type, Self.tol],
         *qubits: Int,
     ) raises:
         '''Apply the instructions from one circuit onto the qubits of self.
@@ -222,7 +250,7 @@ struct QuantumCircuit[type: DType = DEFAULT_TYPE, tol: Scalar[type] = DEFAULT_TO
         mut self,
         owned other: QuantumCircuit[Self.type, Self.tol],
         qubits: List[Int, True],
-        clbits: List[Int, True] = List[Int, True]()
+        clbits: List[Int, True] = List[Int, True](),
     ) raises:
         '''Apply the instructions from one circuit onto the qubits/clbits of self.
 
