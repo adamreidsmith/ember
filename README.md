@@ -87,8 +87,8 @@ This project serves as one of my passion projects for me to learn about the Mojo
     │   │   ├── statevector.mojo
     │   │   └── densitymatrix.mojo
     │   └── sim
-    │      ├── __init__.mojo
-    │      └── statevectorsimulator.mojo
+    │       ├── __init__.mojo
+    │       └── statevectorsimulator.mojo
     ├── examples
     │   ├── fourier.mojo
     │   ├── grover.mojo
