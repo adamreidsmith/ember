@@ -103,10 +103,10 @@ fn main() raises:
 
 	# Create gates controlled on the classical bits containing the measurement outcomes
 	var x: Gate = X(2)
-    x.control(clbits=List[Int, True](1))
-    var z: Gate = Z(2)
-    z.control(clbits=List[Int, True](0))
-    qc.apply(x, z)
+	x.control(clbits=List[Int, True](1))
+	var z: Gate = Z(2)
+	z.control(clbits=List[Int, True](0))
+	qc.apply(x, z)
 
 	# Initialize a simulator and run the quantum circuit
 	sim = StatevectorSimulator()
