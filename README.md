@@ -56,7 +56,7 @@ This project serves as one of my passion projects for me to learn about the Mojo
 
 - **🤖 Feature-Rich Quantum Circuits:** Supporting arbitrary quantum gates, classical bit control, measurement, inversion, and merging.
 - **🧪 Comprehensive Quantum Gate Library:** Utilize preconfigured quantum gates or configure custom gates for complex operations.
-- **🧮 Statevector Handling: *** Efficient quantum state representations and operations through sparse statevectors.
+- **🧮 Statevector Handling:** Efficient quantum state representations and operations through sparse statevectors.
 - **🧠 Density Matrix Support:** Accurate representation of mixed states with purity validation. 
 - **🚀 Statevector Simulation:** Efficient, parallelizable statevector simulation for large-circuit simulation.
 - **🔢 Complex Number SIMD Vectors:** A complex number type supporting vectorized SIMD operations.
