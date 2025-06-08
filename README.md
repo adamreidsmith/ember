@@ -5,8 +5,6 @@
 
 </div>
 
----
-
 ## Overview
 
 Ember is a quantum computing framework that provides tools for building, simulating, and analyzing quantum circuits. To facilitate efficient statevector computation, Ember additionally contains a comprehensive complex number SIMD vector implementation, efficient complex dense and sparse matrices, and numerical linear algebra processing tools.
