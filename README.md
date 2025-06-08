@@ -1,46 +1,9 @@
-<div id="top">
 
-<!-- HEADER STYLE: CLASSIC -->
 <div align="center">
-
-<!-- <img src="readmeai/assets/logos/purple.svg" width="30%" style="position: relative; top: 0; right: 0;" alt="Project Logo"/> -->
 
 # EMBER
 
-<!-- <em>Empower Quantum Innovation. Shape the Future.</em> -->
-
-<!-- BADGES -->
-<!-- <img src="https://img.shields.io/github/license/adamreidsmith/ember?style=default&logo=opensourceinitiative&logoColor=white&color=0080ff" alt="license">
-<img src="https://img.shields.io/github/last-commit/adamreidsmith/ember?style=default&logo=git&logoColor=white&color=0080ff" alt="last-commit">
-<img src="https://img.shields.io/github/languages/top/adamreidsmith/ember?style=default&color=0080ff" alt="repo-top-language">
-<img src="https://img.shields.io/github/languages/count/adamreidsmith/ember?style=default&color=0080ff" alt="repo-language-count"> -->
-
-<!-- default option, no dependency badges. -->
-
-
-<!-- default option, no dependency badges. -->
-
 </div>
-<br>
-
-<!-- ---
-
-## Table of Contents
-
-- [Table of Contents](#table-of-contents)
-- [Overview](#overview)
-- [Features](#features)
-- [Project Structure](#project-structure)
-    - [Project Index](#project-index)
-- [Getting Started](#getting-started)
-    - [Prerequisites](#prerequisites)
-    - [Installation](#installation)
-    - [Usage](#usage)
-    - [Testing](#testing)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [License](#license)
-- [Acknowledgments](#acknowledgments) -->
 
 ---
 
