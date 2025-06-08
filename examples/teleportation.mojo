@@ -25,7 +25,7 @@ Below we implement the quantum teleportation protocol to teleport the state
 
 from math import sqrt
 
-from ember import QuantumCircuit, StatevectorSimulator, Statevector, DensityMatrix, Gate
+from ember import QuantumCircuit, StatevectorSimulator, Statevector, Gate
 from ember import ComplexScalar, CMatrix
 from ember import X, Z, H, CX, Measure
 
