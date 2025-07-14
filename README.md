@@ -1,7 +1,7 @@
 
 <div align="center">
 
-# EMBER
+# Ember
 
 </div>
 
@@ -113,7 +113,7 @@ fn main() raises:
 	sim.run(qc)
 	var statevector = sim.get_statevector()
 
-	# Trace out qubits 0 and 1 to obtain the state of the telported qubit
+	# Trace out qubits 0 and 1 to obtain the state of the teleported qubit
 	statevector = statevector.partial_trace(0, 1)
 
 	print('Teleported state:')
